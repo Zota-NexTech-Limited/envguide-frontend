@@ -1271,16 +1271,16 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                                 (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
                               }
                               onChange={(value) => {
-                                // Find the selected item to get the bom_id and product_name
+                                // Find the selected item to get the bom_id, material_number, and product_name
                                 const selectedItem = bomMaterialOptions.find((opt: any) => opt.id === value);
                                 if (selectedItem) {
-                                  // Set the bom_id in the row data
                                   if (selectedItem.bom_id) {
                                     form.setFieldValue([...fieldPath, fieldRecord.name, 'bom_id'], selectedItem.bom_id);
                                   }
-                                  // Auto-fill component_name or product_name with the product name
+                                  if (selectedItem.id) {
+                                    form.setFieldValue([...fieldPath, fieldRecord.name, 'material_number'], selectedItem.id);
+                                  }
                                   if (selectedItem.product_name) {
-                                    // Try common field names for component/product name
                                     form.setFieldValue([...fieldPath, fieldRecord.name, 'component_name'], selectedItem.product_name);
                                     form.setFieldValue([...fieldPath, fieldRecord.name, 'product_name'], selectedItem.product_name);
                                   }

@@ -1911,7 +1911,16 @@ export const QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
         type: "table",
         addButtonLabel: "Add Row",
         required: true,
+        autoPopulateFromProducts: true,
         columns: [
+          {
+            name: "mpn",
+            label: "Component / MPN",
+            type: "select",
+            apiDropdown: "bomMaterials",
+            placeholder: "Select MPN",
+            required: true,
+          },
           {
             name: "waste_type",
             label: "Waste Type",
@@ -2092,6 +2101,7 @@ export const QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             type: "select",
             apiDropdown: "bomMaterials",
             placeholder: "Select MPN",
+            required: true,
           },
           {
             name: "component_name",

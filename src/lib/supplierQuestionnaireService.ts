@@ -1251,9 +1251,12 @@ class SupplierQuestionnaireService {
                   .filter(item => item.mode && item.source && item.destination && (item.distance !== undefined && item.distance !== null && item.distance !== ''))
                   .map(item => {
                       const ref = resolveComponentRefFromMpnOrName(data, item as any);
-                      return ({
-                      ...(ref?.bom_id && { bom_id: ref.bom_id }),
-                      ...((ref?.material_number || item.material_number) && { material_number: (ref?.material_number || item.material_number) }),
+                      return { item, ref };
+                  })
+                  .filter(({ ref }) => ref?.bom_id != null)
+                  .map(({ item, ref }) => ({
+                      ...(ref!.bom_id && { bom_id: ref!.bom_id }),
+                      ...((ref!.material_number || item.material_number) && { material_number: (ref!.material_number || item.material_number) }),
                       ...(item.mpn && { mpn: item.mpn }),
                       ...(item.component_name && { component_name: item.component_name }),
                       mode_of_transport: item.mode,
@@ -1261,8 +1264,7 @@ class SupplierQuestionnaireService {
                       source_point: item.source,
                       drop_point: item.destination,
                       distance: item.distance
-                      });
-                  }),
+                  })),
               mode_of_transport_enviguide_support: this.convertToBoolean(data.scope_3?.logistics?.enviguide_support || false),
               destination_plant_component_transportation_questions: this.ensureArray(data.scope_3?.logistics?.destination_plant)
                   .filter(item => item.country && item.state && item.city)
@@ -1609,6 +1611,9 @@ class SupplierQuestionnaireService {
               },
               waste_disposal: {
                   types_and_weight: (scope3.weight_of_pro_packaging_waste_questions || []).map((item: any) => ({
+                      ...(item.bom_id && { bom_id: item.bom_id }),
+                      ...(item.material_number && { material_number: item.material_number, mpn: item.material_number }),
+                      ...(item.component_name && { component_name: item.component_name }),
                       waste_type: item.waste_type,
                       weight: item.waste_weight,
                       unit: item.unit,

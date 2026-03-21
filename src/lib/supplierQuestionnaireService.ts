@@ -405,9 +405,9 @@ export interface SupplierQuestionnaireData {
 }
 
 /**
- * Resolve bom_id for rows that only have mpn/material_number/component_name populated in the UI.
- * The UI often has the MPN dropdown but doesn't persist bom_id on the row object; we derive it from
- * `product_details.products_manufactured` / `product_details.production_site_details`.
+ * Resolve bom_id for rows that only have mpn/material_number populated in the UI.
+ * Matches **only** by MPN/material_number against `products_manufactured` (and production_site_details).
+ * Component name alone is intentionally not used — it is ambiguous when multiple BOM lines exist.
  */
 function resolveComponentRefFromMpnOrName(
   data: SupplierQuestionnaireData,
@@ -416,26 +416,130 @@ function resolveComponentRefFromMpnOrName(
   if (row?.bom_id) return { bom_id: row.bom_id };
 
   const mpn = (row?.mpn || row?.material_number || "").trim();
-  const name = (row?.component_name || row?.product_name || "").trim();
 
   const candidates: Array<{ bom_id?: string; mpn?: string; material_number?: string; product_name?: string; component_name?: string }> = [
     ...(data?.product_details?.products_manufactured || []),
     ...(data?.product_details?.production_site_details || [])
   ];
 
-  if (!candidates.length) return undefined;
+  if (!candidates.length || !mpn) return undefined;
 
-  if (mpn) {
-    const foundByMpn = candidates.find(c => (c?.mpn || c?.material_number || "").trim() === mpn);
-    if (foundByMpn?.bom_id) return foundByMpn;
-  }
-
-  if (name) {
-    const foundByName = candidates.find(c => (c?.component_name || c?.product_name || "").trim() === name);
-    if (foundByName?.bom_id) return foundByName;
-  }
+  const foundByMpn = candidates.find(c => (c?.mpn || c?.material_number || "").trim() === mpn);
+  if (foundByMpn?.bom_id) return foundByMpn;
 
   return undefined;
+}
+
+/** Valid bom_ids from the product step (BOM lines the user declared). */
+function getValidBomIdsFromProductStep(data: SupplierQuestionnaireData): Set<string> {
+  return new Set(
+    (data.product_details?.products_manufactured || [])
+      .filter(Boolean)
+      .map((p: { bom_id?: string }) => p.bom_id)
+      .filter(Boolean) as string[]
+  );
+}
+
+function isFilledQ52Row(row: { material?: string; composition_percent?: unknown }): boolean {
+  return !!(
+    row?.material &&
+    row.composition_percent !== undefined &&
+    row.composition_percent !== null &&
+    row.composition_percent !== ""
+  );
+}
+
+function isFilledQ68Row(row: { waste_type?: string; weight?: unknown }): boolean {
+  return !!(
+    row?.waste_type &&
+    row.weight !== undefined &&
+    row.weight !== null &&
+    row.weight !== ""
+  );
+}
+
+function isFilledQ74Row(row: { mode?: string; source?: string; destination?: string; distance?: unknown }): boolean {
+  return !!(
+    row?.mode &&
+    row.source &&
+    row.destination &&
+    row.distance !== undefined &&
+    row.distance !== null &&
+    row.distance !== ""
+  );
+}
+
+/** True if any Q52 / Q68 / Q74 row has enough data to require a BOM line link. */
+function hasAnyFilledScope3BomRows(data: SupplierQuestionnaireData): boolean {
+  const q52 = data.scope_3?.materials?.raw_materials || [];
+  if (q52.some((r) => isFilledQ52Row(r as { material?: string; composition_percent?: unknown }))) return true;
+  const q68 = data.scope_3?.waste_disposal?.types_and_weight || [];
+  if (q68.some((r) => isFilledQ68Row(r as { waste_type?: string; weight?: unknown }))) return true;
+  const q74 = data.scope_3?.logistics?.transport_modes || [];
+  if (q74.some((r) => isFilledQ74Row(r as { mode?: string; source?: string; destination?: string; distance?: unknown })))
+    return true;
+  return false;
+}
+
+/**
+ * Client-side guard before submit: every non-empty Q52 / Q68 / Q74 row must resolve to a bom_id
+ * that exists on the product step. Returns an error message or null.
+ */
+export function validateScopeThreeBomLinks(data: SupplierQuestionnaireData): string | null {
+  const validBomIds = getValidBomIdsFromProductStep(data);
+
+  if (validBomIds.size === 0) {
+    if (hasAnyFilledScope3BomRows(data)) {
+      return (
+        "Each product in the product step must be linked to a BOM line (bom_id) before submitting Scope 3 answers for Q52, Q68, or Q74. " +
+        "Complete the product step with MPN/BOM data, then re-select MPN on each Scope 3 row."
+      );
+    }
+    return null;
+  }
+
+  const errors: string[] = [];
+
+  const checkRows = (
+    rows: Record<string, unknown>[] | undefined,
+    isFilled: (r: Record<string, unknown>) => boolean,
+    label: string
+  ) => {
+    (rows || []).forEach((row, i) => {
+      if (!isFilled(row)) return;
+      const ref = resolveComponentRefFromMpnOrName(data, row as any);
+      const bom = (row.bom_id as string | undefined) || ref?.bom_id;
+      if (!bom) {
+        errors.push(
+          `${label} row ${i + 1}: select a component (MPN) so this row is linked to the correct BOM line.`
+        );
+        return;
+      }
+      if (!validBomIds.has(bom)) {
+        errors.push(
+          `${label} row ${i + 1}: component link does not match this questionnaire's BOM. Re-select the MPN.`
+        );
+      }
+    });
+  };
+
+  checkRows(
+    data.scope_3?.materials?.raw_materials as Record<string, unknown>[] | undefined,
+    (r) => isFilledQ52Row(r as { material?: string; composition_percent?: unknown }),
+    "Q52 (materials)"
+  );
+  checkRows(
+    data.scope_3?.waste_disposal?.types_and_weight as Record<string, unknown>[] | undefined,
+    (r) => isFilledQ68Row(r as { waste_type?: string; weight?: unknown }),
+    "Q68 (waste)"
+  );
+  checkRows(
+    data.scope_3?.logistics?.transport_modes as Record<string, unknown>[] | undefined,
+    (r) => isFilledQ74Row(r as { mode?: string; source?: string; destination?: string; distance?: unknown }),
+    "Q74 (transport)"
+  );
+
+  return errors.length ? errors.join(" ") : null;
 }
 
 // API Payload Structure (Snake_case, Flat/Nested as per Postman)
@@ -1236,7 +1340,11 @@ class SupplierQuestionnaireService {
               do_you_track_emission_from_transport: this.convertToBoolean(data.scope_3?.logistics?.emissions_tracked || false),
               co_two_emission_of_raw_material_questions: this.ensureArray(data.scope_3?.logistics?.estimated_emissions)
                   .filter(item => item.raw_material && item.transport_mode && item.source && item.destination && (item.co2e !== undefined && item.co2e !== null && item.co2e !== ''))
-                  .map(item => ({
+                  .map(item => {
+                      const ref = resolveComponentRefFromMpnOrName(data, item as any);
+                      const bomId = (item as { bom_id?: string }).bom_id || ref?.bom_id;
+                      return {
+                      ...(bomId && { bom_id: bomId }),
                       ...(item.mpn && { mpn: item.mpn }),
                       ...(item.component_name && { component_name: item.component_name }),
                       raw_material_name: item.raw_material,
@@ -1249,7 +1357,8 @@ class SupplierQuestionnaireService {
                       ...(item.destination_lat && { destination_lat: item.destination_lat }),
                       ...(item.destination_long && { destination_long: item.destination_long }),
                       co_two_emission: item.co2e
-                  })),
+                      };
+                  }),
               mode_of_transport_used_for_transportation: this.convertToBoolean((data.scope_3?.logistics?.transport_modes?.length || 0) > 0),
               mode_of_transport_used_for_transportation_questions: this.ensureArray(data.scope_3?.logistics?.transport_modes)
                   .filter(item => item.mode && item.source && item.destination && (item.distance !== undefined && item.distance !== null && item.distance !== ''))
@@ -1257,10 +1366,10 @@ class SupplierQuestionnaireService {
                       const ref = resolveComponentRefFromMpnOrName(data, item as any);
                       return { item, ref };
                   })
-                  .filter(({ ref }) => ref?.bom_id != null)
+                  .filter(({ ref, item }) => (item.bom_id || ref?.bom_id) != null)
                   .map(({ item, ref }) => ({
-                      ...(ref!.bom_id && { bom_id: ref!.bom_id }),
-                      ...((ref!.material_number || item.material_number) && { material_number: (ref!.material_number || item.material_number) }),
+                      ...((item.bom_id || ref?.bom_id) && { bom_id: item.bom_id || ref?.bom_id }),
+                      ...(((ref?.material_number || item.material_number)) && { material_number: (ref?.material_number || item.material_number) }),
                       ...(item.mpn && { mpn: item.mpn }),
                       ...(item.component_name && { component_name: item.component_name }),
                       mode_of_transport: item.mode,
@@ -1557,7 +1666,7 @@ class SupplierQuestionnaireService {
               materials: {
                   raw_materials: (scope3.raw_materials_used_in_component_manufacturing_questions || []).map((item: any) => ({
                       ...(item.bom_id && { bom_id: item.bom_id }),
-                      ...(item.material_number && { material_number: item.material_number }),
+                      ...(item.material_number && { material_number: item.material_number, mpn: item.material_number }),
                       material: item.material_name,
                       composition_percent: item.percentage
                   })),
@@ -1639,6 +1748,8 @@ class SupplierQuestionnaireService {
                   // Convert boolean to Yes/No for radio button field
                   emissions_tracked: this.convertToBoolean(scope3.do_you_track_emission_from_transport),
                   estimated_emissions: (scope3.co_two_emission_of_raw_material_questions || []).map((item: any) => ({
+                      ...(item.bom_id && { bom_id: item.bom_id }),
+                      ...(item.material_number && { material_number: item.material_number, mpn: item.material_number }),
                       ...(item.mpn && { mpn: item.mpn }),
                       ...(item.component_name && { component_name: item.component_name }),
                       raw_material: item.raw_material_name,
@@ -1653,6 +1764,8 @@ class SupplierQuestionnaireService {
                       co2e: item.co_two_emission
                   })),
                   transport_modes: (scope3.mode_of_transport_used_for_transportation_questions || []).map((item: any) => ({
+                      ...(item.bom_id && { bom_id: item.bom_id }),
+                      ...(item.material_number && { material_number: item.material_number, mpn: item.material_number }),
                       ...(item.mpn && { mpn: item.mpn }),
                       ...(item.component_name && { component_name: item.component_name }),
                       mode: item.mode_of_transport,
@@ -1782,6 +1895,10 @@ class SupplierQuestionnaireService {
     bom_pcf_id?: string
   ): Promise<{ success: boolean; message: string; data?: any }> {
     try {
+      const bomErr = validateScopeThreeBomLinks(data);
+      if (bomErr) {
+        return { success: false, message: bomErr };
+      }
       const payload = this.mapToApiPayload(data, sup_id, bom_pcf_id);
       const response = await fetch(
         `${API_BASE_URL}/api/create-supplier-input-questions`,
@@ -1823,6 +1940,10 @@ class SupplierQuestionnaireService {
     data: SupplierQuestionnaireData
   ): Promise<{ success: boolean; message: string; data?: any }> {
     try {
+      const bomErr = validateScopeThreeBomLinks(data);
+      if (bomErr) {
+        return { success: false, message: bomErr };
+      }
       const payload = this.mapToApiPayload(data);
       const response = await fetch(
         `${API_BASE_URL}/api/update-supplier-input-questions`,
@@ -2290,6 +2411,10 @@ class SupplierQuestionnaireService {
     bom_pcf_id: string
   ): Promise<{ success: boolean; message: string; data?: any }> {
     try {
+      const bomErr = validateScopeThreeBomLinks(data);
+      if (bomErr) {
+        return { success: false, message: bomErr };
+      }
       const payload = this.mapToClientApiPayload(data, client_id, product_id, bom_pcf_id);
       const response = await fetch(
         `${API_BASE_URL}/api/product/add-client-sustainability-data`,

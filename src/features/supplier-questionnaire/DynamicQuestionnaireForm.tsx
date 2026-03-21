@@ -1251,6 +1251,11 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         })).filter((opt: DropdownItem) => opt.id);
 
                         return (
+                          <>
+                            {/* Persist bom_id in form state for save/calculate (not inferred from text). */}
+                            <Form.Item name={[fieldRecord.name, 'bom_id']} hidden>
+                              <Input type="hidden" />
+                            </Form.Item>
                           <Form.Item
                             name={[fieldRecord.name, col.name]}
                             rules={[
@@ -1298,6 +1303,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                               ))}
                             </Select>
                           </Form.Item>
+                          </>
                         );
                       }
 

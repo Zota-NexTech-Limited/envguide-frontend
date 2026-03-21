@@ -1139,13 +1139,15 @@ class SupplierQuestionnaireService {
                   .filter(item => item.material && item.composition_percent !== undefined && item.composition_percent !== null)
                   .map(item => {
                       const ref = resolveComponentRefFromMpnOrName(data, item as any);
-                      return ({
-                      ...(ref?.bom_id && { bom_id: ref.bom_id }),
+                      return { item, ref };
+                  })
+                  .filter(({ ref, item }) => (ref?.bom_id ?? item.bom_id) != null)
+                  .map(({ item, ref }) => ({
+                      ...((ref?.bom_id ?? item.bom_id) && { bom_id: ref?.bom_id ?? item.bom_id }),
                       ...((ref?.material_number || item.material_number) && { material_number: (ref?.material_number || item.material_number) }),
                       material_name: item.material,
                       percentage: item.composition_percent
-                      });
-                  }),
+                  })),
               raw_materials_contact_enviguide_support: this.convertToBoolean(data.scope_3?.materials?.raw_materials_contact_support || false),
               grade_of_metal_used: data.scope_3?.materials?.metal_grade || '',
               msds_link_or_upload_document: Array.isArray(data.scope_3?.materials?.msds) ? data.scope_3?.materials.msds : (data.scope_3?.materials?.msds ? [data.scope_3?.materials.msds] : []),
@@ -1207,16 +1209,18 @@ class SupplierQuestionnaireService {
                   .filter(item => item.waste_type && (item.weight !== undefined && item.weight !== null && item.weight !== ''))
                   .map((item: any) => {
                       const ref = resolveComponentRefFromMpnOrName(data, item as any);
-                      return ({
-                      ...(ref?.bom_id && { bom_id: ref.bom_id }),
+                      return { item, ref };
+                  })
+                  .filter(({ ref, item }) => (ref?.bom_id ?? item.bom_id) != null)
+                  .map(({ item, ref }) => ({
+                      ...((ref?.bom_id ?? item.bom_id) && { bom_id: ref?.bom_id ?? item.bom_id }),
                       ...((ref?.material_number || item.material_number) && { material_number: (ref?.material_number || item.material_number) }),
                       ...(item.component_name && { component_name: item.component_name }),
                       waste_type: item.waste_type,
                       waste_weight: item.weight,
                       unit: item.unit,
                       treatment_type: item.treatment_type
-                      });
-                  }),
+                  })),
               internal_or_external_waste_material_per_recycling: String(data.scope_3?.waste_disposal?.recycled_percent ?? ''),
               any_by_product_generated: this.convertToBoolean(data.scope_3?.waste_disposal?.by_products_generated || false),
               type_of_by_product_questions: this.ensureArray(data.scope_3?.waste_disposal?.by_product_details)

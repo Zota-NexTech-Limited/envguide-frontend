@@ -1284,6 +1284,12 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                                     form.setFieldValue([...fieldPath, fieldRecord.name, 'component_name'], selectedItem.product_name);
                                     form.setFieldValue([...fieldPath, fieldRecord.name, 'product_name'], selectedItem.product_name);
                                   }
+                                } else {
+                                  // Clear component link when MPN is cleared so rows cannot keep a stale bom_id
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'bom_id'], undefined);
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'material_number'], undefined);
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'component_name'], undefined);
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'product_name'], undefined);
                                 }
                               }}
                             >

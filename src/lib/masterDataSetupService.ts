@@ -187,7 +187,7 @@ export async function addMasterData(
 ): Promise<{ success: boolean; message?: string }> {
   try {
     // Build payload based on entity type
-    let payload: Record<string, any> = { name: item.name };
+    const payload: Record<string, any> = { name: item.name };
 
     // country_name required for geography and time entities
     if (

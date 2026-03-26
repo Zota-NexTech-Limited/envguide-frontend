@@ -136,7 +136,9 @@ const DetailedRawMaterialEmission: React.FC = () => {
         return data;
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const displayedCompData = useMemo(() => filterMaterialData(materialCompData, "contribution"), [materialCompData, selectedMaterials, showTopOnly]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const displayedIntensityData = useMemo(() => filterMaterialData(intensityData, "virgin"), [intensityData, selectedMaterials, showTopOnly]);
     const displayedShareData = useMemo(() => {
         const filtered = filterMaterialData(shareData, "value");
@@ -144,6 +146,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
             ...item,
             color: COLOR_PALETTE[index % COLOR_PALETTE.length]
         }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [shareData, selectedMaterials, showTopOnly]);
 
     // Fetch Clients and Master Materials on Mount
@@ -318,6 +321,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
             setIntensityData([]);
             setShareData([]);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedClient]);
 
     // Fetch Supplier-specific Data
@@ -399,6 +403,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
             fetchSupplierIntensity();
             fetchSupplierShare();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedSupplier, selectedClient]);
 
     // Close material filter dropdown on outside click

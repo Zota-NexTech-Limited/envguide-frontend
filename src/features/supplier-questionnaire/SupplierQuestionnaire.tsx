@@ -461,10 +461,12 @@ const SupplierQuestionnaire: React.FC = () => {
     };
 
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     sgiq_id,
     sup_id,
     bom_pcf_id,
+    product_id,
     user_id,
     isViewMode,
     isEditMode,
@@ -539,7 +541,7 @@ const SupplierQuestionnaire: React.FC = () => {
         }
       };
     }
-  }, [formData, currentStep, isCreateMode, isViewMode, form]);
+  }, [formData, currentStep, isCreateMode, isViewMode, form, sup_id, bom_pcf_id]);
 
   // Track completed steps
   useEffect(() => {
@@ -685,6 +687,7 @@ const SupplierQuestionnaire: React.FC = () => {
     };
 
     calculateProgress();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, form, currentStep]);
 
   // Also recalculate when form values change

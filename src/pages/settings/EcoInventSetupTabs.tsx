@@ -240,7 +240,7 @@ const EcoInventSetupTabs: React.FC<EcoInventSetupTabsProps> = ({
         });
       }
     }
-  }, [entityConfig, isTreatmentType, isPackagingEmissionFactor, isWasteMaterialEmissionFactor]);
+  }, [entityConfig, isTreatmentType, isPackagingEmissionFactor, isWasteMaterialEmissionFactor, isVehicleTypeEmissionFactor]);
 
   const handleDelete = async (id: string) => {
     if (!currentEntity) return;

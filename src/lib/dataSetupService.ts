@@ -153,8 +153,8 @@ function normalizeItem(entity: SetupEntity, item: any): SetupItem {
 
   // For entities with non-standard fields, create a description for display
   let description = item.description ?? "";
-  let code = item.code ?? "";
-  let name = item.name ?? "";
+  const code = item.code ?? "";
+  const name = item.name ?? "";
 
   if (entity === "manufacturer") {
     // Use address as description for manufacturer

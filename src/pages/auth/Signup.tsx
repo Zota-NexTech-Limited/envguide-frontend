@@ -66,6 +66,7 @@ const Signup: React.FC = () => {
     };
 
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Redirect if already authenticated

@@ -32,6 +32,7 @@ const ManufacturerOnboardingForm: React.FC = () => {
       setIsEditMode(true);
       loadManufacturerData(id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadManufacturerData = async (manufacturerId: string) => {

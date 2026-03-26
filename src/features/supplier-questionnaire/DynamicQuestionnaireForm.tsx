@@ -369,6 +369,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
     };
 
     fetchDropdowns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
 
   // Track in-flight requests to prevent duplicate calls
@@ -676,7 +677,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
           />
         );
         break;
-      case 'file':
+      case 'file': {
         const isMultipleFile = field.multiple === true;
 
         // Extract filename from file key
@@ -870,6 +871,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
             }}
           </Form.Item>
         );
+      }
       default:
         inputComponent = <Input {...commonProps} />;
     }

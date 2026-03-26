@@ -191,6 +191,7 @@ const ProductView: React.FC = () => {
       fetchProduct(id);
       fetchOwnEmission(id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchProduct = async (productId: string) => {

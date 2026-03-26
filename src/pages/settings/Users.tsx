@@ -151,7 +151,7 @@ const UsersPage: React.FC = () => {
     }
 
     return params.toString();
-  }, [pagination.current, pagination.pageSize, filters, quickSearch]);
+  }, [pagination, filters, quickSearch]);
 
   // Load EnviGuide Users
   const loadUsers = useCallback(async () => {
@@ -228,7 +228,7 @@ const UsersPage: React.FC = () => {
     } finally {
       setManufacturerLoading(false);
     }
-  }, [manufacturerPagination.current, manufacturerPagination.pageSize, manufacturerSearch]);
+  }, [manufacturerPagination, manufacturerSearch]);
 
   // Load Suppliers
   const loadSuppliers = useCallback(async () => {
@@ -266,7 +266,7 @@ const UsersPage: React.FC = () => {
     } finally {
       setSupplierLoading(false);
     }
-  }, [supplierPagination.current, supplierPagination.pageSize, supplierSearch]);
+  }, [supplierPagination, supplierSearch]);
 
   useEffect(() => {
     if (activeTab === "enviguide") {

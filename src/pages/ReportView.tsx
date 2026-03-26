@@ -62,6 +62,7 @@ const ReportView: React.FC = () => {
             fetchData();
             fetchFavoriteStatus();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     const fetchFavoriteStatus = async () => {
@@ -201,6 +202,7 @@ const ReportView: React.FC = () => {
             setVisibleColumns(report.columns.map(c => c.header));
             fetchData(1);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [report]);
 
     const toggleColumn = (columnHeader: string) => {

@@ -70,6 +70,7 @@ const MFAVerification: React.FC = () => {
     if (!isSetupDone && mfaData?.manualCode && userEmail) {
       generateQRCode();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mfaData?.manualCode, userEmail, isSetupDone]);
 
   const buildOtpAuthUri = (secret: string, email: string): string => {

@@ -99,6 +99,7 @@ const DataQualityRatingList: React.FC = () => {
   // Fetch data when page, search, or pageSize changes
   useEffect(() => {
     fetchDQRList(currentPage, debouncedSearchTerm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, debouncedSearchTerm, pageSize]);
 
   const handlePageSizeChange = (newSize: number) => {

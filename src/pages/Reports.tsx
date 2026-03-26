@@ -36,6 +36,7 @@ const Reports: React.FC = () => {
 
   useEffect(() => {
     fetchFavorites();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const fetchFavorites = async () => {

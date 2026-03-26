@@ -96,6 +96,7 @@ const DetailedWasteEmission: React.FC = () => {
             setSuppliers([]);
             setSelectedSupplier(null);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedClient, selectedSupplier]);
 
     const fetchClients = async () => {

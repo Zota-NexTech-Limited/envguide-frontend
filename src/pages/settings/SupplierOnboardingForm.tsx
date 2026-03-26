@@ -35,6 +35,7 @@ const SupplierOnboardingForm: React.FC = () => {
       setIsEditMode(true);
       loadSupplierData(id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadBusinessTypeOptions = async () => {

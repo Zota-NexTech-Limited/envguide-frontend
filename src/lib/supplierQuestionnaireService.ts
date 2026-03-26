@@ -888,7 +888,7 @@ class SupplierQuestionnaireService {
           return value ? 'Yes' : 'No';
       }
       // For other types, convert to boolean first
-      return Boolean(value) ? 'Yes' : 'No';
+      return value ? 'Yes' : 'No';
   }
 
   // Helper to ensure a value is an array (handles undefined, null, objects, strings, etc.)

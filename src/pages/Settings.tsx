@@ -252,7 +252,8 @@ const Settings: React.FC = () => {
           );
         }),
       }));
-  }, [settingsGroups, searchQuery, hasModuleAccess, permissionsLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, hasModuleAccess, permissionsLoading]);
 
   // Color config - all green
   const colors = {

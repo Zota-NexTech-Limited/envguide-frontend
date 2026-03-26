@@ -83,8 +83,8 @@ export interface ComponentItem {
   allocation_methodology: any | null;
 }
 
-// Legacy BomDetail interface for backward compatibility
-export interface BomDetail extends Omit<ComponentItem, 'pcf_request'> {}
+// Legacy BomDetail type for backward compatibility
+export type BomDetail = Omit<ComponentItem, 'pcf_request'>;
 
 export interface ComponentStats {
   approved_count: string;

@@ -309,6 +309,7 @@ export const PermissionProvider: React.FC<{ children: ReactNode }> = ({ children
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const usePermissions = (): PermissionContextType => {
   const context = useContext(PermissionContext);
   if (context === undefined) {
@@ -342,6 +343,7 @@ export const PermissionGate: React.FC<{
 };
 
 // HOC for route protection
+// eslint-disable-next-line react-refresh/only-export-components
 export const withPermission = <P extends object>(
   WrappedComponent: React.ComponentType<P>,
   moduleName: string,
@@ -394,6 +396,7 @@ export const withPermission = <P extends object>(
 // ============================================
 
 // Hook for PCF-specific permission checks
+// eslint-disable-next-line react-refresh/only-export-components
 export const usePCFPermissions = () => {
   const { canRead, canCreate, canUpdate, canDelete, canExport, canPrint, loading } = usePermissions();
 
@@ -416,6 +419,7 @@ export const usePCFPermissions = () => {
 };
 
 // Hook for Product Portfolio permission checks
+// eslint-disable-next-line react-refresh/only-export-components
 export const useProductPermissions = () => {
   const { canRead, canCreate, canUpdate, canDelete, canExport, loading } = usePermissions();
 
@@ -430,6 +434,7 @@ export const useProductPermissions = () => {
 };
 
 // Hook for Reports permission checks
+// eslint-disable-next-line react-refresh/only-export-components
 export const useReportsPermissions = () => {
   const { canRead, canCreate, canUpdate, loading } = usePermissions();
 
@@ -442,6 +447,7 @@ export const useReportsPermissions = () => {
 };
 
 // Hook for Settings permission checks
+// eslint-disable-next-line react-refresh/only-export-components
 export const useSettingsPermissions = (subModule?: string) => {
   const { canRead, canCreate, canUpdate, canDelete, loading } = usePermissions();
 
@@ -457,6 +463,7 @@ export const useSettingsPermissions = (subModule?: string) => {
 };
 
 // Hook for Dashboard permission
+// eslint-disable-next-line react-refresh/only-export-components
 export const useDashboardPermissions = () => {
   const { canRead, loading } = usePermissions();
 

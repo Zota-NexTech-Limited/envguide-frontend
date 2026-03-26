@@ -1,76 +1,92 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createBrowserRouter, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import Layout from "../components/Layout";
-import Dashboard from "../pages/Dashboard";
-import VisitorManagement from "../pages/VisitorManagement";
-import SuiteManagement from "../pages/SuiteManagement";
-import Bookings from "../pages/Bookings";
-import HardwareManagement from "../pages/HardwareManagement";
-import DocumentsManagement from "../pages/DocumentsManagement";
-import Settings from "../pages/Settings";
-import Login from "../pages/auth/Login";
-import Signup from "../pages/auth/Signup";
-import ForgotPassword from "../pages/auth/ForgotPassword";
-import ResetPassword from "../pages/auth/ResetPassword";
-import ForgotMFA from "../pages/auth/ForgotMFA";
-import MFAVerification from "../pages/auth/MFAVerification";
-import Users from "../pages/settings/Users";
-import UsersCreate from "../pages/settings/UsersCreate";
-import UsersEdit from "../pages/settings/UsersEdit";
-import Authorizations from "../pages/settings/Authorizations";
-import AlertManagement from "../pages/settings/AlertManagement";
-import AlertManagementCreate from "../pages/settings/AlertManagementCreate";
-import ManufacturerOnboardingForm from "../pages/settings/ManufacturerOnboardingForm";
-import SupplierOnboardingForm from "../pages/settings/SupplierOnboardingForm";
-import PublicManufacturerOnboarding from "../pages/PublicManufacturerOnboarding";
-import PublicSupplierOnboarding from "../pages/PublicSupplierOnboarding";
-import Products from "../pages/settings/Products";
-import Components from "../pages/settings/Components";
-import DataSetup from "../pages/settings/DataSetup";
-import DataSetupTabs from "../pages/settings/DataSetupTabs";
-import MasterDataSetupTabs from "../pages/settings/MasterDataSetupTabs";
-import EcoInventSetupTabs from "../pages/settings/EcoInventSetupTabs";
+import LoadingSpinner from "../components/LoadingSpinner";
+import ProtectedRoute from "../components/ProtectedRoute";
+import PermissionRoute from "../components/PermissionRoute";
 import {
   dataSetupGroups,
   masterDataSetupGroups,
   ecoInventSetupGroups,
 } from "../config/dataSetupGroups";
-import ProtectedRoute from "../components/ProtectedRoute";
-import PermissionRoute from "../components/PermissionRoute";
 
-// New pages
-import PCFRequest from "../pages/PCFRequest";
-import ProductPortfolio from "../pages/ProductPortfolio";
-import AllProducts from "../pages/AllProducts";
-import ProductCreate from "../pages/ProductCreate";
-import ProductView from "../pages/ProductView";
-import ProductEdit from "../pages/ProductEdit";
-import ComponentsMaster from "../pages/ComponentsMaster";
-import ComponentsMasterView from "../pages/ComponentsMasterView";
-import DocumentMaster from "../pages/DocumentMaster";
-import TaskManagement from "../pages/TaskManagement";
-import TaskCreate from "../pages/TaskCreate";
-import ReportsMain from "../pages/Reports";
-import SupplierQuestionnaire from "../pages/SupplierQuestionnaire";
-import SupplierQuestionnaireList from "../pages/SupplierQuestionnaireList";
-import DataQualityRating from "../pages/DataQualityRating";
-import DataQualityRatingList from "../pages/DataQualityRatingList";
-import PCFRequestCreate from "../pages/PCFRequestCreate";
-import PCFRequestView from "../pages/PCFRequestView";
-import PCFRequestEdit from "../pages/PCFRequestEdit";
-import TaskView from "../pages/TaskView";
-import ReportView from "../pages/ReportView";
+// Lazy-loaded page components for code splitting
+const Dashboard = lazy(() => import("../pages/Dashboard"));
+const VisitorManagement = lazy(() => import("../pages/VisitorManagement"));
+const SuiteManagement = lazy(() => import("../pages/SuiteManagement"));
+const Bookings = lazy(() => import("../pages/Bookings"));
+const HardwareManagement = lazy(() => import("../pages/HardwareManagement"));
+const DocumentsManagement = lazy(() => import("../pages/DocumentsManagement"));
+const Settings = lazy(() => import("../pages/Settings"));
+
+// Auth pages
+const Login = lazy(() => import("../pages/auth/Login"));
+const Signup = lazy(() => import("../pages/auth/Signup"));
+const ForgotPassword = lazy(() => import("../pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("../pages/auth/ResetPassword"));
+const ForgotMFA = lazy(() => import("../pages/auth/ForgotMFA"));
+const MFAVerification = lazy(() => import("../pages/auth/MFAVerification"));
+
+// Settings pages
+const Users = lazy(() => import("../pages/settings/Users"));
+const UsersCreate = lazy(() => import("../pages/settings/UsersCreate"));
+const UsersEdit = lazy(() => import("../pages/settings/UsersEdit"));
+const Authorizations = lazy(() => import("../pages/settings/Authorizations"));
+const AlertManagement = lazy(() => import("../pages/settings/AlertManagement"));
+const AlertManagementCreate = lazy(() => import("../pages/settings/AlertManagementCreate"));
+const ManufacturerOnboardingForm = lazy(() => import("../pages/settings/ManufacturerOnboardingForm"));
+const SupplierOnboardingForm = lazy(() => import("../pages/settings/SupplierOnboardingForm"));
+const Products = lazy(() => import("../pages/settings/Products"));
+const Components = lazy(() => import("../pages/settings/Components"));
+const DataSetup = lazy(() => import("../pages/settings/DataSetup"));
+const DataSetupTabs = lazy(() => import("../pages/settings/DataSetupTabs"));
+const MasterDataSetupTabs = lazy(() => import("../pages/settings/MasterDataSetupTabs"));
+const EcoInventSetupTabs = lazy(() => import("../pages/settings/EcoInventSetupTabs"));
+
+// Public pages
+const PublicManufacturerOnboarding = lazy(() => import("../pages/PublicManufacturerOnboarding"));
+const PublicSupplierOnboarding = lazy(() => import("../pages/PublicSupplierOnboarding"));
+
+// Feature pages
+const PCFRequest = lazy(() => import("../pages/PCFRequest"));
+const ProductPortfolio = lazy(() => import("../pages/ProductPortfolio"));
+const AllProducts = lazy(() => import("../pages/AllProducts"));
+const ProductCreate = lazy(() => import("../pages/ProductCreate"));
+const ProductView = lazy(() => import("../pages/ProductView"));
+const ProductEdit = lazy(() => import("../pages/ProductEdit"));
+const ComponentsMaster = lazy(() => import("../pages/ComponentsMaster"));
+const ComponentsMasterView = lazy(() => import("../pages/ComponentsMasterView"));
+const DocumentMaster = lazy(() => import("../pages/DocumentMaster"));
+const TaskManagement = lazy(() => import("../pages/TaskManagement"));
+const TaskCreate = lazy(() => import("../pages/TaskCreate"));
+const ReportsMain = lazy(() => import("../pages/Reports"));
+const SupplierQuestionnaire = lazy(() => import("../pages/SupplierQuestionnaire"));
+const SupplierQuestionnaireList = lazy(() => import("../pages/SupplierQuestionnaireList"));
+const DataQualityRating = lazy(() => import("../pages/DataQualityRating"));
+const DataQualityRatingList = lazy(() => import("../pages/DataQualityRatingList"));
+const PCFRequestCreate = lazy(() => import("../pages/PCFRequestCreate"));
+const PCFRequestView = lazy(() => import("../pages/PCFRequestView"));
+const PCFRequestEdit = lazy(() => import("../pages/PCFRequestEdit"));
+const TaskView = lazy(() => import("../pages/TaskView"));
+const ReportView = lazy(() => import("../pages/ReportView"));
 
 // Detailed Dashboard Pages
-import DetailedLifeCycle from "../pages/DetailedLifeCycle";
-import DetailedSupplierEmission from "../pages/DetailedSupplierEmission";
-import DetailedRawMaterialEmission from "../pages/DetailedRawMaterialEmission";
-import DetailedPackagingEmission from "../pages/DetailedPackagingEmission";
-import DetailedTransportationEmission from "../pages/DetailedTransportationEmission";
-import DetailedEnergyEmission from "../pages/DetailedEnergyEmission";
-import DetailedRecyclability from "../pages/DetailedRecyclability";
-import DetailedWasteEmission from "../pages/DetailedWasteEmission";
-import DetailedImpactCategories from "../pages/DetailedImpactCategories";
-import DetailedPCFTrend from "../pages/DetailedPCFTrend";
+const DetailedLifeCycle = lazy(() => import("../pages/DetailedLifeCycle"));
+const DetailedSupplierEmission = lazy(() => import("../pages/DetailedSupplierEmission"));
+const DetailedRawMaterialEmission = lazy(() => import("../pages/DetailedRawMaterialEmission"));
+const DetailedPackagingEmission = lazy(() => import("../pages/DetailedPackagingEmission"));
+const DetailedTransportationEmission = lazy(() => import("../pages/DetailedTransportationEmission"));
+const DetailedEnergyEmission = lazy(() => import("../pages/DetailedEnergyEmission"));
+const DetailedRecyclability = lazy(() => import("../pages/DetailedRecyclability"));
+const DetailedWasteEmission = lazy(() => import("../pages/DetailedWasteEmission"));
+const DetailedImpactCategories = lazy(() => import("../pages/DetailedImpactCategories"));
+const DetailedPCFTrend = lazy(() => import("../pages/DetailedPCFTrend"));
+
+// Suspense wrapper for lazy components
+const S = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
+);
 
 export const router = createBrowserRouter([
   {
@@ -79,42 +95,42 @@ export const router = createBrowserRouter([
   },
   {
     path: "/login",
-    element: <Login />,
+    element: <S><Login /></S>,
   },
   {
     path: "/signup",
-    element: <Signup />,
+    element: <S><Signup /></S>,
   },
   {
     path: "/forgot-password",
-    element: <ForgotPassword />,
+    element: <S><ForgotPassword /></S>,
   },
   {
     path: "/reset-password",
-    element: <ResetPassword />,
+    element: <S><ResetPassword /></S>,
   },
   {
     path: "/forgot-mfa",
-    element: <ForgotMFA />,
+    element: <S><ForgotMFA /></S>,
   },
   {
     path: "/mfa-verification",
-    element: <MFAVerification />,
+    element: <S><MFAVerification /></S>,
   },
   // Public supplier questionnaire route (no login required when accessed via link with sup_id and bom_pcf_id)
   {
     path: "/supplier-questionnaire",
-    element: <SupplierQuestionnaire />,
+    element: <S><SupplierQuestionnaire /></S>,
   },
   // Public manufacturer onboarding form (no login required)
   {
     path: "/manufacturer-onboarding",
-    element: <PublicManufacturerOnboarding />,
+    element: <S><PublicManufacturerOnboarding /></S>,
   },
   // Public supplier onboarding form (no login required)
   {
     path: "/supplier-onboarding",
-    element: <PublicSupplierOnboarding />,
+    element: <S><PublicSupplierOnboarding /></S>,
   },
   {
     path: "/",
@@ -126,53 +142,53 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "dashboard",
-        element: <Dashboard />,
+        element: <S><Dashboard /></S>,
       },
       {
         path: "dashboard/detailed-lifecycle",
-        element: <DetailedLifeCycle />,
+        element: <S><DetailedLifeCycle /></S>,
       },
       {
         path: "dashboard/detailed-supplier",
-        element: <DetailedSupplierEmission />,
+        element: <S><DetailedSupplierEmission /></S>,
       },
       {
         path: "dashboard/detailed-raw-material",
-        element: <DetailedRawMaterialEmission />,
+        element: <S><DetailedRawMaterialEmission /></S>,
       },
       {
         path: "dashboard/detailed-packaging",
-        element: <DetailedPackagingEmission />,
+        element: <S><DetailedPackagingEmission /></S>,
       },
       {
         path: "dashboard/detailed-transportation",
-        element: <DetailedTransportationEmission />,
+        element: <S><DetailedTransportationEmission /></S>,
       },
       {
         path: "dashboard/detailed-energy",
-        element: <DetailedEnergyEmission />,
+        element: <S><DetailedEnergyEmission /></S>,
       },
       {
         path: "dashboard/detailed-recyclability",
-        element: <DetailedRecyclability />,
+        element: <S><DetailedRecyclability /></S>,
       },
       {
         path: "dashboard/detailed-waste",
-        element: <DetailedWasteEmission />,
+        element: <S><DetailedWasteEmission /></S>,
       },
       {
         path: "dashboard/detailed-impact",
-        element: <DetailedImpactCategories />,
+        element: <S><DetailedImpactCategories /></S>,
       },
       {
         path: "dashboard/detailed-pcf-trend",
-        element: <DetailedPCFTrend />,
+        element: <S><DetailedPCFTrend /></S>,
       },
       {
         path: "pcf-request",
         element: (
           <PermissionRoute permissionKey="pcf request">
-            <PCFRequest />
+            <S><PCFRequest /></S>
           </PermissionRoute>
         ),
       },
@@ -180,7 +196,7 @@ export const router = createBrowserRouter([
         path: "pcf-request/new",
         element: (
           <PermissionRoute permissionKey="pcf request" action="create">
-            <PCFRequestCreate />
+            <S><PCFRequestCreate /></S>
           </PermissionRoute>
         ),
       },
@@ -188,7 +204,7 @@ export const router = createBrowserRouter([
         path: "pcf-request/:id",
         element: (
           <PermissionRoute permissionKey="pcf request">
-            <PCFRequestView />
+            <S><PCFRequestView /></S>
           </PermissionRoute>
         ),
       },
@@ -196,7 +212,7 @@ export const router = createBrowserRouter([
         path: "pcf-request/:id/edit",
         element: (
           <PermissionRoute permissionKey="pcf request" action="update">
-            <PCFRequestEdit />
+            <S><PCFRequestEdit /></S>
           </PermissionRoute>
         ),
       },
@@ -204,7 +220,7 @@ export const router = createBrowserRouter([
         path: "product-portfolio",
         element: (
           <PermissionRoute permissionKey="product portfolio">
-            <AllProducts />
+            <S><AllProducts /></S>
           </PermissionRoute>
         ),
       },
@@ -212,7 +228,7 @@ export const router = createBrowserRouter([
         path: "product-portfolio/all-products",
         element: (
           <PermissionRoute permissionKey="product portfolio">
-            <AllProducts />
+            <S><AllProducts /></S>
           </PermissionRoute>
         ),
       },
@@ -220,7 +236,7 @@ export const router = createBrowserRouter([
         path: "product-portfolio/new",
         element: (
           <PermissionRoute permissionKey="product portfolio" action="create">
-            <ProductCreate />
+            <S><ProductCreate /></S>
           </PermissionRoute>
         ),
       },
@@ -228,7 +244,7 @@ export const router = createBrowserRouter([
         path: "product-portfolio/view/:id",
         element: (
           <PermissionRoute permissionKey="product portfolio">
-            <ProductView />
+            <S><ProductView /></S>
           </PermissionRoute>
         ),
       },
@@ -236,7 +252,7 @@ export const router = createBrowserRouter([
         path: "product-portfolio/edit/:id",
         element: (
           <PermissionRoute permissionKey="product portfolio" action="update">
-            <ProductEdit />
+            <S><ProductEdit /></S>
           </PermissionRoute>
         ),
       },
@@ -244,7 +260,7 @@ export const router = createBrowserRouter([
         path: "components-master",
         element: (
           <PermissionRoute permissionKey="component master">
-            <ComponentsMaster />
+            <S><ComponentsMaster /></S>
           </PermissionRoute>
         ),
       },
@@ -252,7 +268,7 @@ export const router = createBrowserRouter([
         path: "components-master/view/:id",
         element: (
           <PermissionRoute permissionKey="component master">
-            <ComponentsMasterView />
+            <S><ComponentsMasterView /></S>
           </PermissionRoute>
         ),
       },
@@ -260,7 +276,7 @@ export const router = createBrowserRouter([
         path: "document-master",
         element: (
           <PermissionRoute permissionKey="document master">
-            <DocumentMaster />
+            <S><DocumentMaster /></S>
           </PermissionRoute>
         ),
       },
@@ -268,7 +284,7 @@ export const router = createBrowserRouter([
         path: "task-management",
         element: (
           <PermissionRoute permissionKey="task management">
-            <TaskManagement />
+            <S><TaskManagement /></S>
           </PermissionRoute>
         ),
       },
@@ -276,7 +292,7 @@ export const router = createBrowserRouter([
         path: "task-management/new",
         element: (
           <PermissionRoute permissionKey="task management" action="create">
-            <TaskCreate />
+            <S><TaskCreate /></S>
           </PermissionRoute>
         ),
       },
@@ -284,7 +300,7 @@ export const router = createBrowserRouter([
         path: "task-management/view/:id",
         element: (
           <PermissionRoute permissionKey="task management">
-            <TaskView />
+            <S><TaskView /></S>
           </PermissionRoute>
         ),
       },
@@ -292,7 +308,7 @@ export const router = createBrowserRouter([
         path: "reports",
         element: (
           <PermissionRoute permissionKey="reports">
-            <ReportsMain />
+            <S><ReportsMain /></S>
           </PermissionRoute>
         ),
       },
@@ -300,35 +316,35 @@ export const router = createBrowserRouter([
         path: "reports/:id",
         element: (
           <PermissionRoute permissionKey="reports">
-            <ReportView />
+            <S><ReportView /></S>
           </PermissionRoute>
         ),
       },
       {
         path: "visitor-management",
-        element: <VisitorManagement />,
+        element: <S><VisitorManagement /></S>,
       },
       {
         path: "suite-management",
-        element: <SuiteManagement />,
+        element: <S><SuiteManagement /></S>,
       },
       {
         path: "bookings",
-        element: <Bookings />,
+        element: <S><Bookings /></S>,
       },
       {
         path: "hardware-management",
-        element: <HardwareManagement />,
+        element: <S><HardwareManagement /></S>,
       },
       {
         path: "documents-management",
-        element: <DocumentsManagement />,
+        element: <S><DocumentsManagement /></S>,
       },
       {
         path: "settings",
         element: (
           <PermissionRoute permissionKey="settings">
-            <Settings />
+            <S><Settings /></S>
           </PermissionRoute>
         ),
       },
@@ -336,7 +352,7 @@ export const router = createBrowserRouter([
         path: "settings/users",
         element: (
           <PermissionRoute permissionKey="manage users">
-            <Users />
+            <S><Users /></S>
           </PermissionRoute>
         ),
       },
@@ -344,7 +360,7 @@ export const router = createBrowserRouter([
         path: "settings/users/create",
         element: (
           <PermissionRoute permissionKey="create new user" action="create">
-            <UsersCreate />
+            <S><UsersCreate /></S>
           </PermissionRoute>
         ),
       },
@@ -352,7 +368,7 @@ export const router = createBrowserRouter([
         path: "settings/users/edit/:userId",
         element: (
           <PermissionRoute permissionKey="manage users" action="update">
-            <UsersEdit />
+            <S><UsersEdit /></S>
           </PermissionRoute>
         ),
       },
@@ -360,7 +376,7 @@ export const router = createBrowserRouter([
         path: "settings/manufacturer-onboarding",
         element: (
           <PermissionRoute permissionKey="settings">
-            <ManufacturerOnboardingForm />
+            <S><ManufacturerOnboardingForm /></S>
           </PermissionRoute>
         ),
       },
@@ -368,7 +384,7 @@ export const router = createBrowserRouter([
         path: "settings/manufacturer-onboarding/:id",
         element: (
           <PermissionRoute permissionKey="settings">
-            <ManufacturerOnboardingForm />
+            <S><ManufacturerOnboardingForm /></S>
           </PermissionRoute>
         ),
       },
@@ -376,7 +392,7 @@ export const router = createBrowserRouter([
         path: "settings/supplier-onboarding",
         element: (
           <PermissionRoute permissionKey="settings">
-            <SupplierOnboardingForm />
+            <S><SupplierOnboardingForm /></S>
           </PermissionRoute>
         ),
       },
@@ -384,7 +400,7 @@ export const router = createBrowserRouter([
         path: "settings/supplier-onboarding/:id",
         element: (
           <PermissionRoute permissionKey="settings">
-            <SupplierOnboardingForm />
+            <S><SupplierOnboardingForm /></S>
           </PermissionRoute>
         ),
       },
@@ -392,7 +408,7 @@ export const router = createBrowserRouter([
         path: "settings/authorizations",
         element: (
           <PermissionRoute permissionKey="authorization">
-            <Authorizations />
+            <S><Authorizations /></S>
           </PermissionRoute>
         ),
       },
@@ -400,7 +416,7 @@ export const router = createBrowserRouter([
         path: "settings/alert-management",
         element: (
           <PermissionRoute permissionKey="alert management">
-            <AlertManagement />
+            <S><AlertManagement /></S>
           </PermissionRoute>
         ),
       },
@@ -408,7 +424,7 @@ export const router = createBrowserRouter([
         path: "settings/alert-management/new",
         element: (
           <PermissionRoute permissionKey="alert management" action="create">
-            <AlertManagementCreate />
+            <S><AlertManagementCreate /></S>
           </PermissionRoute>
         ),
       },
@@ -416,7 +432,7 @@ export const router = createBrowserRouter([
         path: "settings/alert-management/edit/:id",
         element: (
           <PermissionRoute permissionKey="alert management" action="update">
-            <AlertManagementCreate />
+            <S><AlertManagementCreate /></S>
           </PermissionRoute>
         ),
       },
@@ -424,7 +440,7 @@ export const router = createBrowserRouter([
         path: "settings/products/:tab?",
         element: (
           <PermissionRoute permissionKey="data configuration">
-            <Products />
+            <S><Products /></S>
           </PermissionRoute>
         ),
       },
@@ -432,7 +448,7 @@ export const router = createBrowserRouter([
         path: "settings/components/:tab?",
         element: (
           <PermissionRoute permissionKey="data configuration">
-            <Components />
+            <S><Components /></S>
           </PermissionRoute>
         ),
       },
@@ -441,7 +457,7 @@ export const router = createBrowserRouter([
         path: "settings/data-setup/:entity",
         element: (
           <PermissionRoute permissionKey="data configuration">
-            <DataSetup />
+            <S><DataSetup /></S>
           </PermissionRoute>
         ),
       },
@@ -450,12 +466,14 @@ export const router = createBrowserRouter([
         path: `settings/data-setup/${group.key}/:tab?`,
         element: (
           <PermissionRoute permissionKey="data configuration">
-            <DataSetupTabs
-              title={group.title}
-              description={group.description}
-              tabs={group.tabs}
-              defaultTab={group.tabs[0]?.key || ""}
-            />
+            <S>
+              <DataSetupTabs
+                title={group.title}
+                description={group.description}
+                tabs={group.tabs}
+                defaultTab={group.tabs[0]?.key || ""}
+              />
+            </S>
           </PermissionRoute>
         ),
       })),
@@ -464,12 +482,14 @@ export const router = createBrowserRouter([
         path: `settings/master-data-setup/${group.key}/:tab?`,
         element: (
           <PermissionRoute permissionKey="master data setup">
-            <MasterDataSetupTabs
-              title={group.title}
-              description={group.description}
-              tabs={group.tabs}
-              defaultTab={group.tabs[0]?.key || ""}
-            />
+            <S>
+              <MasterDataSetupTabs
+                title={group.title}
+                description={group.description}
+                tabs={group.tabs}
+                defaultTab={group.tabs[0]?.key || ""}
+              />
+            </S>
           </PermissionRoute>
         ),
       })),
@@ -478,12 +498,14 @@ export const router = createBrowserRouter([
         path: `settings/ecoinvent-setup/${group.key}/:tab?`,
         element: (
           <PermissionRoute permissionKey="eco invent emission factors">
-            <EcoInventSetupTabs
-              title={group.title}
-              description={group.description}
-              tabs={group.tabs}
-              defaultTab={group.tabs[0]?.key || ""}
-            />
+            <S>
+              <EcoInventSetupTabs
+                title={group.title}
+                description={group.description}
+                tabs={group.tabs}
+                defaultTab={group.tabs[0]?.key || ""}
+              />
+            </S>
           </PermissionRoute>
         ),
       })),
@@ -491,7 +513,7 @@ export const router = createBrowserRouter([
         path: "data-quality-rating",
         element: (
           <PermissionRoute permissionKey="data quality rating">
-            <DataQualityRatingList />
+            <S><DataQualityRatingList /></S>
           </PermissionRoute>
         ),
       },
@@ -499,7 +521,7 @@ export const router = createBrowserRouter([
         path: "data-quality-rating/view",
         element: (
           <PermissionRoute permissionKey="data quality rating">
-            <DataQualityRating />
+            <S><DataQualityRating /></S>
           </PermissionRoute>
         ),
       },

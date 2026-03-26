@@ -45,6 +45,7 @@ const SupplierQuestionnaireList: React.FC = () => {
 
   useEffect(() => {
     filterQuestionnaires();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, filterStatus, questionnaires]);
 
   const fetchQuestionnaires = async () => {

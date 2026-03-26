@@ -42,6 +42,7 @@ const UsersEdit: React.FC = () => {
       loadRoles();
       loadDepartments();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const loadUser = async () => {

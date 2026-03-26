@@ -224,7 +224,7 @@ const DetailedPCFTrend: React.FC = () => {
         });
         return Object.entries(productTotals)
             .sort(([, a], [, b]) => b - a)
-            .slice(0, 5)
+            .slice(0, 4)
             .map(([name]) => name);
     }, [reductionData]);
 
@@ -233,8 +233,8 @@ const DetailedPCFTrend: React.FC = () => {
         let data = reductionData;
         if (selectedProduct !== "all") {
             data = data.filter(d => d.product === selectedProduct);
-        } else if (availableProducts.length > 5) {
-            // Default: show top 5 products only
+        } else if (availableProducts.length > 4) {
+            // Default: show top 4 products only
             data = data.filter(d => top5Products.includes(d.product));
         }
         if (selectedYearRange !== "all") {
@@ -250,9 +250,9 @@ const DetailedPCFTrend: React.FC = () => {
         if (selectedProduct !== "all") {
             return actualEmissionData.filter(d => d.name === selectedProduct);
         }
-        if (actualEmissionData.length > 6) {
-            // Default: show top 6 by emission
-            return [...actualEmissionData].sort((a, b) => b.actual - a.actual).slice(0, 6);
+        if (actualEmissionData.length > 4) {
+            // Default: show top 4 by emission
+            return [...actualEmissionData].sort((a, b) => b.actual - a.actual).slice(0, 4);
         }
         return actualEmissionData;
     }, [actualEmissionData, selectedProduct]);
@@ -276,6 +276,57 @@ const DetailedPCFTrend: React.FC = () => {
         return v.toString();
     };
 
+    const cleanName = (name: string): string => {
+        const dashIdx = name.indexOf(" - ");
+        if (dashIdx > 0) {
+            const afterDash = name.substring(dashIdx + 3);
+            if (/[0-9<>=]/.test(afterDash)) return name;
+            return name.substring(0, dashIdx).trim();
+        }
+        return name;
+    };
+
+    const WrappedTick = ({ x, y, payload }: any) => {
+        const name: string = payload.value || "";
+        const maxLen = 14;
+        if (name.length <= maxLen) {
+            return (<text x={x} y={y + 10} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>{name}</text>);
+        }
+        const words = name.split(" ");
+        const lines: string[] = [];
+        let current = "";
+        for (const word of words) {
+            if (current && (current + " " + word).length > maxLen) {
+                lines.push(current);
+                current = word;
+            } else {
+                current = current ? current + " " + word : word;
+            }
+        }
+        if (current) lines.push(current);
+        return (
+            <text x={x} y={y + 8} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>
+                {lines.map((line, i) => (
+                    <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{line}</tspan>
+                ))}
+            </text>
+        );
+    };
+
+    const reductionChartData = useMemo(() =>
+        filteredReductionData.map(item => ({
+            ...item,
+            displayName: item.product || item.name.replace(/\s*\(\d{4}\)\s*$/, ''),
+        })),
+    [filteredReductionData]);
+
+    const actualChartData = useMemo(() =>
+        filteredActualData.map(item => ({
+            ...item,
+            displayName: cleanName(item.name),
+        })),
+    [filteredActualData]);
+
     const renderReductionGraph = (isModal = false) => {
         if (!selectedClient) {
             return (
@@ -297,22 +348,20 @@ const DetailedPCFTrend: React.FC = () => {
         }
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                <ComposedChart data={reductionChartData} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis
-                        dataKey="name"
+                        dataKey="displayName"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 9, fill: '#4B5563', fontWeight: 500 }}
-                        interval={data.length > 20 ? Math.floor(data.length / 15) : 0}
-                        angle={-35}
-                        textAnchor="end"
+                        tick={<WrappedTick />}
+                        interval={reductionChartData.length > 20 ? Math.floor(reductionChartData.length / 15) : 0}
                         height={70}
-                        tickFormatter={(value: string) => value.length > 18 ? value.slice(0, 16) + '..' : value}
                     />
                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
                     <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => `${v.toFixed(1)}%`} />
                     <Tooltip
+                        labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _}
                         formatter={(value: any, name: any) => {
                             if (name === "% Reduction") return [`${Number(value).toFixed(2)}%`, name];
                             return [Number(value).toLocaleString(), name];
@@ -353,21 +402,18 @@ const DetailedPCFTrend: React.FC = () => {
         }
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 60 }}>
+                <BarChart data={actualChartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis
-                        dataKey="name"
+                        dataKey="displayName"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 9, fill: '#4B5563', fontWeight: 500 }}
-                        interval={data.length > 15 ? Math.floor(data.length / 12) : 0}
-                        angle={-35}
-                        textAnchor="end"
+                        tick={<WrappedTick />}
+                        interval={actualChartData.length > 15 ? Math.floor(actualChartData.length / 12) : 0}
                         height={70}
-                        tickFormatter={(value: string) => value.length > 18 ? value.slice(0, 16) + '..' : value}
                     />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-                    <Tooltip formatter={(value: any) => [Number(value).toLocaleString() + ' kg CO₂e', 'Actual Emission']} />
+                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} formatter={(value: any) => [Number(value).toLocaleString() + ' kg CO₂e', 'Actual Emission']} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
                     <Bar dataKey="actual" fill="#52C41A" radius={[4, 4, 0, 0]} name="Actual Emission (kg CO₂e)" maxBarSize={50} />
                 </BarChart>
@@ -552,7 +598,7 @@ const DetailedPCFTrend: React.FC = () => {
                             label="Filter by Product"
                             value={selectedProduct}
                             options={[
-                                { label: availableProducts.length > 5 ? `Top 5 Products` : "All Products", value: "all" },
+                                { label: availableProducts.length > 4 ? `Top 4 Products` : "All Products", value: "all" },
                                 ...availableProducts.map(p => ({ label: p, value: p }))
                             ]}
                             isOpen={isProductDropdownOpen}

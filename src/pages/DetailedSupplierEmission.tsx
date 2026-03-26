@@ -182,6 +182,43 @@ const DetailedSupplierEmission: React.FC = () => {
         }
     }, [selectedClient, selectedComponent]);
 
+    const cleanName = (name: string): string => {
+        const dashIdx = name.indexOf(" - ");
+        if (dashIdx > 0) {
+            const afterDash = name.substring(dashIdx + 3);
+            if (/[0-9<>=]/.test(afterDash)) return name;
+            return name.substring(0, dashIdx).trim();
+        }
+        return name;
+    };
+
+    const WrappedTick = ({ x, y, payload }: any) => {
+        const name: string = payload.value || "";
+        const maxLen = 14;
+        if (name.length <= maxLen) {
+            return (<text x={x} y={y + 10} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>{name}</text>);
+        }
+        const words = name.split(" ");
+        const lines: string[] = [];
+        let current = "";
+        for (const word of words) {
+            if (current && (current + " " + word).length > maxLen) {
+                lines.push(current);
+                current = word;
+            } else {
+                current = current ? current + " " + word : word;
+            }
+        }
+        if (current) lines.push(current);
+        return (
+            <text x={x} y={y + 8} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>
+                {lines.map((line, i) => (
+                    <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{line}</tspan>
+                ))}
+            </text>
+        );
+    };
+
     const renderEmissionByMaterial = (isModal = false) => {
         if (isEmissionLoading) {
             return (
@@ -205,21 +242,20 @@ const DetailedSupplierEmission: React.FC = () => {
         const minVal = Math.min(...values);
         const hasExtremeOutlier = maxVal > 0 && minVal > 0 && (maxVal / minVal) > 50;
 
-        // Truncate long names for X-axis
         const chartData = supplierEmissionData.map(d => ({
             ...d,
-            shortName: d.name.length > 14 ? d.name.substring(0, 12) + '..' : d.name
+            displayName: cleanName(d.name)
         }));
 
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 30, right: 20, left: 20, bottom: 20 }}>
+                <BarChart data={chartData} margin={{ top: 30, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis
-                        dataKey="shortName"
+                        dataKey="displayName"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }}
+                        tick={<WrappedTick />}
                         interval={0}
                     />
                     <YAxis
@@ -231,7 +267,7 @@ const DetailedSupplierEmission: React.FC = () => {
                         domain={hasExtremeOutlier ? [1, 'dataMax * 1.3'] : [0, 'dataMax * 1.2']}
                         allowDataOverflow
                     />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
                     <Bar dataKey="emission" fill={BAR_COLOR} radius={[4, 4, 0, 0]} barSize={isModal ? 80 : 50} name="Emission (kg CO₂e/kg)" label={{ position: 'top', fontSize: 9, fill: '#6B7280', formatter: (v: any) => { const n = Number(v); return n >= 1000 ? `${(n/1000).toFixed(1)}k` : n.toFixed(1); } }} />
                 </BarChart>
@@ -256,25 +292,24 @@ const DetailedSupplierEmission: React.FC = () => {
             );
         }
 
-        // Truncate long supplier names
         const compChartData = materialComparisonData.map(d => ({
             ...d,
-            shortName: d.name.length > 16 ? d.name.substring(0, 14) + '..' : d.name
+            displayName: cleanName(d.name)
         }));
 
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={compChartData} margin={{ top: 30, right: 20, left: 20, bottom: 20 }}>
+                <BarChart data={compChartData} margin={{ top: 30, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis
-                        dataKey="shortName"
+                        dataKey="displayName"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }}
+                        tick={<WrappedTick />}
                         interval={0}
                     />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(2)} domain={[0, 'dataMax * 1.2']} />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
                     <Bar dataKey="value" fill={BAR_COLOR} radius={[4, 4, 0, 0]} barSize={isModal ? 80 : 50} name="Emission Comparison (kg CO₂e/kg)" label={{ position: 'top', fontSize: 9, fill: '#6B7280', formatter: (v: any) => Number(v).toFixed(2) }} />
                 </BarChart>

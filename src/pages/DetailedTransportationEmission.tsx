@@ -230,15 +230,40 @@ const DetailedTransportationEmission: React.FC = () => {
         return value.toString();
     };
 
-    // Custom angled tick for x-axis
-    const AngledTick = ({ x, y, payload }: any) => {
-        const label = payload.value.length > 15 ? payload.value.slice(0, 13) + '..' : payload.value;
+    const cleanName = (name: string): string => {
+        const dashIdx = name.indexOf(" - ");
+        if (dashIdx > 0) {
+            const afterDash = name.substring(dashIdx + 3);
+            if (/[0-9<>=]/.test(afterDash)) return name;
+            return name.substring(0, dashIdx).trim();
+        }
+        return name;
+    };
+
+    const WrappedTick = ({ x, y, payload }: any) => {
+        const name: string = payload.value || "";
+        const maxLen = 14;
+        if (name.length <= maxLen) {
+            return (<text x={x} y={y + 10} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>{name}</text>);
+        }
+        const words = name.split(" ");
+        const lines: string[] = [];
+        let current = "";
+        for (const word of words) {
+            if (current && (current + " " + word).length > maxLen) {
+                lines.push(current);
+                current = word;
+            } else {
+                current = current ? current + " " + word : word;
+            }
+        }
+        if (current) lines.push(current);
         return (
-            <g transform={`translate(${x},${y})`}>
-                <text x={0} y={0} dy={12} textAnchor="end" fill="#4B5563" fontSize={10} fontWeight={500} transform="rotate(-35)">
-                    {label}
-                </text>
-            </g>
+            <text x={x} y={y + 8} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>
+                {lines.map((line, i) => (
+                    <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{line}</tspan>
+                ))}
+            </text>
         );
     };
 
@@ -266,18 +291,20 @@ const DetailedTransportationEmission: React.FC = () => {
 
         const normalizedData = modeData.map(d => ({
             ...d,
+            displayName: cleanName(d.name),
             distanceNorm: (d.distance / maxDistance) * 100,
             emissionNorm: (d.emission / maxEmission) * 100,
             shareNorm: (d.share / maxShare) * 100,
         }));
 
-        const CustomModeTooltip = ({ active, payload, label }: any) => {
+        const CustomModeTooltip = ({ active, payload }: any) => {
             if (!active || !payload || payload.length === 0) return null;
-            const original = modeData.find(d => d.name === label);
+            const fullName = payload[0]?.payload?.name;
+            const original = modeData.find(d => d.name === fullName);
             if (!original) return null;
             return (
                 <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
-                    <p className="font-bold text-gray-800 mb-2">{label}</p>
+                    <p className="font-bold text-gray-800 mb-2">{fullName}</p>
                     <p className="text-green-600"><span className="inline-block w-3 h-3 bg-[#52C41A] rounded-sm mr-1.5"></span>Distance: <span className="font-bold">{original.distance.toLocaleString()} km</span></p>
                     <p className="text-green-700"><span className="inline-block w-3 h-3 bg-[#B3E699] rounded-sm mr-1.5"></span>CO₂e: <span className="font-bold">{original.emission.toLocaleString()} kg</span></p>
                     <p className="text-green-900"><span className="inline-block w-3 h-3 bg-[#1A5D1A] rounded-sm mr-1.5"></span>Share: <span className="font-bold">{original.share}%</span></p>
@@ -289,7 +316,7 @@ const DetailedTransportationEmission: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={normalizedData} margin={{ top: 20, right: 20, left: 20, bottom: 45 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<AngledTick />} interval={0} />
+                    <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis hide={true} domain={[0, 110]} />
                     <Tooltip content={<CustomModeTooltip />} cursor={{ fill: '#F9FAFB' }} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '10px' }} />
@@ -325,19 +352,21 @@ const DetailedTransportationEmission: React.FC = () => {
 
         const normalizedData = displayedCorrelation.map((d, index) => ({
             ...d,
+            displayName: cleanName(d.name),
             distNorm: (d.avgDistance / maxDist) * 100,
             factorNorm: (d.avgEmissionFactor / maxFactor) * 100,
             totalNorm: (d.totalEmission / maxTotal) * 100,
             color: COLOR_PALETTE[index % COLOR_PALETTE.length]
         }));
 
-        const CustomCorrelationTooltip = ({ active, payload, label }: any) => {
+        const CustomCorrelationTooltip = ({ active, payload }: any) => {
             if (!active || !payload || payload.length === 0) return null;
-            const original = displayedCorrelation.find(d => d.name === label);
+            const fullName = payload[0]?.payload?.name;
+            const original = displayedCorrelation.find(d => d.name === fullName);
             if (!original) return null;
             return (
                 <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
-                    <p className="font-bold text-gray-800 mb-2">{label}</p>
+                    <p className="font-bold text-gray-800 mb-2">{fullName}</p>
                     <p className="text-gray-500 mb-2">{original.count} shipment{original.count > 1 ? 's' : ''}</p>
                     <p className="text-green-600"><span className="inline-block w-3 h-3 bg-[#52C41A] rounded-sm mr-1.5"></span>Avg Distance: <span className="font-bold">{original.avgDistance.toLocaleString()} km</span></p>
                     <p className="text-green-700"><span className="inline-block w-3 h-3 bg-[#B3E699] rounded-sm mr-1.5"></span>Avg Emission Factor: <span className="font-bold">{original.avgEmissionFactor} kg CO₂e/t·km</span></p>
@@ -350,7 +379,7 @@ const DetailedTransportationEmission: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={normalizedData} margin={{ top: 20, right: 20, left: 20, bottom: 45 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<AngledTick />} interval={0} />
+                    <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis hide={true} domain={[0, 110]} />
                     <Tooltip content={<CustomCorrelationTooltip />} cursor={{ fill: '#F9FAFB' }} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '10px' }} />

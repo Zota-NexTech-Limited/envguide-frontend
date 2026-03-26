@@ -165,6 +165,53 @@ const DetailedEnergyEmission: React.FC = () => {
         fetchData();
     }, [selectedClient, selectedSupplier]);
 
+    const cleanName = (name: string): string => {
+        const dashIdx = name.indexOf(" - ");
+        if (dashIdx > 0) {
+            const afterDash = name.substring(dashIdx + 3);
+            if (/[0-9<>=]/.test(afterDash)) return name;
+            return name.substring(0, dashIdx).trim();
+        }
+        return name;
+    };
+
+    const WrappedTick = ({ x, y, payload }: any) => {
+        const name: string = payload.value || "";
+        const maxLen = 14;
+        if (name.length <= maxLen) {
+            return (<text x={x} y={y + 10} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>{name}</text>);
+        }
+        const words = name.split(" ");
+        const lines: string[] = [];
+        let current = "";
+        for (const word of words) {
+            if (current && (current + " " + word).length > maxLen) {
+                lines.push(current);
+                current = word;
+            } else {
+                current = current ? current + " " + word : word;
+            }
+        }
+        if (current) lines.push(current);
+        return (
+            <text x={x} y={y + 8} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>
+                {lines.map((line, i) => (
+                    <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{line}</tspan>
+                ))}
+            </text>
+        );
+    };
+
+    const energySourceChartData = energySourceData.map(item => ({
+        ...item,
+        displayName: cleanName(item.name),
+    }));
+
+    const processEnergyChartData = processEnergyData.map(item => ({
+        ...item,
+        displayName: cleanName(item.name),
+    }));
+
     const renderEnergySource = (isModal = false) => {
         if (!selectedClient) {
             return (
@@ -176,12 +223,12 @@ const DetailedEnergyEmission: React.FC = () => {
 
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={energySourceData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+                <BarChart data={energySourceChartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} interval={0} tickFormatter={(value: string) => value.length > 14 ? value.slice(0, 12) + '..' : value} />
+                    <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => `${v}%`} />
                     <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                    <Tooltip />
+                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
                     <Bar yAxisId="left" dataKey="share" fill="#52C41A" radius={[4, 4, 0, 0]} name="Energy Share (%)" />
                     <Bar yAxisId="right" dataKey="emission" fill="#B3E699" radius={[4, 4, 0, 0]} name="Total Emission (kg CO₂e)" />
@@ -201,18 +248,17 @@ const DetailedEnergyEmission: React.FC = () => {
 
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={processEnergyData} margin={{ top: 20, right: 20, left: 20, bottom: 25 }}>
+                <BarChart data={processEnergyChartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis
-                        dataKey="name"
+                        dataKey="displayName"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }}
+                        tick={<WrappedTick />}
                         interval={0}
-                        tickFormatter={(value: string) => value.length > 14 ? value.slice(0, 12) + '..' : value}
                     />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value} />
-                    <Tooltip />
+                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
                     <Bar dataKey="consumption" fill="#1A5D1A" radius={[4, 4, 0, 0]} name="Energy Consumption (kWh)" />
                     {/* Keeping emission bar but it will be 0/empty based on current data understanding */}

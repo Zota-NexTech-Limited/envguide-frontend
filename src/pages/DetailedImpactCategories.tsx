@@ -137,6 +137,77 @@ const DetailedImpactCategories: React.FC = () => {
         return v.toString();
     };
 
+    const cleanName = (name: string): string => {
+        const dashIdx = name.indexOf(" - ");
+        if (dashIdx > 0) {
+            const afterDash = name.substring(dashIdx + 3);
+            if (/[0-9<>=]/.test(afterDash)) return name;
+            return name.substring(0, dashIdx).trim();
+        }
+        return name;
+    };
+
+    const WrappedTick = ({ x, y, payload }: any) => {
+        const name: string = payload.value || "";
+        const maxLen = 14;
+        if (name.length <= maxLen) {
+            return (<text x={x} y={y + 10} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>{name}</text>);
+        }
+        const words = name.split(" ");
+        const lines: string[] = [];
+        let current = "";
+        for (const word of words) {
+            if (current && (current + " " + word).length > maxLen) {
+                lines.push(current);
+                current = word;
+            } else {
+                current = current ? current + " " + word : word;
+            }
+        }
+        if (current) lines.push(current);
+        return (
+            <text x={x} y={y + 8} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>
+                {lines.map((line, i) => (
+                    <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{line}</tspan>
+                ))}
+            </text>
+        );
+    };
+
+    const WrappedTickY = ({ x, y, payload }: any) => {
+        const name: string = payload.value || "";
+        const maxLen = 22;
+        if (name.length <= maxLen) {
+            return (<text x={x} y={y} textAnchor="end" fontSize={10} fill="#4B5563" fontWeight={500} dominantBaseline="central">{name}</text>);
+        }
+        const words = name.split(" ");
+        const lines: string[] = [];
+        let current = "";
+        for (const word of words) {
+            if (current && (current + " " + word).length > maxLen) {
+                lines.push(current);
+                current = word;
+            } else {
+                current = current ? current + " " + word : word;
+            }
+        }
+        if (current) lines.push(current);
+        return (
+            <text x={x} y={y - ((lines.length - 1) * 6)} textAnchor="end" fontSize={10} fill="#4B5563" fontWeight={500}>
+                {lines.map((line, i) => (
+                    <tspan key={i} x={x} dy={i === 0 ? 0 : 12}>{line}</tspan>
+                ))}
+            </text>
+        );
+    };
+
+    const comparisonChartData = useMemo(() =>
+        pagedComparisonData.map(item => ({
+            ...item,
+            displayName: cleanName(item.name),
+        })),
+    [pagedComparisonData]);
+
     const renderImpactIndicators = (isModal = false) => {
         if (loading) {
             return (
@@ -155,9 +226,8 @@ const DetailedImpactCategories: React.FC = () => {
                         dataKey="name"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }}
+                        tick={<WrappedTickY />}
                         width={180}
-                        tickFormatter={(value: string) => value.length > 22 ? value.slice(0, 20) + '..' : value}
                     />
                     <Tooltip
                         formatter={(value: any) => {
@@ -187,18 +257,17 @@ const DetailedImpactCategories: React.FC = () => {
             <div className="h-full flex flex-col">
                 <div className="flex-1">
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={pagedComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                        <BarChart data={comparisonChartData} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                             <XAxis
-                                dataKey="name"
+                                dataKey="displayName"
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }}
+                                tick={<WrappedTick />}
                                 interval={0}
-                                tickFormatter={(value: string) => value.length > 14 ? value.slice(0, 12) + '..' : value}
                             />
                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-                            <Tooltip />
+                            <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                             <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
                             <Bar dataKey="gwp" fill="#1A5D1A" radius={[4, 4, 0, 0]} name="GWP" barSize={18} />
                             <Bar dataKey="ap" fill="#52C41A" radius={[4, 4, 0, 0]} name="Acidification" barSize={18} />

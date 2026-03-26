@@ -70,6 +70,53 @@ const DetailedPackagingEmission: React.FC = () => {
         }
     }, [location.state]);
 
+    const cleanName = (name: string): string => {
+        const dashIdx = name.indexOf(" - ");
+        if (dashIdx > 0) {
+            const afterDash = name.substring(dashIdx + 3);
+            if (/[0-9<>=]/.test(afterDash)) return name;
+            return name.substring(0, dashIdx).trim();
+        }
+        return name;
+    };
+
+    const WrappedTick = ({ x, y, payload }: any) => {
+        const name: string = payload.value || "";
+        const maxLen = 14;
+        if (name.length <= maxLen) {
+            return (<text x={x} y={y + 10} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>{name}</text>);
+        }
+        const words = name.split(" ");
+        const lines: string[] = [];
+        let current = "";
+        for (const word of words) {
+            if (current && (current + " " + word).length > maxLen) {
+                lines.push(current);
+                current = word;
+            } else {
+                current = current ? current + " " + word : word;
+            }
+        }
+        if (current) lines.push(current);
+        return (
+            <text x={x} y={y + 8} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>
+                {lines.map((line, i) => (
+                    <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{line}</tspan>
+                ))}
+            </text>
+        );
+    };
+
+    const recyclabilityChartData = packagingRecyclabilityData.map(item => ({
+        ...item,
+        displayName: cleanName(item.name),
+    }));
+
+    const emissionChartData = packagingEmissionData.map(item => ({
+        ...item,
+        displayName: cleanName(item.name),
+    }));
+
     const renderRecyclability = (isModal = false) => {
         if (!selectedClient) {
             return (
@@ -80,11 +127,11 @@ const DetailedPackagingEmission: React.FC = () => {
         }
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={packagingRecyclabilityData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+                <BarChart data={recyclabilityChartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} interval={0} tickFormatter={(value: string) => value.length > 14 ? value.slice(0, 12) + '..' : value} />
+                    <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} />
-                    <Tooltip />
+                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
                     <Bar dataKey="share" fill="#52C41A" radius={[4, 4, 0, 0]} name="Share (%)" />
                     <Bar dataKey="recyclability" fill="#D9F5C5" radius={[4, 4, 0, 0]} name="Recyclability (%)" />
@@ -103,11 +150,11 @@ const DetailedPackagingEmission: React.FC = () => {
         }
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={packagingEmissionData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+                <BarChart data={emissionChartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} interval={0} tickFormatter={(value: string) => value.length > 14 ? value.slice(0, 12) + '..' : value} />
+                    <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} />
-                    <Tooltip />
+                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
                     <Bar dataKey="mass" fill="#D9F5C5" radius={[4, 4, 0, 0]} name="Mass (kg/unit)" />
                     <Bar dataKey="factor" fill="#B3E699" radius={[4, 4, 0, 0]} name="Emission Factor (kg CO₂e/kg)" />

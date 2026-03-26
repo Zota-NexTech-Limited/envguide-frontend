@@ -225,11 +225,11 @@ const ProductCreate: React.FC = () => {
                   </Col>
                   <Col xs={24} md={12}>
                     <Form.Item
-                      label="Client/Manufacturer"
+                      label="Client"
                       name="client_or_manufacturer_ids"
                     >
                       <Select
-                        placeholder="Select client or manufacturer"
+                        placeholder="Select client"
                         size="large"
                         mode="multiple"
                         allowClear

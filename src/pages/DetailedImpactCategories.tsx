@@ -160,9 +160,8 @@ const DetailedImpactCategories: React.FC = () => {
                         tickFormatter={(value: string) => value.length > 22 ? value.slice(0, 20) + '..' : value}
                     />
                     <Tooltip
-                        formatter={(value: any, _name: string, props: any) => {
-                            const item = impactData.find(d => d.name === props.payload.name);
-                            return [`${Number(value).toLocaleString()} ${item?.unit || ''}`, 'Value'];
+                        formatter={(value: any) => {
+                            return [`${Number(value).toLocaleString()}`, 'Value'];
                         }}
                     />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />

@@ -302,13 +302,7 @@ const DetailedRecyclability: React.FC = () => {
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<AngledTick />} interval={0} />
                     <YAxis hide={true} domain={[0, 110]} />
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} />
-                    <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '10px' }}
-                        payload={[
-                            { value: 'CO₂ Emission (kg CO₂e)', type: 'square', color: '#52C41A' },
-                            { value: 'Emission Factor', type: 'square', color: '#B3E699' },
-                            { value: 'Material %', type: 'square', color: '#1A5D1A' },
-                        ]}
-                    />
+                    <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar dataKey="emissionNorm" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 16} name="CO₂ Emission" />
                     <Bar dataKey="factorNorm" fill="#B3E699" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 16} name="Emission Factor" />
                     <Bar dataKey="percentNorm" fill="#1A5D1A" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 16} name="Material %" />

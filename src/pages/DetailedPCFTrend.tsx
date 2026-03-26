@@ -313,7 +313,7 @@ const DetailedPCFTrend: React.FC = () => {
                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
                     <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => `${v.toFixed(1)}%`} />
                     <Tooltip
-                        formatter={(value: any, name: string) => {
+                        formatter={(value: any, name: any) => {
                             if (name === "% Reduction") return [`${Number(value).toFixed(2)}%`, name];
                             return [Number(value).toLocaleString(), name];
                         }}

@@ -313,6 +313,20 @@ class DashboardService {
         }
     }
 
+    async getImpactCategories(clientId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/impact-categories?client_id=${clientId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            console.error("Error fetching impact categories:", error);
+            return { success: false, message: "Network error", data: { indicators: [], productComparison: [] } };
+        }
+    }
+
     async getForecastedEmission(clientId: string) {
         try {
             const response = await fetch(`${API_BASE_URL}/api/dashboard/forecasted-emission?client_id=${clientId}`, {

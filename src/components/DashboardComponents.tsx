@@ -101,7 +101,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
                     )}
                 </div>
             </div>
-            <div className="h-[240px] w-full">
+            <div className="h-[300px] w-full">
                 {children}
             </div>
         </div>
@@ -128,8 +128,8 @@ export const ChartModal: React.FC<{
                         <X className="w-6 h-6 text-red-500 group-hover:scale-110 transition-transform" />
                     </button>
                 </div>
-                <div className="p-8 h-[600px] overflow-x-auto chart-scrollbar">
-                    <div className="h-full min-w-[800px]">
+                <div className="p-6 sm:p-8 h-[500px] sm:h-[600px] overflow-x-auto chart-scrollbar">
+                    <div className="h-full min-w-[600px]">
                         {children}
                     </div>
                 </div>
@@ -188,3 +188,8 @@ export const DashboardHeader: React.FC = () => {
         </div>
     );
 };
+
+
+
+
+//changes

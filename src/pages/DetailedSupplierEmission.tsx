@@ -14,7 +14,6 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    Cell,
     Legend
 } from "recharts";
 import {
@@ -42,16 +41,31 @@ interface Component {
 interface EmissionDataItem {
     name: string;
     emission: number;
-    color?: string;
 }
 
 interface ComparisonDataItem {
     name: string;
     value: number;
-    color?: string;
 }
 
-const COLOR_PALETTE = ["#D9F5C5", "#B3E699", "#8CD76D", "#66C841", "#40B915", "#1A5D1A", "#347C17"];
+const BAR_COLOR = "#52C41A";
+
+const formatTooltipValue = (value: number) => {
+    if (value >= 1000) return `${value.toFixed(2)} kg CO₂e/kg`;
+    return `${value.toFixed(4)} kg CO₂e/kg`;
+};
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg">
+                <p className="text-sm font-bold text-gray-900">{label}</p>
+                <p className="text-sm text-green-600">{formatTooltipValue(payload[0].value)}</p>
+            </div>
+        );
+    }
+    return null;
+};
 
 const DetailedSupplierEmission: React.FC = () => {
     const navigate = useNavigate();
@@ -88,8 +102,9 @@ const DetailedSupplierEmission: React.FC = () => {
     useEffect(() => {
         const fetchClients = async () => {
             const result = await dashboardService.getClientsDropdown();
-            if (result.success && result.data) {
-                setClients(result.data);
+            if (result.status === true || result.success === true || result.data) {
+                const clientList = Array.isArray(result.data) ? result.data : (result.data?.data && Array.isArray(result.data.data) ? result.data.data : []);
+                setClients(clientList);
             }
         };
         fetchClients();
@@ -100,13 +115,15 @@ const DetailedSupplierEmission: React.FC = () => {
         if (selectedClient) {
             const fetchExtras = async () => {
                 const supplierResult = await dashboardService.getSupplierDropdown(selectedClient.user_id);
-                if (supplierResult.success && supplierResult.data) {
-                    setSuppliers(supplierResult.data);
+                const supplierData = supplierResult.data?.data || supplierResult.data;
+                if (Array.isArray(supplierData)) {
+                    setSuppliers(supplierData);
                 }
 
                 const componentResult = await dashboardService.getComponentDropdown(selectedClient.user_id);
-                if (componentResult.success && componentResult.data) {
-                    setComponents(componentResult.data);
+                const componentData = componentResult.data?.data || componentResult.data;
+                if (Array.isArray(componentData)) {
+                    setComponents(componentData);
                 }
             };
             fetchExtras();
@@ -127,11 +144,11 @@ const DetailedSupplierEmission: React.FC = () => {
             const fetchEmissionData = async () => {
                 setIsEmissionLoading(true);
                 const result = await dashboardService.getSupplierEmission(selectedClient.user_id, selectedSupplier.sup_id);
-                if (result.success && result.data) {
-                    const formattedData = result.data.map((item: any, index: number) => ({
+                const emissionData = result.data?.data || result.data;
+                if (Array.isArray(emissionData)) {
+                    const formattedData = emissionData.map((item: any) => ({
                         name: item.component_name || item.name || "Unknown",
                         emission: parseFloat(item.overall_total_pcf) || parseFloat(item.emission) || 0,
-                        color: COLOR_PALETTE[index % COLOR_PALETTE.length]
                     }));
                     setSupplierEmissionData(formattedData);
                 }
@@ -149,11 +166,11 @@ const DetailedSupplierEmission: React.FC = () => {
             const fetchComparisonData = async () => {
                 setIsComparisonLoading(true);
                 const result = await dashboardService.getSupplierMaterialComparison(selectedClient.user_id, selectedComponent.component_name);
-                if (result.success && result.data) {
-                    const formattedData = result.data.map((item: any, index: number) => ({
+                const compData = result.data?.data || result.data;
+                if (Array.isArray(compData)) {
+                    const formattedData = compData.map((item: any) => ({
                         name: item.supplier_name || item.name || "Unknown",
-                        value: parseFloat(item.total_material_emission) || parseFloat(item.overall_total_pcf) || parseFloat(item.emission) || 0,
-                        color: COLOR_PALETTE[index % COLOR_PALETTE.length]
+                        value: parseFloat(item.total_material_emission) || parseFloat(item.overall_total_pcf) || parseFloat(item.emission) || 0
                     }));
                     setMaterialComparisonData(formattedData);
                 }
@@ -182,27 +199,41 @@ const DetailedSupplierEmission: React.FC = () => {
             );
         }
 
+        // Check if data has extreme outliers — use log-friendly display
+        const values = supplierEmissionData.map(d => d.emission).filter(v => v > 0);
+        const maxVal = Math.max(...values);
+        const minVal = Math.min(...values);
+        const hasExtremeOutlier = maxVal > 0 && minVal > 0 && (maxVal / minVal) > 50;
+
+        // Truncate long names for X-axis
+        const chartData = supplierEmissionData.map(d => ({
+            ...d,
+            shortName: d.name.length > 14 ? d.name.substring(0, 12) + '..' : d.name
+        }));
+
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={supplierEmissionData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+                <BarChart data={chartData} margin={{ top: 30, right: 20, left: 20, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis
-                        dataKey="name"
+                        dataKey="shortName"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 9, fill: '#9CA3AF' }}
+                        tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }}
                         interval={0}
-                        angle={-20}
-                        textAnchor="end"
                     />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} />
-                    <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
-                    <Bar dataKey="emission" radius={[4, 4, 0, 0]} barSize={isModal ? 100 : 60} name="Emission (kg CO₂e/kg)">
-                        {supplierEmissionData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                    </Bar>
+                    <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }}
+                        tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(1)}
+                        scale={hasExtremeOutlier ? "log" : "auto"}
+                        domain={hasExtremeOutlier ? [1, 'dataMax * 1.3'] : [0, 'dataMax * 1.2']}
+                        allowDataOverflow
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} />
+                    <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
+                    <Bar dataKey="emission" fill={BAR_COLOR} radius={[4, 4, 0, 0]} barSize={isModal ? 80 : 50} name="Emission (kg CO₂e/kg)" label={{ position: 'top', fontSize: 9, fill: '#6B7280', formatter: (v: any) => { const n = Number(v); return n >= 1000 ? `${(n/1000).toFixed(1)}k` : n.toFixed(1); } }} />
                 </BarChart>
             </ResponsiveContainer>
         );
@@ -225,27 +256,27 @@ const DetailedSupplierEmission: React.FC = () => {
             );
         }
 
+        // Truncate long supplier names
+        const compChartData = materialComparisonData.map(d => ({
+            ...d,
+            shortName: d.name.length > 16 ? d.name.substring(0, 14) + '..' : d.name
+        }));
+
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={materialComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+                <BarChart data={compChartData} margin={{ top: 30, right: 20, left: 20, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis
-                        dataKey="name"
+                        dataKey="shortName"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 9, fill: '#9CA3AF' }}
+                        tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }}
                         interval={0}
-                        angle={-20}
-                        textAnchor="end"
                     />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} />
-                    <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={isModal ? 100 : 60} name="Emission Comparison (kg CO₂e/kg)">
-                        {materialComparisonData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                    </Bar>
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(2)} domain={[0, 'dataMax * 1.2']} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} />
+                    <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
+                    <Bar dataKey="value" fill={BAR_COLOR} radius={[4, 4, 0, 0]} barSize={isModal ? 80 : 50} name="Emission Comparison (kg CO₂e/kg)" label={{ position: 'top', fontSize: 9, fill: '#6B7280', formatter: (v: any) => Number(v).toFixed(2) }} />
                 </BarChart>
             </ResponsiveContainer>
         );
@@ -304,7 +335,7 @@ const DetailedSupplierEmission: React.FC = () => {
                 <DetailedHeader
                     title="Comprehensive Supplier Emission Breakdown"
                     subtitle="Detailed analysis of carbon footprint across all supplier partners"
-                    onBack={() => navigate("/dashboard")}
+                    onBack={() => navigate("/dashboard", { state: { selectedClient } })}
                     icon={Truck}
                 />
 

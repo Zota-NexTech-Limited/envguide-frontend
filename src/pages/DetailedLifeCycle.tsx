@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-    Calendar,
     Users,
     ChevronDown,
     RefreshCw
@@ -34,8 +33,6 @@ interface Client {
     user_id: string;
     user_name: string;
 }
-
-const DEFAULT_USER_ID = "01K8GVAT2BMR1FN2T4057JZ50V";
 
 const COLOR_MAP: Record<string, string> = {
     "Raw Material Emission": "#1A5D1A",
@@ -76,11 +73,15 @@ const DetailedLifeCycle: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        if (!selectedClient) {
+            setLifeCycleData([]);
+            return;
+        }
+
         const fetchLifeCycleData = async () => {
             setIsLoading(true);
-            const userId = selectedClient?.user_id || DEFAULT_USER_ID;
+            const userId = selectedClient.user_id;
             const result = await dashboardService.getProductLifeCycle(userId);
-            console.log("Life Cycle API Result for user", userId, ":", result);
 
             if (result.status || result.success || result.data) {
                 const data = result.data?.data || result.data;
@@ -101,18 +102,16 @@ const DetailedLifeCycle: React.FC = () => {
 
     const renderLifeCycleChart = (isModal = false) => (
         <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={lifeCycleData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+            <BarChart data={lifeCycleData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                 <XAxis
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }}
                     interval={0}
-                    angle={-45}
-                    textAnchor="end"
                 />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
                 <Tooltip cursor={{ fill: '#F9FAFB' }} />
                 <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={isModal ? 80 : 40} name="Emission Percentage (%)">
@@ -130,7 +129,7 @@ const DetailedLifeCycle: React.FC = () => {
                 <DetailedHeader
                     title="Detailed Life Cycle Analysis"
                     subtitle="Comprehensive breakdown of emissions across all product life cycle stages"
-                    onBack={() => navigate("/dashboard")}
+                    onBack={() => navigate("/dashboard", { state: { selectedClient } })}
                     icon={RefreshCw}
                 />
 
@@ -179,7 +178,7 @@ const DetailedLifeCycle: React.FC = () => {
                                 {kpi.name.replace(" Emission", "")}
                             </p>
                             <h3 className={`text-3xl font-bold`} style={{ color: kpi.color }}>
-                                {isLoading ? "..." : `${kpi.value.toFixed(0)}%`}
+                                {isLoading ? "..." : kpi.value > 0 && kpi.value < 1 ? `${kpi.value.toFixed(2)}%` : `${Math.round(kpi.value)}%`}
                             </h3>
                         </div>
                     ))}

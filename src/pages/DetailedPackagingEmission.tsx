@@ -80,10 +80,10 @@ const DetailedPackagingEmission: React.FC = () => {
         }
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={packagingRecyclabilityData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                <BarChart data={packagingRecyclabilityData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} interval={0} tickFormatter={(value: string) => value.length > 14 ? value.slice(0, 12) + '..' : value} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} />
                     <Tooltip />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
                     <Bar dataKey="share" fill="#52C41A" radius={[4, 4, 0, 0]} name="Share (%)" />
@@ -103,10 +103,10 @@ const DetailedPackagingEmission: React.FC = () => {
         }
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={packagingEmissionData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                <BarChart data={packagingEmissionData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} interval={0} tickFormatter={(value: string) => value.length > 14 ? value.slice(0, 12) + '..' : value} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} />
                     <Tooltip />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
                     <Bar dataKey="mass" fill="#D9F5C5" radius={[4, 4, 0, 0]} name="Mass (kg/unit)" />
@@ -123,7 +123,7 @@ const DetailedPackagingEmission: React.FC = () => {
                 <DetailedHeader
                     title="Packaging Emission Details"
                     subtitle="In-depth analysis of packaging carbon footprint"
-                    onBack={() => navigate("/dashboard")}
+                    onBack={() => navigate("/dashboard", { state: { selectedClient } })}
                     icon={Package}
                 />
 

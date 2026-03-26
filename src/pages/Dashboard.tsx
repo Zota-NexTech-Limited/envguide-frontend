@@ -403,64 +403,77 @@ const Dashboard: React.FC = () => {
     return value.toString();
   };
 
-  const renderProductLifeCycle = () => (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={lifeCycleData} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} interval={0} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-        <Tooltip cursor={{ fill: '#F9FAFB' }} />
-        <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-        <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)">
-          {lifeCycleData.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={entry.color} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
-  );
+  const renderProductLifeCycle = () => {
+    const top4 = [...lifeCycleData].sort((a, b) => b.value - a.value).slice(0, 4);
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={top4} margin={{ top: 10, right: 20, left: 10, bottom: 35 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
+          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} interval={0} angle={-25} textAnchor="end" />
+          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
+          <Tooltip cursor={{ fill: '#F9FAFB' }} />
+          <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
+          <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)">
+            {top4.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
 
   const renderSupplierEmission = () => {
-    const values = supplierEmissionData.map(d => d.value).filter(v => v > 0);
+    const top4 = [...supplierEmissionData].sort((a, b) => b.value - a.value).slice(0, 4);
+    const values = top4.map(d => d.value).filter(v => v > 0);
     const maxVal = Math.max(...values);
     const minVal = Math.min(...values);
     const useLog = maxVal > 0 && minVal > 0 && (maxVal / minVal) > 50;
 
-    // Truncate long X-axis labels for the small dashboard card
-    const truncatedData = supplierEmissionData.map(d => ({
+    const truncatedData = top4.map(d => ({
       ...d,
-      shortName: d.name.length > 10 ? d.name.substring(0, 9) + '..' : d.name
+      shortName: d.name.length > 12 ? d.name.substring(0, 10) + '..' : d.name
     }));
 
     return (
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={truncatedData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+        <BarChart data={truncatedData} margin={{ top: 10, right: 10, left: 10, bottom: 35 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-          <XAxis dataKey="shortName" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#4B5563', fontWeight: 500 }} interval={0} />
+          <XAxis dataKey="shortName" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#4B5563', fontWeight: 500 }} interval={0} angle={-25} textAnchor="end" />
           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} scale={useLog ? "log" : "auto"} domain={useLog ? [1, 'dataMax * 1.2'] : [0, 'dataMax * 1.2']} allowDataOverflow />
           <Tooltip cursor={{ fill: '#F9FAFB' }} formatter={(value: any) => [`${Number(value).toFixed(2)} kg`, 'Emission']} labelFormatter={(label: any) => {
             const item = truncatedData.find(d => d.shortName === label);
             return item ? item.name : label;
           }} />
           <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '4px' }} />
-          <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={30} name="Emission (kg CO₂e)" />
+          <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)" />
         </BarChart>
       </ResponsiveContainer>
     );
   };
 
-  const renderRawMaterialEmission = () => (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={rawMaterialData} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} interval={0} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-        <Tooltip cursor={{ fill: '#F9FAFB' }} />
-        <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-        <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)" />
-      </BarChart>
-    </ResponsiveContainer>
-  );
+  const renderRawMaterialEmission = () => {
+    const top4 = [...rawMaterialData].sort((a, b) => b.value - a.value).slice(0, 4);
+    const truncated = top4.map(d => ({
+      ...d,
+      shortName: d.name.length > 12 ? d.name.substring(0, 10) + '..' : d.name
+    }));
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={truncated} margin={{ top: 10, right: 20, left: 10, bottom: 35 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
+          <XAxis dataKey="shortName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} interval={0} angle={-25} textAnchor="end" />
+          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
+          <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(label: any) => {
+            const item = truncated.find(d => d.shortName === label);
+            return item ? item.name : label;
+          }} />
+          <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
+          <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)" />
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
 
   const renderPackagingEmission = () => (
     <ResponsiveContainer width="100%" height="100%">
@@ -476,21 +489,25 @@ const Dashboard: React.FC = () => {
   );
 
   const renderTransportationEmission = () => {
-    const truncatedTransport = transportationData.map(d => ({
+    const top4 = [...transportationData].sort((a, b) => b.value - a.value).slice(0, 4);
+    const truncatedTransport = top4.map(d => ({
       ...d,
       shortName: d.name.length > 12 ? d.name.substring(0, 10) + '..' : d.name
     }));
     return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={truncatedTransport} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-        <XAxis dataKey="shortName" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#4B5563', fontWeight: 500 }} interval={0} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-        <Tooltip cursor={{ fill: '#F9FAFB' }} />
-        <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-        <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)" />
-      </BarChart>
-    </ResponsiveContainer>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={truncatedTransport} margin={{ top: 10, right: 20, left: 10, bottom: 35 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
+          <XAxis dataKey="shortName" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#4B5563', fontWeight: 500 }} interval={0} angle={-25} textAnchor="end" />
+          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
+          <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(label: any) => {
+            const item = truncatedTransport.find(d => d.shortName === label);
+            return item ? item.name : label;
+          }} />
+          <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
+          <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)" />
+        </BarChart>
+      </ResponsiveContainer>
     );
   };
 

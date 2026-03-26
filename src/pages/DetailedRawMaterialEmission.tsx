@@ -56,7 +56,7 @@ const FALLBACK_ENERGY = [
     { name: "Renewable", extrusion: 0.05, molding: 0.07, drying: 0.02 },
 ];
 
-const DEFAULT_TOP_COUNT = 5;
+const DEFAULT_TOP_COUNT = 4;
 
 const DetailedRawMaterialEmission: React.FC = () => {
     const navigate = useNavigate();
@@ -431,22 +431,40 @@ const DetailedRawMaterialEmission: React.FC = () => {
         return value.toString();
     };
 
-    // Custom angled tick for x-axis
-    const AngledTick = ({ x, y, payload }: any) => {
-        const label = payload.value.length > 15 ? payload.value.slice(0, 13) + '..' : payload.value;
+    const cleanName = (name: string): string => {
+        const dashIdx = name.indexOf(" - ");
+        if (dashIdx > 0) {
+            const afterDash = name.substring(dashIdx + 3);
+            if (/[0-9<>=]/.test(afterDash)) return name;
+            return name.substring(0, dashIdx).trim();
+        }
+        return name;
+    };
+
+    const WrappedTick = ({ x, y, payload }: any) => {
+        const name: string = payload.value || "";
+        const maxLen = 10;
+        if (name.length <= maxLen) {
+            return (<text x={x} y={y + 10} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>{name}</text>);
+        }
+        const words = name.split(" ");
+        const lines: string[] = [];
+        let current = "";
+        for (const word of words) {
+            if (current && (current + " " + word).length > maxLen) {
+                lines.push(current);
+                current = word;
+            } else {
+                current = current ? current + " " + word : word;
+            }
+        }
+        if (current) lines.push(current);
         return (
-            <g transform={`translate(${x},${y})`}>
-                <text
-                    x={0} y={0} dy={12}
-                    textAnchor="end"
-                    fill="#4B5563"
-                    fontSize={10}
-                    fontWeight={500}
-                    transform="rotate(-35)"
-                >
-                    {label}
-                </text>
-            </g>
+            <text x={x} y={y + 8} textAnchor="middle" fontSize={9} fill="#4B5563" fontWeight={500}>
+                {lines.map((line, i) => (
+                    <tspan key={i} x={x} dy={i === 0 ? 0 : 11}>{line}</tspan>
+                ))}
+            </text>
         );
     };
 
@@ -455,13 +473,15 @@ const DetailedRawMaterialEmission: React.FC = () => {
         if (!selectedClient) return renderNoData("Select a client to view data");
         if (manufacturingData.length === 0) return renderNoData("No data available");
 
+        const chartData = manufacturingData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
+
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={manufacturingData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
+                <BarChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<AngledTick />} interval={0} />
+                    <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxisVal} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} />
+                    <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar dataKey="energy" fill="#458C21" radius={[4, 4, 0, 0]} barSize={isModal ? 60 : 30} name="Energy Used (kWh/unit)" />
                     <Bar dataKey="emission" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={isModal ? 60 : 30} name="CO₂e (kg/unit)" />
@@ -475,15 +495,16 @@ const DetailedRawMaterialEmission: React.FC = () => {
         if (!selectedClient) return renderNoData("Select a client to view data");
         if (processEnergyStateData.length === 0) return renderNoData("No data available");
 
+        const chartData = processEnergyStateData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
         const energyTypes = Object.keys(processEnergyStateData[0] || {}).filter(key => key !== 'name');
 
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={processEnergyStateData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
+                <BarChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<AngledTick />} interval={0} />
+                    <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxisVal} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} />
+                    <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     {energyTypes.map((type, index) => (
                         <Bar key={type} dataKey={type} fill={COLOR_PALETTE[index % COLOR_PALETTE.length]} radius={[4, 4, 0, 0]} name={type.charAt(0).toUpperCase() + type.slice(1)} />
@@ -498,14 +519,16 @@ const DetailedRawMaterialEmission: React.FC = () => {
         if (!selectedClient) return renderNoData("Select a client to view data");
         if (displayedCompData.length === 0) return renderNoData("No data available");
 
+        const chartData = displayedCompData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
+
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={displayedCompData} margin={{ top: 20, right: 20, left: 20, bottom: 50 }}>
+                <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<AngledTick />} interval={0} />
+                    <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxisVal} />
                     <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip />
+                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar yAxisId="left" dataKey="contribution" fill="#52C41A" radius={[4, 4, 0, 0]} name="Emission Contribution (kg CO₂e)" barSize={isModal ? 60 : 30} />
                     <Line yAxisId="right" type="monotone" dataKey="share" stroke="#1A5D1A" strokeWidth={3} name="Share of Total (%)" dot={{ fill: '#1A5D1A', r: 4 }} activeDot={{ r: 6 }} />
@@ -519,13 +542,15 @@ const DetailedRawMaterialEmission: React.FC = () => {
         if (!selectedClient) return renderNoData("Select a client to view data");
         if (displayedIntensityData.length === 0) return renderNoData("No data available");
 
+        const chartData = displayedIntensityData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
+
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={displayedIntensityData} margin={{ top: 20, right: 20, left: 20, bottom: 50 }}>
+                <BarChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<AngledTick />} interval={0} />
+                    <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxisVal} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} />
+                    <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar dataKey="virgin" fill="#458C21" radius={[4, 4, 0, 0]} barSize={isModal ? 60 : 30} name="Virgin Material (kg CO₂e/kg)" />
                     <Bar dataKey="recycled" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={isModal ? 60 : 30} name="Recycled Material (kg CO₂e/kg)" />
@@ -539,13 +564,15 @@ const DetailedRawMaterialEmission: React.FC = () => {
         if (!selectedClient) return renderNoData("Select a client to view data");
         if (displayedShareData.length === 0) return renderNoData("No data available");
 
+        const chartData = displayedShareData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
+
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={displayedShareData} margin={{ top: 20, right: 20, left: 20, bottom: 50 }}>
+                <BarChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<AngledTick />} interval={0} />
+                    <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} />
+                    <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={isModal ? 80 : 40} name="Share of Total (%)">
                         {displayedShareData.map((entry, index) => (

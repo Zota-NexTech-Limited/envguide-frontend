@@ -292,13 +292,7 @@ const DetailedTransportationEmission: React.FC = () => {
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<AngledTick />} interval={0} />
                     <YAxis hide={true} domain={[0, 110]} />
                     <Tooltip content={<CustomModeTooltip />} cursor={{ fill: '#F9FAFB' }} />
-                    <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '10px' }}
-                        payload={[
-                            { value: 'Distance (km)', type: 'square', color: '#52C41A' },
-                            { value: 'CO₂e (kg)', type: 'square', color: '#B3E699' },
-                            { value: 'Share (%)', type: 'square', color: '#1A5D1A' },
-                        ] as any}
-                    />
+                    <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar dataKey="distanceNorm" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 16} name="Distance (km)" />
                     <Bar dataKey="emissionNorm" fill="#B3E699" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 16} name="CO₂e (kg)" />
                     <Bar dataKey="shareNorm" fill="#1A5D1A" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 16} name="Share (%)" />
@@ -359,13 +353,7 @@ const DetailedTransportationEmission: React.FC = () => {
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<AngledTick />} interval={0} />
                     <YAxis hide={true} domain={[0, 110]} />
                     <Tooltip content={<CustomCorrelationTooltip />} cursor={{ fill: '#F9FAFB' }} />
-                    <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '10px' }}
-                        payload={[
-                            { value: 'Avg Distance (km)', type: 'square', color: '#52C41A' },
-                            { value: 'Avg Emission Factor', type: 'square', color: '#B3E699' },
-                            { value: 'Total Emission (kg CO₂e)', type: 'square', color: '#1A5D1A' },
-                        ] as any}
-                    />
+                    <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar dataKey="distNorm" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 18} name="Avg Distance (km)" />
                     <Bar dataKey="factorNorm" fill="#B3E699" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 18} name="Avg Emission Factor" />
                     <Bar dataKey="totalNorm" fill="#1A5D1A" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 18} name="Total Emission (kg CO₂e)" />

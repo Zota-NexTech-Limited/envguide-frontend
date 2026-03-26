@@ -297,7 +297,7 @@ const DetailedTransportationEmission: React.FC = () => {
                             { value: 'Distance (km)', type: 'square', color: '#52C41A' },
                             { value: 'CO₂e (kg)', type: 'square', color: '#B3E699' },
                             { value: 'Share (%)', type: 'square', color: '#1A5D1A' },
-                        ]}
+                        ] as any}
                     />
                     <Bar dataKey="distanceNorm" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 16} name="Distance (km)" />
                     <Bar dataKey="emissionNorm" fill="#B3E699" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 16} name="CO₂e (kg)" />
@@ -364,7 +364,7 @@ const DetailedTransportationEmission: React.FC = () => {
                             { value: 'Avg Distance (km)', type: 'square', color: '#52C41A' },
                             { value: 'Avg Emission Factor', type: 'square', color: '#B3E699' },
                             { value: 'Total Emission (kg CO₂e)', type: 'square', color: '#1A5D1A' },
-                        ]}
+                        ] as any}
                     />
                     <Bar dataKey="distNorm" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 18} name="Avg Distance (km)" />
                     <Bar dataKey="factorNorm" fill="#B3E699" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 18} name="Avg Emission Factor" />

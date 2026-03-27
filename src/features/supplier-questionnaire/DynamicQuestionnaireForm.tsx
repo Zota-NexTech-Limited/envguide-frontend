@@ -1254,8 +1254,18 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
 
                         return (
                           <>
-                            {/* Persist bom_id in form state for save/calculate (not inferred from text). */}
+                            {/* Persist bom_id, material_number, component_name in form state so
+                                getFieldsValue() always returns them and deepMerge never drops them. */}
                             <Form.Item name={[fieldRecord.name, 'bom_id']} hidden>
+                              <Input type="hidden" />
+                            </Form.Item>
+                            <Form.Item name={[fieldRecord.name, 'material_number']} hidden>
+                              <Input type="hidden" />
+                            </Form.Item>
+                            <Form.Item name={[fieldRecord.name, 'component_name']} hidden>
+                              <Input type="hidden" />
+                            </Form.Item>
+                            <Form.Item name={[fieldRecord.name, 'product_name']} hidden>
                               <Input type="hidden" />
                             </Form.Item>
                           <Form.Item

@@ -485,21 +485,34 @@ const SupplierQuestionnaire: React.FC = () => {
   // Deep merge utility to preserve nested values (especially file fields)
   // preserveTargetArrays: when true, keeps target arrays if source arrays are empty (for auto-save)
   // when false, source always wins (for draft loading)
-  const deepMerge = (target: any, source: any, preserveTargetArrays = false): any => {
+  // mergeArrayItems: when true, merges each array item (object spread) so hidden fields like bom_id
+  //   that exist in target but not source are preserved instead of being silently dropped.
+  const deepMerge = (target: any, source: any, preserveTargetArrays = false, mergeArrayItems = false): any => {
     const result = { ...target };
     for (const key in source) {
       if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
         // Recursively merge nested objects
-        result[key] = deepMerge(result[key] || {}, source[key], preserveTargetArrays);
+        result[key] = deepMerge(result[key] || {}, source[key], preserveTargetArrays, mergeArrayItems);
       } else if (Array.isArray(source[key])) {
-        // For arrays with preserveTargetArrays, only use source if it has items OR target is empty
-        // This prevents empty form arrays from overwriting saved file arrays in auto-save
         const targetArray = result[key];
         const sourceArray = source[key];
-        if (!preserveTargetArrays || sourceArray.length > 0 || !targetArray || targetArray.length === 0) {
+
+        if (preserveTargetArrays && sourceArray.length === 0 && targetArray && targetArray.length > 0) {
+          // Keep target array when source is empty (preserves file keys)
+        } else if (mergeArrayItems && Array.isArray(targetArray) && targetArray.length === sourceArray.length) {
+          // Same-length arrays: merge each item so hidden fields (bom_id, material_number, component_name)
+          // from the target row are preserved even if the source row (from form.getFieldsValue) omits them.
+          result[key] = sourceArray.map((srcItem: any, i: number) => {
+            const tgtItem = targetArray[i];
+            if (srcItem && typeof srcItem === 'object' && !Array.isArray(srcItem) &&
+                tgtItem && typeof tgtItem === 'object' && !Array.isArray(tgtItem)) {
+              return { ...tgtItem, ...srcItem };
+            }
+            return srcItem;
+          });
+        } else {
           result[key] = sourceArray;
         }
-        // Otherwise keep target array (preserves file keys)
       } else {
         result[key] = source[key];
       }
@@ -709,8 +722,8 @@ const SupplierQuestionnaire: React.FC = () => {
       // Validate current step fields
       const values = await form.validateFields();
 
-      // Merge current step values into global form data
-      const updatedData = { ...formData, ...values };
+      // Merge current step values into global form data (mergeArrayItems preserves bom_id on rows)
+      const updatedData = deepMerge(formData, values, false, true);
       setFormData(updatedData);
       setFormErrors({});
 
@@ -763,9 +776,9 @@ const SupplierQuestionnaire: React.FC = () => {
   };
 
   const handlePrev = () => {
-    // Save current values before moving back
+    // Save current values before moving back (mergeArrayItems preserves bom_id on rows)
     const values = form.getFieldsValue();
-    setFormData({ ...formData, ...values });
+    setFormData(deepMerge(formData, values, false, true));
     setFormErrors({});
     setCurrentStep(currentStep - 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -774,7 +787,7 @@ const SupplierQuestionnaire: React.FC = () => {
   const handleStepJump = (step: number) => {
     if (step < currentStep || completedSteps.has(step)) {
       const values = form.getFieldsValue();
-      setFormData({ ...formData, ...values });
+      setFormData(deepMerge(formData, values, false, true));
       setFormErrors({});
       setCurrentStep(step);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -787,7 +800,7 @@ const SupplierQuestionnaire: React.FC = () => {
     setAutoSaveStatus("saving");
     try {
       const values = form.getFieldsValue();
-      const updatedData = { ...formData, ...values };
+      const updatedData = deepMerge(formData, values, false, true);
       setFormData(updatedData);
 
       supplierQuestionnaireService.saveDraft(
@@ -820,7 +833,7 @@ const SupplierQuestionnaire: React.FC = () => {
     try {
       console.log("Submitting questionnaire with formData:", formData);
       const values = await form.validateFields();
-      const finalData = { ...formData, ...values };
+      const finalData = deepMerge(formData, values, false, true);
 
       setIsSaving(true);
       setFormErrors({});
@@ -1457,7 +1470,7 @@ const SupplierQuestionnaire: React.FC = () => {
                 onValuesChange={(changedValues, allValues) => {
                   // Update formData when values change to trigger progress recalculation
                   // Use deep merge to preserve nested structure (allValues has correct file values from DynamicQuestionnaireForm)
-                  setFormData((prev) => deepMerge(prev, allValues));
+                  setFormData((prev) => deepMerge(prev, allValues, false, true));
 
                   // Call stage update API when supplier first inputs data (only for supplier mode)
                   if (sup_id && bom_pcf_id && !hasCalledStageUpdateRef.current && !isClientMode) {

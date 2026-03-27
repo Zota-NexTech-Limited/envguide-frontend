@@ -422,10 +422,28 @@ function resolveComponentRefFromMpnOrName(
     ...(data?.product_details?.production_site_details || [])
   ];
 
-  if (!candidates.length || !mpn) return undefined;
+  if (!candidates.length) return undefined;
 
-  const foundByMpn = candidates.find(c => (c?.mpn || c?.material_number || "").trim() === mpn);
-  if (foundByMpn?.bom_id) return foundByMpn;
+  // Primary match: by MPN / material_number
+  if (mpn) {
+    const foundByMpn = candidates.find(c => (c?.mpn || c?.material_number || "").trim() === mpn);
+    if (foundByMpn?.bom_id) return foundByMpn;
+  }
+
+  // Fallback: match by component_name / product_name when MPN is missing
+  // This handles the case where rows are added manually without selecting the MPN dropdown
+  const compName = (row?.component_name || row?.product_name || "").trim();
+  if (compName) {
+    const foundByName = candidates.find(c =>
+      (c?.product_name || c?.component_name || "").trim().toLowerCase() === compName.toLowerCase()
+    );
+    if (foundByName?.bom_id) return foundByName;
+  }
+
+  // If only one candidate exists, use it (single-component questionnaire)
+  if (candidates.length === 1 && candidates[0]?.bom_id) {
+    return candidates[0];
+  }
 
   return undefined;
 }

@@ -1501,9 +1501,26 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         <span className="text-red-500 ml-1">(Required - add at least one entry)</span>
                       )}
                     </span>
-                    <Button 
-                      type="dashed" 
-                      onClick={() => add()} 
+                    <Button
+                      type="dashed"
+                      onClick={() => {
+                        // Inherit bom_id, material_number, mpn, component_name from the last row
+                        // so that newly added rows stay linked to the same BOM component
+                        const fieldPath = field.name.split('.');
+                        const currentRows = form.getFieldValue(fieldPath) || [];
+                        const lastRow = currentRows.length > 0 ? currentRows[currentRows.length - 1] : null;
+                        if (lastRow && (lastRow.bom_id || lastRow.material_number || lastRow.mpn)) {
+                          add({
+                            bom_id: lastRow.bom_id,
+                            material_number: lastRow.material_number,
+                            mpn: lastRow.mpn || lastRow.material_number,
+                            component_name: lastRow.component_name,
+                            product_name: lastRow.product_name,
+                          });
+                        } else {
+                          add();
+                        }
+                      }}
                       icon={<PlusOutlined />}
                       className="hover:border-green-400 hover:text-green-600"
                     >

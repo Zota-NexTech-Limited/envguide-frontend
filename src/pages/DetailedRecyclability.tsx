@@ -45,15 +45,15 @@ interface VirginRecycledItem {
     materialPercent: number;
 }
 
-const DEFAULT_TOP_COUNT = 5;
-
-const FALLBACK_RECYCLABILITY: RecyclabilityItem[] = [
-    { name: "Polypropylene (PP)", total: 500, recycled: 150, percent: 30 },
-    { name: "Polyethylene (PE)", total: 600, recycled: 120, percent: 20 },
-    { name: "PET (Polyethylene Terephthalate)", total: 400, recycled: 240, percent: 60 },
-    { name: "ABS", total: 300, recycled: 60, percent: 20 },
-    { name: "PVC", total: 200, recycled: 100, percent: 50 },
+const DEFAULT_RECYCLABILITY = [
+  { name: "PET", value: 450, recycled: 35 },
+  { name: "HDPE", value: 320, recycled: 28 },
+  { name: "PP", value: 280, recycled: 15 },
+  { name: "PVC", value: 150, recycled: 8 },
+  { name: "LDPE", value: 200, recycled: 20 },
 ];
+
+const DEFAULT_TOP_COUNT = 5;
 
 const DetailedRecyclability: React.FC = () => {
     const navigate = useNavigate();
@@ -68,7 +68,7 @@ const DetailedRecyclability: React.FC = () => {
     const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
 
-    const [recyclabilityData, setRecyclabilityData] = useState<RecyclabilityItem[]>([]);
+    const [recyclabilityData, setRecyclabilityData] = useState<RecyclabilityItem[]>(DEFAULT_RECYCLABILITY.map(d => ({ name: d.name, total: d.value, recycled: d.recycled, percent: Math.round((d.recycled / d.value) * 100) })));
     const [virginRecycledData, setVirginRecycledData] = useState<VirginRecycledItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -134,8 +134,13 @@ const DetailedRecyclability: React.FC = () => {
     useEffect(() => {
         const fetchData = async () => {
             if (!selectedClient) {
-                setRecyclabilityData([]);
-                setVirginRecycledData([]);
+                setRecyclabilityData(DEFAULT_RECYCLABILITY.map(d => ({ name: d.name, total: d.value, recycled: d.recycled, percent: Math.round((d.recycled / d.value) * 100) })));
+                setVirginRecycledData([
+                    { name: "Cobalt", totalEmission: 15.3, emissionFactor: 17, materialPercent: 50 },
+                    { name: "Silver", totalEmission: 7.2, emissionFactor: 40, materialPercent: 10 },
+                    { name: "Gold", totalEmission: 1485, emissionFactor: 16500, materialPercent: 5 },
+                    { name: "Palladium", totalEmission: 2484, emissionFactor: 9200, materialPercent: 15 },
+                ]);
                 return;
             }
 
@@ -157,10 +162,22 @@ const DetailedRecyclability: React.FC = () => {
                     if (hasRecycledData) {
                         setRecyclabilityData(formatted);
                     } else {
-                        setRecyclabilityData(FALLBACK_RECYCLABILITY);
+                        setRecyclabilityData([
+                            { name: "PET", total: 450, recycled: 35, percent: 8 },
+                            { name: "HDPE", total: 320, recycled: 28, percent: 9 },
+                            { name: "PP", total: 280, recycled: 15, percent: 5 },
+                            { name: "PVC", total: 150, recycled: 8, percent: 5 },
+                            { name: "LDPE", total: 200, recycled: 20, percent: 10 },
+                        ]);
                     }
                 } else {
-                    setRecyclabilityData(FALLBACK_RECYCLABILITY);
+                    setRecyclabilityData([
+                        { name: "PET", total: 450, recycled: 35, percent: 8 },
+                        { name: "HDPE", total: 320, recycled: 28, percent: 9 },
+                        { name: "PP", total: 280, recycled: 15, percent: 5 },
+                        { name: "PVC", total: 150, recycled: 8, percent: 5 },
+                        { name: "LDPE", total: 200, recycled: 20, percent: 10 },
+                    ]);
                 }
 
                 const virginRes = await dashboardService.getVirginOrRecyclabilityEmission(clientId);
@@ -173,7 +190,12 @@ const DetailedRecyclability: React.FC = () => {
                     }));
                     setVirginRecycledData(formatted);
                 } else {
-                    setVirginRecycledData([]);
+                    setVirginRecycledData([
+                        { name: "Cobalt", totalEmission: 15.3, emissionFactor: 17, materialPercent: 50 },
+                        { name: "Silver", totalEmission: 7.2, emissionFactor: 40, materialPercent: 10 },
+                        { name: "Gold", totalEmission: 1485, emissionFactor: 16500, materialPercent: 5 },
+                        { name: "Palladium", totalEmission: 2484, emissionFactor: 9200, materialPercent: 15 },
+                    ]);
                 }
             } catch (error) {
                 console.error("Error fetching graph data:", error);
@@ -273,7 +295,6 @@ const DetailedRecyclability: React.FC = () => {
     };
 
     const renderRecyclability = (isModal = false) => {
-        if (!selectedClient) return <div className="flex items-center justify-center h-full text-sm text-gray-400 italic">Select a client to view recyclability data</div>;
         if (displayedRecyclability.length === 0) return <div className="flex items-center justify-center h-full text-sm text-gray-400 italic">No data available</div>;
 
         return (
@@ -294,7 +315,6 @@ const DetailedRecyclability: React.FC = () => {
     };
 
     const renderVirginRecycled = (isModal = false) => {
-        if (!selectedClient) return <div className="flex items-center justify-center h-full text-sm text-gray-400 italic">Select a client to view virgin vs recycled data</div>;
         if (displayedVirginRecycled.length === 0) return <div className="flex items-center justify-center h-full text-sm text-gray-400 italic">No data available</div>;
 
         // Normalize for bar visibility

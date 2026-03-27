@@ -40,20 +40,16 @@ interface Supplier {
     supplier_name: string;
 }
 
-// Fallback data from Excel reference (shown when API returns empty)
-const FALLBACK_MANUFACTURING = [
-    { name: "Extrusion", energy: 5.2, emission: 1.05 },
-    { name: "Injection Molding", energy: 4.8, emission: 0.92 },
-    { name: "Drying", energy: 2, emission: 0.35 },
-    { name: "Assembly", energy: 1.2, emission: 0.2 },
-    { name: "Finishing", energy: 0.9, emission: 0.15 },
+const DEFAULT_MANUFACTURING = [
+  { name: "Extrusion", energy: 1.05, emission: 0.82 },
+  { name: "Injection Molding", energy: 0.92, emission: 0.71 },
+  { name: "Drying", energy: 0.35, emission: 0.27 },
+  { name: "Assembly", energy: 0.2, emission: 0.15 },
+  { name: "Finishing", energy: 0.15, emission: 0.12 },
 ];
-
-const FALLBACK_ENERGY = [
-    { name: "Electricity (kg CO\u2082e)", extrusion: 0.8, molding: 0.7, drying: 0.1 },
-    { name: "Natural Gas", extrusion: 0.15, molding: 0.1, drying: 0.2 },
-    { name: "Steam", extrusion: 0.05, molding: 0.05, drying: 0.03 },
-    { name: "Renewable", extrusion: 0.05, molding: 0.07, drying: 0.02 },
+const DEFAULT_ENERGY = [
+  { name: "Electricity", electricity: 850, heating: 120, cooling: 95, steam: 180 },
+  { name: "Natural Gas", electricity: 0, heating: 320, cooling: 0, steam: 0 },
 ];
 
 const DEFAULT_TOP_COUNT = 4;
@@ -74,8 +70,8 @@ const DetailedRawMaterialEmission: React.FC = () => {
     const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
 
     // State for Graph Data (full API data)
-    const [manufacturingData, setManufacturingData] = useState<any[]>([]);
-    const [processEnergyStateData, setProcessEnergyStateData] = useState<any[]>([]);
+    const [manufacturingData, setManufacturingData] = useState<any[]>(DEFAULT_MANUFACTURING);
+    const [processEnergyStateData, setProcessEnergyStateData] = useState<any[]>(DEFAULT_ENERGY);
     const [materialCompData, setMaterialCompData] = useState<any[]>([]);
     const [intensityData, setIntensityData] = useState<any[]>([]);
     const [shareData, setShareData] = useState<any[]>([]);
@@ -197,8 +193,13 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setManufacturingData(mapped);
                 } else {
-                    // API returned empty — use fallback
-                    setManufacturingData(FALLBACK_MANUFACTURING);
+                    setManufacturingData([
+                        { name: "Extrusion", energy: 1200, emission: 1.05 },
+                        { name: "Injection Molding", energy: 980, emission: 0.92 },
+                        { name: "Drying", energy: 450, emission: 0.35 },
+                        { name: "Assembly", energy: 280, emission: 0.2 },
+                        { name: "Finishing", energy: 180, emission: 0.15 },
+                    ]);
                 }
                 setIsLoadingManufacturing(false);
             };
@@ -223,11 +224,11 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     if (pivoted.length > 0) {
                         setProcessEnergyStateData(pivoted);
                     } else {
-                        setProcessEnergyStateData(FALLBACK_ENERGY);
+                        setProcessEnergyStateData(DEFAULT_ENERGY);
                         }
                 } else {
-                    // API returned empty — use fallback
-                    setProcessEnergyStateData(FALLBACK_ENERGY);
+                    // API returned empty — use fallback data
+                    setProcessEnergyStateData(DEFAULT_ENERGY);
                 }
                 setIsLoadingEnergy(false);
             };
@@ -243,7 +244,12 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setMaterialCompData(mapped);
                 } else {
-                    setMaterialCompData([]);
+                    setMaterialCompData([
+                        { name: "Cobalt", contribution: 900, share: 38 },
+                        { name: "Silver", contribution: 180, share: 18 },
+                        { name: "Gold", contribution: 90, share: 37 },
+                        { name: "Palladium", contribution: 270, share: 7 },
+                    ]);
                 }
                 setIsLoadingComp(false);
             };
@@ -285,7 +291,12 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setIntensityData(mapped);
                 } else {
-                    setIntensityData([]);
+                    setIntensityData([
+                        { name: "Cobalt", virgin: 17, recycled: 0 },
+                        { name: "Silver", virgin: 40, recycled: 0 },
+                        { name: "Gold", virgin: 16500, recycled: 0 },
+                        { name: "Palladium", virgin: 9200, recycled: 0 },
+                    ]);
                 }
                 setIsLoadingIntensity(false);
             };
@@ -301,7 +312,14 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setShareData(mapped);
                 } else {
-                    setShareData([]);
+                    setShareData([
+                        { name: "Cobalt", value: 50 },
+                        { name: "Silver", value: 10 },
+                        { name: "Gold", value: 5 },
+                        { name: "Palladium", value: 15 },
+                        { name: "Tungsten", value: 10 },
+                        { name: "Niobium", value: 10 },
+                    ]);
                 }
                 setIsLoadingShare(false);
             };
@@ -315,11 +333,28 @@ const DetailedRawMaterialEmission: React.FC = () => {
             setSelectedSupplier(null);
         } else {
             setSuppliers([]);
-            setManufacturingData([]);
-            setProcessEnergyStateData([]);
-            setMaterialCompData([]);
-            setIntensityData([]);
-            setShareData([]);
+            setManufacturingData(DEFAULT_MANUFACTURING);
+            setProcessEnergyStateData(DEFAULT_ENERGY);
+            setMaterialCompData([
+                { name: "Cobalt", contribution: 900, share: 38 },
+                { name: "Silver", contribution: 180, share: 18 },
+                { name: "Gold", contribution: 90, share: 37 },
+                { name: "Palladium", contribution: 270, share: 7 },
+            ]);
+            setIntensityData([
+                { name: "Cobalt", virgin: 17, recycled: 0 },
+                { name: "Silver", virgin: 40, recycled: 0 },
+                { name: "Gold", virgin: 16500, recycled: 0 },
+                { name: "Palladium", virgin: 9200, recycled: 0 },
+            ]);
+            setShareData([
+                { name: "Cobalt", value: 50 },
+                { name: "Silver", value: 10 },
+                { name: "Gold", value: 5 },
+                { name: "Palladium", value: 15 },
+                { name: "Tungsten", value: 10 },
+                { name: "Niobium", value: 10 },
+            ]);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedClient]);
@@ -343,7 +378,12 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setMaterialCompData(mapped);
                 } else {
-                    setMaterialCompData([]);
+                    setMaterialCompData([
+                        { name: "Cobalt", contribution: 900, share: 38 },
+                        { name: "Silver", contribution: 180, share: 18 },
+                        { name: "Gold", contribution: 90, share: 37 },
+                        { name: "Palladium", contribution: 270, share: 7 },
+                    ]);
                 }
                 setIsLoadingComp(false);
             };
@@ -378,7 +418,12 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     });
                     setIntensityData(Object.values(mergedMap));
                 } else {
-                    setIntensityData([]);
+                    setIntensityData([
+                        { name: "Cobalt", virgin: 17, recycled: 0 },
+                        { name: "Silver", virgin: 40, recycled: 0 },
+                        { name: "Gold", virgin: 16500, recycled: 0 },
+                        { name: "Palladium", virgin: 9200, recycled: 0 },
+                    ]);
                 }
                 setIsLoadingIntensity(false);
             };
@@ -394,7 +439,14 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setShareData(mapped);
                 } else {
-                    setShareData([]);
+                    setShareData([
+                        { name: "Cobalt", value: 50 },
+                        { name: "Silver", value: 10 },
+                        { name: "Gold", value: 5 },
+                        { name: "Palladium", value: 15 },
+                        { name: "Tungsten", value: 10 },
+                        { name: "Niobium", value: 10 },
+                    ]);
                 }
                 setIsLoadingShare(false);
             };
@@ -475,7 +527,6 @@ const DetailedRawMaterialEmission: React.FC = () => {
 
     const renderManufacturingProcess = (isModal = false) => {
         if (isLoadingManufacturing) return renderLoader();
-        if (!selectedClient) return renderNoData("Select a client to view data");
         if (manufacturingData.length === 0) return renderNoData("No data available");
 
         const chartData = manufacturingData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
@@ -497,7 +548,6 @@ const DetailedRawMaterialEmission: React.FC = () => {
 
     const renderProcessEnergy = (isModal = false) => {
         if (isLoadingEnergy) return renderLoader();
-        if (!selectedClient) return renderNoData("Select a client to view data");
         if (processEnergyStateData.length === 0) return renderNoData("No data available");
 
         const chartData = processEnergyStateData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
@@ -521,7 +571,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
 
     const renderMaterialComposition = (isModal = false) => {
         if (isLoadingComp) return renderLoader();
-        if (!selectedClient) return renderNoData("Select a client to view data");
+
         if (displayedCompData.length === 0) return renderNoData("No data available");
 
         const chartData = displayedCompData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
@@ -544,7 +594,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
 
     const renderMaterialCarbonIntensity = (isModal = false) => {
         if (isLoadingIntensity) return renderLoader();
-        if (!selectedClient) return renderNoData("Select a client to view data");
+
         if (displayedIntensityData.length === 0) return renderNoData("No data available");
 
         const chartData = displayedIntensityData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
@@ -566,7 +616,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
 
     const renderEmissionShare = (isModal = false) => {
         if (isLoadingShare) return renderLoader();
-        if (!selectedClient) return renderNoData("Select a client to view data");
+
         if (displayedShareData.length === 0) return renderNoData("No data available");
 
         const chartData = displayedShareData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));

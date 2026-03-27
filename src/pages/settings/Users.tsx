@@ -151,7 +151,8 @@ const UsersPage: React.FC = () => {
     }
 
     return params.toString();
-  }, [pagination, filters, quickSearch]);
+  // Only depend on values that should trigger a re-fetch (not `total`)
+  }, [pagination.current, pagination.pageSize, filters, quickSearch]);
 
   // Load EnviGuide Users
   const loadUsers = useCallback(async () => {
@@ -167,19 +168,20 @@ const UsersPage: React.FC = () => {
 
         if (data.status && data.data && data.data.userList) {
           setUsers(data.data.userList);
-          setPagination((prev) => ({
+          const newTotal = parseInt(data.data.totalCount, 10) || 0;
+          setPagination((prev) => prev.total === newTotal ? prev : ({
             ...prev,
-            total: parseInt(data.data.totalCount, 10) || 0,
+            total: newTotal,
           }));
         } else if (Array.isArray(data)) {
           setUsers(data);
-          setPagination((prev) => ({ ...prev, total: data.length }));
+          setPagination((prev) => prev.total === data.length ? prev : ({ ...prev, total: data.length }));
         } else if (data.data && Array.isArray(data.data)) {
           setUsers(data.data);
-          setPagination((prev) => ({ ...prev, total: data.data.length }));
+          setPagination((prev) => prev.total === data.data.length ? prev : ({ ...prev, total: data.data.length }));
         } else {
           setUsers([]);
-          setPagination((prev) => ({ ...prev, total: 0 }));
+          setPagination((prev) => prev.total === 0 ? prev : ({ ...prev, total: 0 }));
         }
       } else {
         setUsers([]);
@@ -214,11 +216,15 @@ const UsersPage: React.FC = () => {
           );
         }
         setManufacturers(filteredData);
-        setManufacturerPagination((prev) => ({
-          ...prev,
-          total: result.pagination?.total || result.totalCount,
-          totalPages: result.pagination?.totalPages || Math.ceil((result.pagination?.total || result.totalCount) / prev.pageSize),
-        }));
+        const newTotal = result.pagination?.total || result.totalCount;
+        const newTotalPages = result.pagination?.totalPages || Math.ceil(newTotal / manufacturerPagination.pageSize);
+        setManufacturerPagination((prev) =>
+          prev.total === newTotal && prev.totalPages === newTotalPages ? prev : ({
+            ...prev,
+            total: newTotal,
+            totalPages: newTotalPages,
+          })
+        );
       } else {
         setManufacturers([]);
       }
@@ -228,7 +234,7 @@ const UsersPage: React.FC = () => {
     } finally {
       setManufacturerLoading(false);
     }
-  }, [manufacturerPagination, manufacturerSearch]);
+  }, [manufacturerPagination.current, manufacturerPagination.pageSize, manufacturerSearch]);
 
   // Load Suppliers
   const loadSuppliers = useCallback(async () => {
@@ -252,11 +258,15 @@ const UsersPage: React.FC = () => {
           );
         }
         setSuppliers(filteredData);
-        setSupplierPagination((prev) => ({
-          ...prev,
-          total: result.pagination?.total || result.totalCount,
-          totalPages: result.pagination?.totalPages || Math.ceil((result.pagination?.total || result.totalCount) / prev.pageSize),
-        }));
+        const newTotal = result.pagination?.total || result.totalCount;
+        const newTotalPages = result.pagination?.totalPages || Math.ceil(newTotal / supplierPagination.pageSize);
+        setSupplierPagination((prev) =>
+          prev.total === newTotal && prev.totalPages === newTotalPages ? prev : ({
+            ...prev,
+            total: newTotal,
+            totalPages: newTotalPages,
+          })
+        );
       } else {
         setSuppliers([]);
       }
@@ -266,7 +276,7 @@ const UsersPage: React.FC = () => {
     } finally {
       setSupplierLoading(false);
     }
-  }, [supplierPagination, supplierSearch]);
+  }, [supplierPagination.current, supplierPagination.pageSize, supplierSearch]);
 
   useEffect(() => {
     if (activeTab === "enviguide") {

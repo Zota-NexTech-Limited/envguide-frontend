@@ -45,30 +45,28 @@ interface ForecastedData {
     emission: number;
 }
 
-const FALLBACK_REDUCTION: ReductionData[] = [
-    { name: "Product A (2021)", emission: 28, reduction: 0, product: "Product A", year: 2021 },
-    { name: "Product A (2022)", emission: 25, reduction: 10.7, product: "Product A", year: 2022 },
-    { name: "Product A (2023)", emission: 20.75, reduction: 17, product: "Product A", year: 2023 },
-    { name: "Product A (2024)", emission: 16.1, reduction: 22.4, product: "Product A", year: 2024 },
-    { name: "Product A (2025)", emission: 14.6, reduction: 9.3, product: "Product A", year: 2025 },
+const DEFAULT_REDUCTION: ReductionData[] = [
+  { name: "2021", emission: 3800, reduction: 0, product: "All Products", year: 2021 },
+  { name: "2022", emission: 3500, reduction: 7.9, product: "All Products", year: 2022 },
+  { name: "2023", emission: 3200, reduction: 8.6, product: "All Products", year: 2023 },
+  { name: "2024", emission: 2847, reduction: 11.0, product: "All Products", year: 2024 },
+  { name: "2025", emission: 2650, reduction: 6.9, product: "All Products", year: 2025 },
 ];
-
-const FALLBACK_ACTUAL: ActualEmissionData[] = [
-    { name: "Product A", actual: 22.5 },
-    { name: "Product B", actual: 18.3 },
-    { name: "Product C", actual: 27.8 },
-    { name: "Product D", actual: 16.4 },
+const DEFAULT_ACTUAL: ActualEmissionData[] = [
+  { name: "Gear Shaft", actual: 4010 },
+  { name: "Motor Mount", actual: 9955 },
+  { name: "Bearing Housing", actual: 5748 },
+  { name: "Assembly Unit", actual: 2200 },
 ];
-
-const FALLBACK_FORECASTED: ForecastedData[] = [
-    { name: "2023", emission: 520 },
-    { name: "2024", emission: 470 },
-    { name: "2025", emission: 410 },
-    { name: "2026", emission: 360 },
-    { name: "2027", emission: 310 },
-    { name: "2028", emission: 270 },
-    { name: "2029", emission: 240 },
-    { name: "2030", emission: 200 },
+const DEFAULT_FORECASTED: ForecastedData[] = [
+  { name: "2023", emission: 3200 },
+  { name: "2024", emission: 2847 },
+  { name: "2025", emission: 2650 },
+  { name: "2026", emission: 2400 },
+  { name: "2027", emission: 2150 },
+  { name: "2028", emission: 1900 },
+  { name: "2029", emission: 1700 },
+  { name: "2030", emission: 1500 },
 ];
 
 const DetailedPCFTrend: React.FC = () => {
@@ -91,9 +89,9 @@ const DetailedPCFTrend: React.FC = () => {
     const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
 
     // Data state
-    const [reductionData, setReductionData] = useState<ReductionData[]>([]);
-    const [actualEmissionData, setActualEmissionData] = useState<ActualEmissionData[]>([]);
-    const [forecastedEmissionData, setForecastedEmissionData] = useState<ForecastedData[]>([]);
+    const [reductionData, setReductionData] = useState<ReductionData[]>(DEFAULT_REDUCTION);
+    const [actualEmissionData, setActualEmissionData] = useState<ActualEmissionData[]>(DEFAULT_ACTUAL);
+    const [forecastedEmissionData, setForecastedEmissionData] = useState<ForecastedData[]>(DEFAULT_FORECASTED);
     const [loading, setLoading] = useState<boolean>(false);
 
     useEffect(() => {
@@ -111,9 +109,9 @@ const DetailedPCFTrend: React.FC = () => {
             fetchSuppliers(selectedClient.user_id);
             fetchGraphData(selectedClient.user_id);
         } else {
-            setReductionData([]);
-            setActualEmissionData([]);
-            setForecastedEmissionData([]);
+            setReductionData(DEFAULT_REDUCTION);
+            setActualEmissionData(DEFAULT_ACTUAL);
+            setForecastedEmissionData(DEFAULT_FORECASTED);
             setSuppliers([]);
             setSelectedSupplier(null);
             setSelectedProduct("all");
@@ -153,10 +151,10 @@ const DetailedPCFTrend: React.FC = () => {
                 }));
                 setReductionData(formatted);
             } else {
-                setReductionData(FALLBACK_REDUCTION);
+                setReductionData(DEFAULT_REDUCTION);
             }
         } catch {
-            setReductionData(FALLBACK_REDUCTION);
+            setReductionData(DEFAULT_REDUCTION);
         }
 
         // Actual PCF Emission
@@ -169,10 +167,10 @@ const DetailedPCFTrend: React.FC = () => {
                 }));
                 setActualEmissionData(formatted);
             } else {
-                setActualEmissionData(FALLBACK_ACTUAL);
+                setActualEmissionData(DEFAULT_ACTUAL);
             }
         } catch {
-            setActualEmissionData(FALLBACK_ACTUAL);
+            setActualEmissionData(DEFAULT_ACTUAL);
         }
 
         // Forecasted Emission
@@ -185,10 +183,10 @@ const DetailedPCFTrend: React.FC = () => {
                 }));
                 setForecastedEmissionData(formatted);
             } else {
-                setForecastedEmissionData(FALLBACK_FORECASTED);
+                setForecastedEmissionData(DEFAULT_FORECASTED);
             }
         } catch {
-            setForecastedEmissionData(FALLBACK_FORECASTED);
+            setForecastedEmissionData(DEFAULT_FORECASTED);
         }
 
         setLoading(false);
@@ -328,13 +326,6 @@ const DetailedPCFTrend: React.FC = () => {
     [filteredActualData]);
 
     const renderReductionGraph = (isModal = false) => {
-        if (!selectedClient) {
-            return (
-                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
-                    Select a client to view PCF reduction data
-                </div>
-            );
-        }
         if (loading) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-gray-400">
@@ -382,13 +373,6 @@ const DetailedPCFTrend: React.FC = () => {
     };
 
     const renderActualEmission = (isModal = false) => {
-        if (!selectedClient) {
-            return (
-                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
-                    Select a client to view actual emission data
-                </div>
-            );
-        }
         if (loading) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-gray-400">
@@ -422,13 +406,6 @@ const DetailedPCFTrend: React.FC = () => {
     };
 
     const renderForecastedEmission = (isModal = false) => {
-        if (!selectedClient) {
-            return (
-                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
-                    Select a client to view forecasted emission data
-                </div>
-            );
-        }
         if (loading) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-gray-400">

@@ -65,8 +65,24 @@ const Dashboard: React.FC = () => {
   React.useEffect(() => {
     if (location.state?.selectedClient) {
       setSelectedClient(location.state.selectedClient);
+    } else {
+      const saved = localStorage.getItem('dashboard_selected_client');
+      if (saved) {
+        try {
+          setSelectedClient(JSON.parse(saved));
+        } catch {}
+      }
     }
   }, [location.state]);
+
+  // Persist selected client to localStorage
+  React.useEffect(() => {
+    if (selectedClient) {
+      localStorage.setItem('dashboard_selected_client', JSON.stringify(selectedClient));
+    } else {
+      localStorage.removeItem('dashboard_selected_client');
+    }
+  }, [selectedClient]);
 
   // Data States
   const [lifeCycleData, setLifeCycleData] = useState<LifeCycleDataItem[]>([]);
@@ -79,6 +95,16 @@ const Dashboard: React.FC = () => {
   const [wasteData, setWasteData] = useState<any[]>([]);
   const [impactCategoriesData, setImpactCategoriesData] = useState<any[]>([]);
   const [pcfTrendData, setPcfTrendData] = useState<any[]>([]);
+
+  // Stat card data derived from API responses
+  const [statCardData, setStatCardData] = useState<{
+    totalEmissions: number;
+    manufacturingEmissions: number;
+    manufacturingPercent: number;
+    recyclabilityRate: number;
+    transportEmissions: number;
+    transportPercent: number;
+  } | null>(null);
 
   // Loading States
   const [loading, setLoading] = useState({
@@ -105,41 +131,128 @@ const Dashboard: React.FC = () => {
     fetchClients();
   }, []);
 
+  // Default demo data shown when no client is selected
+  const defaultLifeCycleData: LifeCycleDataItem[] = [
+    { name: "Raw Material", value: 1520, color: COLOR_MAP["Raw Material"] },
+    { name: "Manufacturing", value: 1243, color: COLOR_MAP["Manufacturing"] },
+    { name: "Packaging", value: 42, color: COLOR_MAP["Packaging"] },
+    { name: "Transportation", value: 487, color: COLOR_MAP["Transportation"] },
+    { name: "End of Life", value: 6, color: COLOR_MAP["End of Life"] },
+  ];
+  const defaultSupplierData = [
+    { name: "Gear Shaft", value: 4010 },
+    { name: "Motor Mount", value: 9955 },
+    { name: "Bearing Housing", value: 5748 },
+  ];
+  const defaultRawMaterialData = [
+    { name: "Extrusion", value: 1.05 },
+    { name: "Injection Molding", value: 0.92 },
+    { name: "Drying", value: 0.35 },
+    { name: "Assembly", value: 0.2 },
+    { name: "Finishing", value: 0.15 },
+  ];
+  const defaultPackagingData = [
+    { name: "Cardboard", value: 120 },
+    { name: "Film", value: 60 },
+    { name: "Pallet", value: 40 },
+    { name: "Tape", value: 14 },
+  ];
+  const defaultTransportationData = [
+    { name: "Container Ship", value: 3.84 },
+    { name: "Heavy Truck", value: 4.25 },
+    { name: "Electric Train", value: 0.98 },
+  ];
+  const defaultEnergyData = [
+    { name: "Electricity", value: 850 },
+    { name: "Natural Gas", value: 320 },
+    { name: "Steam", value: 180 },
+    { name: "Cooling", value: 95 },
+  ];
+  const defaultRecyclabilityData = [
+    { name: "Cobalt", value: 0.9 },
+    { name: "Palladium", value: 0.8 },
+    { name: "Silver", value: 0.18 },
+    { name: "Carbon", value: 0.24 },
+  ];
+  const defaultWasteData = [
+    { name: "Recycling", value: 50 },
+    { name: "Landfill", value: 250 },
+    { name: "Incineration", value: 400 },
+  ];
+  const defaultImpactData = [
+    { name: "GWP", value: 100 },
+    { name: "ODP", value: 20 },
+    { name: "AP", value: 45 },
+    { name: "EP", value: 60 },
+    { name: "POCP", value: 35 },
+  ];
+  const defaultPcfTrendData = [
+    { month: "2022", value: 3500 },
+    { month: "2023", value: 3200 },
+    { month: "2024", value: 2847 },
+    { month: "2025", value: 2650 },
+  ];
+
   React.useEffect(() => {
     if (!selectedClient) {
-      // Reset all data if no client selected
-      setLifeCycleData([]);
-      setSupplierEmissionData([]);
-      setRawMaterialData([]);
-      setPackagingData([]);
-      setTransportationData([]);
-      setEnergyData([]);
-      setRecyclabilityData([]);
-      setWasteData([]);
-      setImpactCategoriesData([]);
-      setPcfTrendData([]);
+      // Show demo data when no client is selected
+      setLifeCycleData(defaultLifeCycleData);
+      setSupplierEmissionData(defaultSupplierData);
+      setRawMaterialData(defaultRawMaterialData);
+      setPackagingData(defaultPackagingData);
+      setTransportationData(defaultTransportationData);
+      setEnergyData(defaultEnergyData);
+      setRecyclabilityData(defaultRecyclabilityData);
+      setWasteData(defaultWasteData);
+      setImpactCategoriesData(defaultImpactData);
+      setPcfTrendData(defaultPcfTrendData);
+      setStatCardData({
+        totalEmissions: 2847,
+        manufacturingEmissions: 1243,
+        manufacturingPercent: 43.7,
+        recyclabilityRate: 72.5,
+        transportEmissions: 487,
+        transportPercent: 17.1,
+      });
       return;
     }
 
     const fetchAllData = async () => {
       const clientId = selectedClient.user_id;
 
-      // 1. Life Cycle
+      // 1. Life Cycle + Stat Cards
       setLoading(prev => ({ ...prev, lifeCycle: true }));
       try {
         const res = await dashboardService.getProductLifeCycle(clientId);
         if (res.data?.data || res.data) {
           const data = res.data?.data || res.data;
+          const rawMat = parseFloat(data.raw_material) || 0;
+          const mfg = parseFloat(data.manufacturing) || 0;
+          const pkg = parseFloat(data.packaging) || 0;
+          const transport = parseFloat(data.transportation) || 0;
+          const waste = parseFloat(data.waste) || 0;
+          const total = rawMat + mfg + pkg + transport + waste;
+
           setLifeCycleData([
-            { name: "Raw Material", value: parseFloat(data.raw_material) || 0, color: COLOR_MAP["Raw Material"] },
-            { name: "Manufacturing", value: parseFloat(data.manufacturing) || 0, color: COLOR_MAP["Manufacturing"] },
-            { name: "Packaging", value: parseFloat(data.packaging) || 0, color: COLOR_MAP["Packaging"] },
-            { name: "Transportation", value: parseFloat(data.transportation) || 0, color: COLOR_MAP["Transportation"] },
-            { name: "End of Life", value: parseFloat(data.waste) || 0, color: COLOR_MAP["End of Life"] },
+            { name: "Raw Material", value: rawMat, color: COLOR_MAP["Raw Material"] },
+            { name: "Manufacturing", value: mfg, color: COLOR_MAP["Manufacturing"] },
+            { name: "Packaging", value: pkg, color: COLOR_MAP["Packaging"] },
+            { name: "Transportation", value: transport, color: COLOR_MAP["Transportation"] },
+            { name: "End of Life", value: waste, color: COLOR_MAP["End of Life"] },
           ]);
+
+          // Compute stat card values from lifecycle data
+          setStatCardData({
+            totalEmissions: total,
+            manufacturingEmissions: mfg,
+            manufacturingPercent: total > 0 ? parseFloat(((mfg / total) * 100).toFixed(1)) : 0,
+            recyclabilityRate: 0, // will be updated by recyclability fetch below
+            transportEmissions: transport,
+            transportPercent: total > 0 ? parseFloat(((transport / total) * 100).toFixed(1)) : 0,
+          });
         }
       } catch (e) {
-        setLifeCycleData([]);
+        setLifeCycleData(defaultLifeCycleData);
       }
       setLoading(prev => ({ ...prev, lifeCycle: false }));
 
@@ -156,15 +269,15 @@ const Dashboard: React.FC = () => {
               name: item.component_name || item.material_name || item.name || "Unknown",
               value: parseFloat(item.overall_total_pcf) || parseFloat(item.emission) || 0
             })) : [];
-            setSupplierEmissionData(formatted);
+            setSupplierEmissionData(formatted.length > 0 ? formatted : defaultSupplierData);
           } else {
-            setSupplierEmissionData([]);
+            setSupplierEmissionData(defaultSupplierData);
           }
         } else {
-          setSupplierEmissionData([]);
+          setSupplierEmissionData(defaultSupplierData);
         }
       } catch (e) {
-        setSupplierEmissionData([]);
+        setSupplierEmissionData(defaultSupplierData);
       }
       setLoading(prev => ({ ...prev, supplier: false }));
 
@@ -179,35 +292,29 @@ const Dashboard: React.FC = () => {
           }));
           setRawMaterialData(formatted);
         } else {
-          // Fallback reference data when API returns empty
-          setRawMaterialData([
-            { name: "Extrusion", value: 1.05 },
-            { name: "Injection Molding", value: 0.92 },
-            { name: "Drying", value: 0.35 },
-            { name: "Assembly", value: 0.2 },
-            { name: "Finishing", value: 0.15 },
-          ]);
+          setRawMaterialData(defaultRawMaterialData);
         }
       } catch (e) {
-        setRawMaterialData([
-          { name: "Extrusion", value: 1.05 },
-          { name: "Injection Molding", value: 0.92 },
-          { name: "Drying", value: 0.35 },
-          { name: "Assembly", value: 0.2 },
-          { name: "Finishing", value: 0.15 },
-        ]);
+        setRawMaterialData(defaultRawMaterialData);
       }
       setLoading(prev => ({ ...prev, rawMaterial: false }));
 
-      // 4. Packaging (Static for now, but enabled)
+      // 4. Packaging (from waste API - packaging waste treatment data)
       setLoading(prev => ({ ...prev, packaging: true }));
-      // Using static data as placeholder until real API
-      setPackagingData([
-        { name: "Cardboard", value: 120 },
-        { name: "Film", value: 60 },
-        { name: "Pallet", value: 40 },
-        { name: "Tape", value: 14 },
-      ]);
+      try {
+        const res = await dashboardService.getWasteEmissionDetails(clientId);
+        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+          const formatted = res.data.map((item: any) => ({
+            name: (item.treatment_type || "Unknown").substring(0, 15),
+            value: parseFloat(item.total_waste_weight) || parseFloat(item.total_co2_emission) || 0
+          })).filter((item: any) => item.value > 0);
+          setPackagingData(formatted.length > 0 ? formatted : defaultPackagingData);
+        } else {
+          setPackagingData(defaultPackagingData);
+        }
+      } catch (e) {
+        setPackagingData(defaultPackagingData);
+      }
       setLoading(prev => ({ ...prev, packaging: false }));
 
       // 5. Transportation
@@ -221,10 +328,10 @@ const Dashboard: React.FC = () => {
           }));
           setTransportationData(formatted);
         } else {
-          setTransportationData([]);
+          setTransportationData(defaultTransportationData);
         }
       } catch (e) {
-        setTransportationData([]);
+        setTransportationData(defaultTransportationData);
       }
       setLoading(prev => ({ ...prev, transportation: false }));
 
@@ -239,21 +346,10 @@ const Dashboard: React.FC = () => {
           }));
           setEnergyData(formatted);
         } else {
-          // Fallback reference data when API returns empty
-          setEnergyData([
-            { name: "Electricity", value: 850 },
-            { name: "Natural Gas", value: 320 },
-            { name: "Steam", value: 180 },
-            { name: "Cooling", value: 95 },
-          ]);
+          setEnergyData(defaultEnergyData);
         }
       } catch (e) {
-        setEnergyData([
-          { name: "Electricity", value: 850 },
-          { name: "Natural Gas", value: 320 },
-          { name: "Steam", value: 180 },
-          { name: "Cooling", value: 95 },
-        ]);
+        setEnergyData(defaultEnergyData);
       }
       setLoading(prev => ({ ...prev, energy: false }));
 
@@ -266,15 +362,24 @@ const Dashboard: React.FC = () => {
             .map((item: any) => ({
               name: item.material_type || "Unknown",
               value: parseFloat(item.total_material_used_in_kg) || 0,
+              recycledKg: parseFloat(item.total_recycled_content_used_in_kg) || 0,
             }))
-            .sort((a: any, b: any) => b.value - a.value)
-            .slice(0, 4);
-          setRecyclabilityData(formatted);
+            .sort((a: any, b: any) => b.value - a.value);
+
+          // Calculate overall recyclability rate
+          const totalUsed = formatted.reduce((sum: number, item: any) => sum + item.value, 0);
+          const totalRecycled = formatted.reduce((sum: number, item: any) => sum + item.recycledKg, 0);
+          const recyclabilityRate = totalUsed > 0 ? parseFloat(((totalRecycled / totalUsed) * 100).toFixed(1)) : 0;
+
+          // Update stat card with recyclability rate
+          setStatCardData(prev => prev ? { ...prev, recyclabilityRate } : prev);
+
+          setRecyclabilityData(formatted.slice(0, 4).map(({ name, value }: any) => ({ name, value })));
         } else {
-          setRecyclabilityData([]);
+          setRecyclabilityData(defaultRecyclabilityData);
         }
       } catch (e) {
-        setRecyclabilityData([]);
+        setRecyclabilityData(defaultRecyclabilityData);
       }
       setLoading(prev => ({ ...prev, recyclability: false }));
 
@@ -289,62 +394,28 @@ const Dashboard: React.FC = () => {
           }));
           setWasteData(formatted);
         } else {
-          // Fallback reference data
-          setWasteData([
-            { name: "Recycling", value: 50 },
-            { name: "Composting", value: 90 },
-            { name: "Landfill", value: 250 },
-            { name: "Incineration", value: 400 },
-          ]);
+          setWasteData(defaultWasteData);
         }
       } catch (e) {
-        setWasteData([
-          { name: "Recycling", value: 50 },
-          { name: "Composting", value: 90 },
-          { name: "Landfill", value: 250 },
-          { name: "Incineration", value: 400 },
-        ]);
+        setWasteData(defaultWasteData);
       }
       setLoading(prev => ({ ...prev, waste: false }));
 
-      // 9. Impact Categories (API with fallback)
+      // 9. Impact Categories
       setLoading(prev => ({ ...prev, impact: true }));
       try {
         const res = await dashboardService.getImpactCategories(clientId);
         if (res.success && res.data?.indicators && res.data.indicators.length > 0) {
-          const hasRealData = res.data.indicators.some((i: any) => i.value > 0);
-          if (hasRealData) {
-            const formatted = res.data.indicators.map((item: any) => ({
-              name: item.name.includes("(") ? item.name.split("(")[1]?.replace(")", "").trim() || item.name : item.name,
-              value: item.value
-            }));
-            setImpactCategoriesData(formatted);
-          } else {
-            setImpactCategoriesData([
-              { name: "GWP", value: 100 },
-              { name: "ODP", value: 20 },
-              { name: "AP", value: 45 },
-              { name: "EP", value: 60 },
-              { name: "POCP", value: 35 },
-            ]);
-          }
+          const formatted = res.data.indicators.map((item: any) => ({
+            name: item.name.includes("(") ? item.name.split("(")[1]?.replace(")", "").trim() || item.name : item.name,
+            value: item.value
+          }));
+          setImpactCategoriesData(formatted);
         } else {
-          setImpactCategoriesData([
-            { name: "GWP", value: 100 },
-            { name: "ODP", value: 20 },
-            { name: "AP", value: 45 },
-            { name: "EP", value: 60 },
-            { name: "POCP", value: 35 },
-          ]);
+          setImpactCategoriesData(defaultImpactData);
         }
       } catch {
-        setImpactCategoriesData([
-          { name: "GWP", value: 100 },
-          { name: "ODP", value: 20 },
-          { name: "AP", value: 45 },
-          { name: "EP", value: 60 },
-          { name: "POCP", value: 35 },
-        ]);
+        setImpactCategoriesData(defaultImpactData);
       }
       setLoading(prev => ({ ...prev, impact: false }));
 
@@ -364,10 +435,10 @@ const Dashboard: React.FC = () => {
             .map(([year, value]) => ({ month: year, value: Number(value.toFixed(2)) }));
           setPcfTrendData(formatted);
         } else {
-          setPcfTrendData([]);
+          setPcfTrendData(defaultPcfTrendData);
         }
       } catch (e) {
-        setPcfTrendData([]);
+        setPcfTrendData(defaultPcfTrendData);
       }
       setLoading(prev => ({ ...prev, pcfTrend: false }));
     };
@@ -390,7 +461,6 @@ const Dashboard: React.FC = () => {
     data: any[],
     renderChart: () => React.ReactNode
   ) => {
-    if (!selectedClient) return renderNoClientState();
     if (isLoading) return <div className="flex items-center justify-center h-full text-gray-400"><RefreshCw className="w-5 h-5 animate-spin mr-2" />Loading...</div>;
     if (!data || data.length === 0) return <div className="flex items-center justify-center h-full text-gray-400">No data available</div>;
     return renderChart();
@@ -665,12 +735,12 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Stats Grid - Keeping static for now or can be dynamic later */}
+        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             title="Total CO₂e Emissions"
-            value="2,847 kg"
-            subValue="vs. previous period"
+            value={statCardData ? `${statCardData.totalEmissions.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg` : "Loading..."}
+            subValue={statCardData ? "All lifecycle stages" : ""}
             trend={-12.3}
             icon={Leaf}
             iconBg="bg-green-100"
@@ -678,8 +748,8 @@ const Dashboard: React.FC = () => {
           />
           <StatCard
             title="Manufacturing Emissions"
-            value="1,243 kg"
-            subValue="43.7% of total"
+            value={statCardData ? `${statCardData.manufacturingEmissions.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg` : "Loading..."}
+            subValue={statCardData ? `${statCardData.manufacturingPercent}% of total` : ""}
             trend={5.2}
             icon={Factory}
             iconBg="bg-blue-100"
@@ -687,8 +757,8 @@ const Dashboard: React.FC = () => {
           />
           <StatCard
             title="Recyclability Rate"
-            value="72.5%"
-            subValue="Target: 85%"
+            value={statCardData ? `${statCardData.recyclabilityRate}%` : "Loading..."}
+            subValue="Recycled content ratio"
             trend={8.1}
             icon={RefreshCw}
             iconBg="bg-purple-100"
@@ -696,8 +766,8 @@ const Dashboard: React.FC = () => {
           />
           <StatCard
             title="Transport Emissions"
-            value="487 kg"
-            subValue="17.1% of total"
+            value={statCardData ? `${statCardData.transportEmissions.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg` : "Loading..."}
+            subValue={statCardData ? `${statCardData.transportPercent}% of total` : ""}
             trend={-18.4}
             icon={Truck}
             iconBg="bg-orange-100"

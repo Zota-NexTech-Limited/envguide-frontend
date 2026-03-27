@@ -45,6 +45,13 @@ interface ProcessEnergyItem {
     emission: number;
 }
 
+const DEFAULT_ENERGY_SOURCES = [
+  { name: "Electricity-Grid", share: 58, emission: 850 },
+  { name: "Natural Gas", share: 22, emission: 320 },
+  { name: "Steam", share: 12, emission: 180 },
+  { name: "Cooling", share: 8, emission: 95 },
+];
+
 const DetailedEnergyEmission: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -59,7 +66,7 @@ const DetailedEnergyEmission: React.FC = () => {
     const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
 
-    const [energySourceData, setEnergySourceData] = useState<EnergySourceItem[]>([]);
+    const [energySourceData, setEnergySourceData] = useState<EnergySourceItem[]>(DEFAULT_ENERGY_SOURCES);
     const [processEnergyData, setProcessEnergyData] = useState<ProcessEnergyItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -111,7 +118,7 @@ const DetailedEnergyEmission: React.FC = () => {
     useEffect(() => {
         const fetchData = async () => {
             if (!selectedClient) {
-                setEnergySourceData([]);
+                setEnergySourceData(DEFAULT_ENERGY_SOURCES);
                 setProcessEnergyData([]);
                 return;
             }
@@ -131,12 +138,11 @@ const DetailedEnergyEmission: React.FC = () => {
                     }));
                     setEnergySourceData(formatted);
                 } else {
-                    // Fallback reference data when API returns empty
                     setEnergySourceData([
-                        { name: "Electricity - Grid", share: 45, emission: 850 },
-                        { name: "Natural Gas", share: 25, emission: 320 },
-                        { name: "Steam - Industrial", share: 18, emission: 180 },
-                        { name: "Cooling - District", share: 12, emission: 95 },
+                        { name: "Electricity-Grid", share: 58, emission: 850 },
+                        { name: "Natural Gas", share: 22, emission: 320 },
+                        { name: "Steam", share: 12, emission: 180 },
+                        { name: "Cooling", share: 8, emission: 95 },
                     ]);
                 }
 
@@ -213,10 +219,10 @@ const DetailedEnergyEmission: React.FC = () => {
     }));
 
     const renderEnergySource = (isModal = false) => {
-        if (!selectedClient) {
+        if (energySourceData.length === 0) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
-                    Select a client to view energy source data
+                    No data available
                 </div>
             );
         }
@@ -238,10 +244,10 @@ const DetailedEnergyEmission: React.FC = () => {
     };
 
     const renderProcessEnergy = (isModal = false) => {
-        if (!selectedClient) {
+        if (processEnergyData.length === 0) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
-                    Select a client to view process energy data
+                    No data available
                 </div>
             );
         }

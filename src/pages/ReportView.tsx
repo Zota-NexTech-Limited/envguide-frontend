@@ -596,16 +596,17 @@ const ReportView: React.FC = () => {
                                                         displayValue = (pagination.current_page - 1) * 20 + rowIdx + 1;
                                                     }
 
+                                                    // If array contains all numbers, sum them up
+                                                    if (Array.isArray(displayValue) && displayValue.length > 0 && displayValue.every((v: any) => typeof v === 'number' || (typeof v === 'string' && !isNaN(Number(v)) && v.trim() !== ''))) {
+                                                        displayValue = displayValue.reduce((sum: number, v: any) => sum + Number(v), 0);
+                                                    }
+
                                                     return (
                                                         <td key={colIdx} className="px-6 py-4 text-sm text-gray-600">
                                                             {Array.isArray(displayValue) ? (
-                                                                <div className="flex flex-wrap gap-1.5 min-w-[150px]">
-                                                                    {displayValue.map((val, i) => (
-                                                                        <span key={i} className="px-2 py-0.5 bg-green-50 text-green-700 border border-green-100 rounded-full text-[10px] font-bold whitespace-nowrap">
-                                                                            {String(val)}
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
+                                                                <span className="whitespace-nowrap">
+                                                                    {displayValue.join(", ")}
+                                                                </span>
                                                             ) : (
                                                                 <span className="whitespace-nowrap">
                                                                     {displayValue !== undefined && displayValue !== null ? String(displayValue) : "-"}

@@ -29,20 +29,19 @@ import dashboardService from "../lib/dashboardService";
 const IMPACT_COLORS = ["#1A5D1A", "#458C21", "#52C41A", "#74B72E", "#B3E699", "#D9F5C5", "#EBFADC"];
 const PRODUCTS_PER_PAGE = 5;
 
-const FALLBACK_INDICATORS = [
-    { name: "Global Warming (GWP)", value: 1200, unit: "kg CO₂ eq" },
-    { name: "Ozone Depletion (ODP)", value: 0.00045, unit: "kg CFC-11 eq" },
-    { name: "Acidification (AP)", value: 2.8, unit: "kg SO₂ eq" },
-    { name: "Eutrophication (EP)", value: 0.55, unit: "kg PO₄ eq" },
-    { name: "Photochemical Ozone (POCP)", value: 1.2, unit: "kg NMVOC eq" },
-    { name: "Water Scarcity", value: 75, unit: "m³" },
-    { name: "Resource Depletion", value: 50, unit: "kg Sb eq" },
+const DEFAULT_INDICATORS = [
+  { name: "Global Warming (GWP)", value: 2847, unit: "kg CO\u2082 eq" },
+  { name: "Ozone Depletion (ODP)", value: 0.00012, unit: "kg CFC-11 eq" },
+  { name: "Acidification (AP)", value: 8.5, unit: "kg SO\u2082 eq" },
+  { name: "Eutrophication (EP)", value: 1.2, unit: "kg PO\u2084 eq" },
+  { name: "Photochemical Ozone (POCP)", value: 0.95, unit: "kg NMVOC eq" },
+  { name: "Water Scarcity", value: 125, unit: "m\u00B3 eq" },
+  { name: "Resource Depletion", value: 45, unit: "kg Sb eq" },
 ];
-
-const FALLBACK_COMPARISON = [
-    { name: "Product A", gwp: 22.5, ap: 0.015, ep: 18.3, pocp: 0.07 },
-    { name: "Product B", gwp: 18.3, ap: 0.013, ep: 27.8, pocp: 0.11 },
-    { name: "Product C", gwp: 27.8, ap: 0.017, ep: 16.4, pocp: 0.06 },
+const DEFAULT_COMPARISON = [
+  { name: "Product A", gwp: 2847, ap: 8.5, ep: 1.2, pocp: 0.95 },
+  { name: "Product B", gwp: 3200, ap: 9.1, ep: 1.5, pocp: 1.1 },
+  { name: "Product C", gwp: 2100, ap: 6.2, ep: 0.8, pocp: 0.7 },
 ];
 
 const DetailedImpactCategories: React.FC = () => {
@@ -55,8 +54,8 @@ const DetailedImpactCategories: React.FC = () => {
     const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const [impactData, setImpactData] = useState(FALLBACK_INDICATORS);
-    const [comparisonData, setComparisonData] = useState<any[]>(FALLBACK_COMPARISON);
+    const [impactData, setImpactData] = useState<any[]>(DEFAULT_INDICATORS);
+    const [comparisonData, setComparisonData] = useState<any[]>(DEFAULT_COMPARISON);
     const [comparisonPage, setComparisonPage] = useState(0);
 
     useEffect(() => { fetchClients(); }, []);
@@ -71,8 +70,8 @@ const DetailedImpactCategories: React.FC = () => {
         if (selectedClient) {
             fetchImpactData(selectedClient.user_id);
         } else {
-            setImpactData(FALLBACK_INDICATORS);
-            setComparisonData(FALLBACK_COMPARISON);
+            setImpactData(DEFAULT_INDICATORS);
+            setComparisonData(DEFAULT_COMPARISON);
         }
         setComparisonPage(0);
     }, [selectedClient]);
@@ -94,20 +93,20 @@ const DetailedImpactCategories: React.FC = () => {
                 if (indicators && indicators.length > 0 && indicators.some((i: any) => i.value > 0)) {
                     setImpactData(indicators);
                 } else {
-                    setImpactData(FALLBACK_INDICATORS);
+                    setImpactData(DEFAULT_INDICATORS);
                 }
                 if (productComparison && productComparison.length > 0 && productComparison.some((p: any) => p.gwp > 0 || p.ap > 0)) {
                     setComparisonData(productComparison);
                 } else {
-                    setComparisonData(FALLBACK_COMPARISON);
+                    setComparisonData(DEFAULT_COMPARISON);
                 }
             } else {
-                setImpactData(FALLBACK_INDICATORS);
-                setComparisonData(FALLBACK_COMPARISON);
+                setImpactData(DEFAULT_INDICATORS);
+                setComparisonData(DEFAULT_COMPARISON);
             }
         } catch {
-            setImpactData(FALLBACK_INDICATORS);
-            setComparisonData(FALLBACK_COMPARISON);
+            setImpactData(DEFAULT_INDICATORS);
+            setComparisonData(DEFAULT_COMPARISON);
         }
         setLoading(false);
     };
@@ -216,6 +215,13 @@ const DetailedImpactCategories: React.FC = () => {
                 </div>
             );
         }
+        if (impactData.length === 0) {
+            return (
+                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
+                    No data available
+                </div>
+            );
+        }
         return (
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={impactData} layout="vertical" margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
@@ -250,6 +256,13 @@ const DetailedImpactCategories: React.FC = () => {
             return (
                 <div className="flex items-center justify-center h-full text-gray-400">
                     <RefreshCw className="w-5 h-5 animate-spin mr-2" />Loading...
+                </div>
+            );
+        }
+        if (comparisonData.length === 0) {
+            return (
+                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
+                    No data available
                 </div>
             );
         }

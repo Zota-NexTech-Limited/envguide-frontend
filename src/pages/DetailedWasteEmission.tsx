@@ -70,6 +70,13 @@ interface Supplier {
     // If I want to match DetailedEnergyEmission's types:
 }
 
+const DEFAULT_WASTE = [
+  { name: "Recycling", generated: 120, emission: 50 },
+  { name: "Composting", generated: 45, emission: 90 },
+  { name: "Landfill", generated: 200, emission: 250 },
+  { name: "Incineration", generated: 85, emission: 400 },
+];
+
 const DetailedWasteEmission: React.FC = () => {
     const navigate = useNavigate();
     const [expandedChart, setExpandedChart] = useState<string | null>(null);
@@ -80,7 +87,7 @@ const DetailedWasteEmission: React.FC = () => {
     const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
     const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
 
-    const [wasteData, setWasteData] = useState<WasteData[]>([]);
+    const [wasteData, setWasteData] = useState<WasteData[]>(DEFAULT_WASTE);
     const [loading, setLoading] = useState<boolean>(false);
 
     useEffect(() => {
@@ -92,7 +99,7 @@ const DetailedWasteEmission: React.FC = () => {
             fetchSuppliers(selectedClient.user_id);
             fetchWasteEmissionData(selectedClient.user_id, selectedSupplier?.id);
         } else {
-            setWasteData([]);
+            setWasteData(DEFAULT_WASTE);
             setSuppliers([]);
             setSelectedSupplier(null);
         }
@@ -116,14 +123,6 @@ const DetailedWasteEmission: React.FC = () => {
         }
     };
 
-    const FALLBACK_WASTE: WasteData[] = [
-        { name: "Recycling", generated: 500, emission: 50 },
-        { name: "Composting", generated: 300, emission: 90 },
-        { name: "Landfill", generated: 400, emission: 250 },
-        { name: "Incineration", generated: 200, emission: 400 },
-        { name: "Total", generated: 1400, emission: 790 },
-    ];
-
     const fetchWasteEmissionData = async (clientId: string, supplierId?: string) => {
         setLoading(true);
         const response = await dashboardService.getWasteEmissionDetails(clientId, supplierId);
@@ -143,21 +142,17 @@ const DetailedWasteEmission: React.FC = () => {
             }
             setWasteData(mappedData);
         } else {
-            // Fallback reference data
-            setWasteData(FALLBACK_WASTE);
+            setWasteData([
+                { name: "Recycling", generated: 120, emission: 50 },
+                { name: "Composting", generated: 45, emission: 90 },
+                { name: "Landfill", generated: 200, emission: 250 },
+                { name: "Incineration", generated: 85, emission: 400 },
+            ]);
         }
         setLoading(false);
     };
 
     const renderWasteTreatment = (isModal = false) => {
-        if (!selectedClient) {
-            return (
-                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
-                    Select a client to view waste treatment data
-                </div>
-            );
-        }
-
         if (wasteData.length === 0) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">

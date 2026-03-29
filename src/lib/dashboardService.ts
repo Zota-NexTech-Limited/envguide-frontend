@@ -268,11 +268,11 @@ class DashboardService {
         }
     }
 
-    async getWasteEmissionDetails(clientId: string, supplierId?: string) {
+    async getWasteEmissionDetails(clientId: string, supplierId?: string, wasteTypes?: string[]) {
         try {
-            const url = supplierId
-                ? `${API_BASE_URL}/api/dashboard/waste-emission?client_id=${clientId}&supplier_id=${supplierId}`
-                : `${API_BASE_URL}/api/dashboard/waste-emission?client_id=${clientId}`;
+            let url = `${API_BASE_URL}/api/dashboard/waste-emission?client_id=${clientId}`;
+            if (supplierId) url += `&supplier_id=${supplierId}`;
+            if (wasteTypes && wasteTypes.length > 0) url += `&waste_type=${encodeURIComponent(wasteTypes.join(','))}`;
             const response = await fetch(url, {
                 method: "GET",
                 headers: this.getHeaders(),
@@ -282,6 +282,20 @@ class DashboardService {
         } catch (error) {
             console.error("Error fetching waste emission details:", error);
             return { success: false, message: "Network error", data: [], totals: {} };
+        }
+    }
+
+    async getWasteTypeDropdown(clientId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/waste-type-dropdown?client_id=${clientId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            console.error("Error fetching waste type dropdown:", error);
+            return { success: false, message: "Network error", data: [] };
         }
     }
 

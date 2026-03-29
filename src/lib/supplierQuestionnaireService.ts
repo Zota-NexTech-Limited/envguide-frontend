@@ -1257,19 +1257,27 @@ class SupplierQuestionnaireService {
                   })),
           },
           scope_three_other_indirect_emissions_questions: {
-              raw_materials_used_in_component_manufacturing_questions: this.ensureArray(data.scope_3?.materials?.raw_materials)
-                  .filter(item => item.material && item.composition_percent !== undefined && item.composition_percent !== null)
-                  .map(item => {
-                      const ref = resolveComponentRefFromMpnOrName(data, item as any);
-                      return { item, ref };
-                  })
-                  .filter(({ ref, item }) => (ref?.bom_id ?? item.bom_id) != null)
-                  .map(({ item, ref }) => ({
-                      ...((ref?.bom_id ?? item.bom_id) && { bom_id: ref?.bom_id ?? item.bom_id }),
-                      ...((ref?.material_number || item.material_number) && { material_number: (ref?.material_number || item.material_number) }),
-                      material_name: item.material,
-                      percentage: item.composition_percent
-                  })),
+              raw_materials_used_in_component_manufacturing_questions: (() => {
+                  const rawItems = this.ensureArray(data.scope_3?.materials?.raw_materials)
+                      .filter(item => item.material && item.composition_percent !== undefined && item.composition_percent !== null);
+                  console.log("=== Q52 RAW MATERIALS DEBUG (before mapping) ===");
+                  rawItems.forEach((item: any, idx: number) => {
+                      console.log(`  Row ${idx + 1}: bom_id=${item.bom_id}, mpn=${item.mpn || item.material_number}, material=${item.material}, %=${item.composition_percent}`);
+                  });
+                  console.log("=== END Q52 RAW MATERIALS DEBUG ===");
+                  return rawItems
+                      .map(item => {
+                          const ref = resolveComponentRefFromMpnOrName(data, item as any);
+                          return { item, ref };
+                      })
+                      .filter(({ ref, item }) => (ref?.bom_id ?? item.bom_id) != null)
+                      .map(({ item, ref }) => ({
+                          ...((ref?.bom_id ?? item.bom_id) && { bom_id: ref?.bom_id ?? item.bom_id }),
+                          ...((ref?.material_number || item.material_number) && { material_number: (ref?.material_number || item.material_number) }),
+                          material_name: item.material,
+                          percentage: item.composition_percent
+                      }));
+              })(),
               raw_materials_contact_enviguide_support: this.convertToBoolean(data.scope_3?.materials?.raw_materials_contact_support || false),
               grade_of_metal_used: data.scope_3?.materials?.metal_grade || '',
               msds_link_or_upload_document: Array.isArray(data.scope_3?.materials?.msds) ? data.scope_3?.materials.msds : (data.scope_3?.materials?.msds ? [data.scope_3?.materials.msds] : []),
@@ -1327,22 +1335,30 @@ class SupplierQuestionnaireService {
                       quantity: item.quantity,
                       unit: item.unit
                   })),
-              weight_of_pro_packaging_waste_questions: this.ensureArray(data.scope_3?.waste_disposal?.types_and_weight)
-                  .filter(item => item.waste_type && (item.weight !== undefined && item.weight !== null && item.weight !== ''))
-                  .map((item: any) => {
-                      const ref = resolveComponentRefFromMpnOrName(data, item as any);
-                      return { item, ref };
-                  })
-                  .filter(({ ref, item }) => (ref?.bom_id ?? item.bom_id) != null)
-                  .map(({ item, ref }) => ({
-                      ...((ref?.bom_id ?? item.bom_id) && { bom_id: ref?.bom_id ?? item.bom_id }),
-                      ...((ref?.material_number || item.material_number) && { material_number: (ref?.material_number || item.material_number) }),
-                      ...(item.component_name && { component_name: item.component_name }),
-                      waste_type: item.waste_type,
-                      waste_weight: item.weight,
-                      unit: item.unit,
-                      treatment_type: item.treatment_type
-                  })),
+              weight_of_pro_packaging_waste_questions: (() => {
+                  const wasteItems = this.ensureArray(data.scope_3?.waste_disposal?.types_and_weight)
+                      .filter(item => item.waste_type && (item.weight !== undefined && item.weight !== null && item.weight !== ''));
+                  console.log("=== Q68 WASTE DEBUG (before mapping) ===");
+                  wasteItems.forEach((item: any, idx: number) => {
+                      console.log(`  Row ${idx + 1}: bom_id=${item.bom_id}, mpn=${item.mpn || item.material_number}, waste_type=${item.waste_type}, weight=${item.weight}, treatment=${item.treatment_type}`);
+                  });
+                  console.log("=== END Q68 WASTE DEBUG ===");
+                  return wasteItems
+                      .map((item: any) => {
+                          const ref = resolveComponentRefFromMpnOrName(data, item as any);
+                          return { item, ref };
+                      })
+                      .filter(({ ref, item }) => (ref?.bom_id ?? item.bom_id) != null)
+                      .map(({ item, ref }) => ({
+                          ...((ref?.bom_id ?? item.bom_id) && { bom_id: ref?.bom_id ?? item.bom_id }),
+                          ...((ref?.material_number || item.material_number) && { material_number: (ref?.material_number || item.material_number) }),
+                          ...(item.component_name && { component_name: item.component_name }),
+                          waste_type: item.waste_type,
+                          waste_weight: item.weight,
+                          unit: item.unit,
+                          treatment_type: item.treatment_type
+                      }));
+              })(),
               internal_or_external_waste_material_per_recycling: String(data.scope_3?.waste_disposal?.recycled_percent ?? ''),
               any_by_product_generated: this.convertToBoolean(data.scope_3?.waste_disposal?.by_products_generated || false),
               type_of_by_product_questions: this.ensureArray(data.scope_3?.waste_disposal?.by_product_details)
@@ -1378,24 +1394,32 @@ class SupplierQuestionnaireService {
                       };
                   }),
               mode_of_transport_used_for_transportation: this.convertToBoolean((data.scope_3?.logistics?.transport_modes?.length || 0) > 0),
-              mode_of_transport_used_for_transportation_questions: this.ensureArray(data.scope_3?.logistics?.transport_modes)
-                  .filter(item => item.mode && item.source && item.destination && (item.distance !== undefined && item.distance !== null && item.distance !== ''))
-                  .map(item => {
-                      const ref = resolveComponentRefFromMpnOrName(data, item as any);
-                      return { item, ref };
-                  })
-                  .filter(({ ref, item }) => (item.bom_id || ref?.bom_id) != null)
-                  .map(({ item, ref }) => ({
-                      ...((item.bom_id || ref?.bom_id) && { bom_id: item.bom_id || ref?.bom_id }),
-                      ...(((ref?.material_number || item.material_number)) && { material_number: (ref?.material_number || item.material_number) }),
-                      ...(item.mpn && { mpn: item.mpn }),
-                      ...(item.component_name && { component_name: item.component_name }),
-                      mode_of_transport: item.mode,
-                      weight_transported: item.weight || '',
-                      source_point: item.source,
-                      drop_point: item.destination,
-                      distance: item.distance
-                  })),
+              mode_of_transport_used_for_transportation_questions: (() => {
+                  const transportItems = this.ensureArray(data.scope_3?.logistics?.transport_modes)
+                      .filter(item => item.mode && item.source && item.destination && (item.distance !== undefined && item.distance !== null && item.distance !== ''));
+                  console.log("=== Q74 TRANSPORT DEBUG (before mapping) ===");
+                  transportItems.forEach((item: any, idx: number) => {
+                      console.log(`  Row ${idx + 1}: bom_id=${item.bom_id}, mpn=${item.mpn || item.material_number}, mode=${item.mode}, source=${item.source}, dest=${item.destination}, distance=${item.distance}`);
+                  });
+                  console.log("=== END Q74 TRANSPORT DEBUG ===");
+                  return transportItems
+                      .map(item => {
+                          const ref = resolveComponentRefFromMpnOrName(data, item as any);
+                          return { item, ref };
+                      })
+                      .filter(({ ref, item }) => (item.bom_id || ref?.bom_id) != null)
+                      .map(({ item, ref }) => ({
+                          ...((item.bom_id || ref?.bom_id) && { bom_id: item.bom_id || ref?.bom_id }),
+                          ...(((ref?.material_number || item.material_number)) && { material_number: (ref?.material_number || item.material_number) }),
+                          ...(item.mpn && { mpn: item.mpn }),
+                          ...(item.component_name && { component_name: item.component_name }),
+                          mode_of_transport: item.mode,
+                          weight_transported: item.weight || '',
+                          source_point: item.source,
+                          drop_point: item.destination,
+                          distance: item.distance
+                      }));
+              })(),
               mode_of_transport_enviguide_support: this.convertToBoolean(data.scope_3?.logistics?.enviguide_support || false),
               destination_plant_component_transportation_questions: this.ensureArray(data.scope_3?.logistics?.destination_plant)
                   .filter(item => item.country && item.state && item.city)

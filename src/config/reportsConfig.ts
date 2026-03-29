@@ -96,12 +96,13 @@ export const reportsConfig: ReportConfig[] = [
             { header: "SL.No", key: "index" },
             { header: "Supplier ID/Code", key: "supplier_details.code", filterKey: "supplier_code" },
             { header: "Supplier Name", key: "supplier_details.supplier_name", filterKey: "supplier_name" },
-            { header: "Material", key: "material", filterKey: "material" },
-            { header: "Application in Product", key: "application" },
-            { header: "Recyclability (%)", key: "recyclability_percentage" },
-            { header: "Weight in kg", key: "weight_kg" },
-            { header: "Emission Factor (kg CO₂e/kg material)", key: "emission_factor" },
-            { header: "Emission in CO2 eq", key: "emission_co2" }
+            { header: "Component Name", key: "component_name", filterKey: "component_name" },
+            { header: "Material", key: "material_name", filterKey: "material_name" },
+            { header: "Material Composition (%)", key: "material_percentage" },
+            { header: "Recyclability (%)", key: "recycled_percentage" },
+            { header: "Weight in kg", key: "material_weight_kg" },
+            { header: "Emission Factor (kg CO₂e/kg material)", key: "emission_factor_used" },
+            { header: "Emission in CO2 eq", key: "emission_in_co2_eq" }
         ]
     },
     {
@@ -120,10 +121,14 @@ export const reportsConfig: ReportConfig[] = [
             { header: "Sl.No", key: "index" },
             { header: "Supplier ID/Code", key: "supplier_details.code", filterKey: "supplier_code" },
             { header: "Supplier Name", key: "supplier_details.supplier_name", filterKey: "supplier_name" },
+            { header: "Component Name", key: "component_name", filterKey: "component_name" },
             { header: "Electricity Source", key: "electricity_source" },
             { header: "Energy Type", key: "energy_type", filterKey: "energy_type" },
+            { header: "Quantity", key: "energy_quantity" },
+            { header: "Unit", key: "energy_unit" },
+            { header: "Source Section", key: "source_section" },
             { header: "Emission Factor (kg CO₂e/kWh)", key: "emission_factor" },
-            { header: "Emission", key: "emission" }
+            { header: "Emission", key: "calculated_emission" }
         ]
     },
     {
@@ -142,12 +147,14 @@ export const reportsConfig: ReportConfig[] = [
             { header: "Sl. No", key: "index" },
             { header: "Supplier ID/Code", key: "supplier_details.code", filterKey: "supplier_code" },
             { header: "Supplier Name", key: "supplier_details.supplier_name", filterKey: "supplier_name" },
+            { header: "Component Name", key: "component_name", filterKey: "component_name" },
             { header: "Mode / Category", key: "transport_mode", filterKey: "mode_of_transport" },
-            { header: "Fuel / Energy Source", key: "energy_source" },
-            { header: "Emission Factor (kg CO₂e / tonne·km)", key: "emission_factor" },
-            { header: "Weight Goods in (tons)", key: "weight_tons" },
+            { header: "Source", key: "source_point" },
+            { header: "Destination", key: "drop_point" },
+            { header: "Weight Transported", key: "weight_transported" },
             { header: "Distance (km)", key: "distance_km" },
-            { header: "Total Emission (kg CO₂e / tonne)", key: "total_emission" }
+            { header: "Emission Factor (kg CO₂e / tonne·km)", key: "emission_factor" },
+            { header: "Total Emission (kg CO₂e)", key: "total_emission" }
         ]
     },
     {
@@ -166,9 +173,11 @@ export const reportsConfig: ReportConfig[] = [
             { header: "Sl. No", key: "index" },
             { header: "Supplier ID/Code", key: "supplier_details.code", filterKey: "supplier_code" },
             { header: "Supplier Name", key: "supplier_details.supplier_name", filterKey: "supplier_name" },
-            { header: "Packaging Material / Type", key: "Q60_packaging_material.packagin_type", filterKey: "packagin_type" },
-            { header: "Type of energy used", key: "Q67_energy_type_and_energy_quantity.energy_type", filterKey: "energy_type" },
-            { header: "Recyclability (%)", key: "recyclability_percentage" },
+            { header: "Component Name", key: "component_name", filterKey: "component_name" },
+            { header: "Packaging Material / Type", key: "packaging_type", filterKey: "packagin_type" },
+            { header: "Treatment Type", key: "treatment_type" },
+            { header: "Type of Energy Used", key: "energy_type", filterKey: "energy_type" },
+            { header: "Recyclability (%)", key: "packaging_recyclability" },
             { header: "Emission Factor (kg CO₂e / kg)", key: "emission_factor" },
             { header: "Emission @ 0.25 kg (kg CO₂e)", key: "emission_0_25" },
             { header: "Emission @ 0.5 kg (kg CO₂e)", key: "emission_0_5" },
@@ -188,17 +197,16 @@ export const reportsConfig: ReportConfig[] = [
         endpoint: "/api/report/supplier-dqr-rating-report",
         columns: [
             { header: "Sl. No", key: "index" },
-            { header: "Supplier ID/Code", key: "supplier_details.code" },
-            { header: "Supplier Name", key: "supplier_details.supplier_name" },
-            { header: "Data Source / Supplier", key: "data_source" },
-            { header: "Data Type", key: "data_type" },
-            { header: "Technological Representativeness (TeR)", key: "ter" },
-            { header: "Geographical Representativeness (GR)", key: "gr" },
-            { header: "Temporal Representativeness (TiR)", key: "tir" },
-            { header: "Completeness (C)", key: "completeness" },
-            { header: "Reliability (R)", key: "reliability" },
-            { header: "Average DQR Score", key: "average_dqr" },
-            { header: "Data Quality Level (Catena-X)", key: "quality_level" }
+            { header: "Supplier ID/Code", key: "supplier_code" },
+            { header: "Supplier Name", key: "supplier_name" },
+            { header: "Technological Representativeness (TeR)", key: "total_average_value_ter" },
+            { header: "Geographical Representativeness (GR)", key: "total_average_value_gr" },
+            { header: "Temporal Representativeness (TiR)", key: "total_average_value_tir" },
+            { header: "Completeness (C)", key: "total_average_value_c" },
+            { header: "Reliability (PDS)", key: "total_average_value_pds" },
+            { header: "Average DQR Score", key: "overall_dqr_score" },
+            { header: "Data Quality Level (Catena-X)", key: "criterion" },
+            { header: "Description", key: "meaning_description" }
         ]
     },
 ];

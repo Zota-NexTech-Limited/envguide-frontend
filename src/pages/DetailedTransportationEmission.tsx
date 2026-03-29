@@ -72,6 +72,12 @@ const DetailedTransportationEmission: React.FC = () => {
     const [isLoadingMode, setIsLoadingMode] = useState(false);
     const [isLoadingCorrelation, setIsLoadingCorrelation] = useState(false);
 
+    // Mode of Transport filter (for Mode of Transportation Emission chart)
+    const [modeFilterSearch, setModeFilterSearch] = useState("");
+    const [selectedModeFilters, setSelectedModeFilters] = useState<string[]>([]);
+    const [isModeFilterOpen, setIsModeFilterOpen] = useState(false);
+    const [showTopOnlyMode, setShowTopOnlyMode] = useState(true);
+
     // Transport mode filter for correlation chart
     const [transportSearch, setTransportSearch] = useState("");
     const [selectedTransportModes, setSelectedTransportModes] = useState<string[]>([]);
@@ -136,6 +142,9 @@ const DetailedTransportationEmission: React.FC = () => {
             setRawCorrelationData([]);
             setSelectedTransportModes([]);
             setTransportSearch("");
+            setSelectedModeFilters([]);
+            setModeFilterSearch("");
+            setShowTopOnlyMode(true);
         } else {
             setSuppliers([]);
             setModeData([]);
@@ -212,12 +221,38 @@ const DetailedTransportationEmission: React.FC = () => {
         return aggregatedCorrelation;
     }, [aggregatedCorrelation, selectedTransportModes]);
 
-    // Close filter dropdown on outside click
+    // All mode names for the Mode chart filter — merge master setup + chart data
+    const allModeFilterOptions = useMemo(() => {
+        const names = new Set<string>();
+        masterVehicleTypes.forEach(n => names.add(n));
+        modeData.forEach(d => names.add(d.name));
+        return Array.from(names).sort();
+    }, [masterVehicleTypes, modeData]);
+
+    const filteredModeFilterOptions = useMemo(() => {
+        if (!modeFilterSearch) return allModeFilterOptions;
+        return allModeFilterOptions.filter(n => n.toLowerCase().includes(modeFilterSearch.toLowerCase()));
+    }, [allModeFilterOptions, modeFilterSearch]);
+
+    // Filtered mode data for the Mode of Transportation chart
+    const filteredModeData = useMemo(() => {
+        let data = [...modeData];
+        if (selectedModeFilters.length > 0) {
+            data = data.filter(d => selectedModeFilters.includes(d.name));
+        }
+        const sorted = data.sort((a, b) => b.emission - a.emission);
+        return showTopOnlyMode ? sorted.slice(0, 5) : sorted;
+    }, [modeData, selectedModeFilters, showTopOnlyMode]);
+
+    // Close filter dropdowns on outside click
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
             if (!target.closest('.transport-filter-container')) {
                 setIsTransportFilterOpen(false);
+            }
+            if (!target.closest('.mode-filter-container')) {
+                setIsModeFilterOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClick);
@@ -276,7 +311,7 @@ const DetailedTransportationEmission: React.FC = () => {
             );
         }
 
-        if (modeData.length === 0) {
+        if (filteredModeData.length === 0) {
             return (
                 <div className="flex items-center justify-center h-full text-gray-400 text-sm italic">
                     {selectedClient ? "No data found for this selection" : "Select a client to view emission data"}
@@ -285,11 +320,11 @@ const DetailedTransportationEmission: React.FC = () => {
         }
 
         // Normalize each metric to 0-100% of its own max so all 3 bars are visible
-        const maxDistance = Math.max(...modeData.map(d => d.distance)) || 1;
-        const maxEmission = Math.max(...modeData.map(d => d.emission)) || 1;
-        const maxShare = Math.max(...modeData.map(d => d.share)) || 1;
+        const maxDistance = Math.max(...filteredModeData.map(d => d.distance)) || 1;
+        const maxEmission = Math.max(...filteredModeData.map(d => d.emission)) || 1;
+        const maxShare = Math.max(...filteredModeData.map(d => d.share)) || 1;
 
-        const normalizedData = modeData.map(d => ({
+        const normalizedData = filteredModeData.map(d => ({
             ...d,
             displayName: cleanName(d.name),
             distanceNorm: (d.distance / maxDistance) * 100,
@@ -388,6 +423,100 @@ const DetailedTransportationEmission: React.FC = () => {
                     <Bar dataKey="totalNorm" fill="#1A5D1A" radius={[4, 4, 0, 0]} barSize={isModal ? 30 : 18} name="Total Emission (kg CO₂e)" />
                 </ComposedChart>
             </ResponsiveContainer>
+        );
+    };
+
+    const toggleModeFilter = (name: string) => {
+        setSelectedModeFilters(prev =>
+            prev.includes(name) ? prev.filter(m => m !== name) : [...prev, name]
+        );
+    };
+
+    const renderModeFilter = () => {
+        if (!selectedClient || allModeFilterOptions.length === 0) return null;
+
+        return (
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm mb-6">
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <Filter className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-bold text-gray-700">Filter Transport Modes</span>
+                        <span className="text-xs text-gray-400">({allModeFilterOptions.length} modes)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => { setShowTopOnlyMode(true); setSelectedModeFilters([]); }}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${showTopOnlyMode && selectedModeFilters.length === 0 ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                        >
+                            Top 5
+                        </button>
+                        <button
+                            onClick={() => { setShowTopOnlyMode(false); setSelectedModeFilters([]); }}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${!showTopOnlyMode && selectedModeFilters.length === 0 ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                        >
+                            Show All
+                        </button>
+                        {selectedModeFilters.length > 0 && (
+                            <button
+                                onClick={() => { setSelectedModeFilters([]); setShowTopOnlyMode(true); setModeFilterSearch(""); }}
+                                className="px-3 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-500 hover:bg-red-100 transition-colors cursor-pointer"
+                            >
+                                Clear Filter
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                <div className="relative mode-filter-container">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl">
+                        <Search className="w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Search transport modes..."
+                            value={modeFilterSearch}
+                            onChange={(e) => { setModeFilterSearch(e.target.value); setIsModeFilterOpen(true); }}
+                            onFocus={() => setIsModeFilterOpen(true)}
+                            className="flex-1 bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+                        />
+                        {modeFilterSearch && (
+                            <X className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-600" onClick={() => setModeFilterSearch("")} />
+                        )}
+                    </div>
+
+                    {isModeFilterOpen && (
+                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                            {filteredModeFilterOptions.map((name) => (
+                                <div
+                                    key={name}
+                                    className={`px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2 ${selectedModeFilters.includes(name) ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
+                                    onClick={() => toggleModeFilter(name)}
+                                >
+                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${selectedModeFilters.includes(name) ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                                        {selectedModeFilters.includes(name) && (
+                                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                        )}
+                                    </div>
+                                    {name}
+                                </div>
+                            ))}
+                            {filteredModeFilterOptions.length === 0 && (
+                                <div className="px-4 py-2 text-sm text-gray-400 italic">No modes match "{modeFilterSearch}"</div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {selectedModeFilters.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                        {selectedModeFilters.map((name) => (
+                            <span key={name} className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 border border-green-200 rounded-lg text-xs font-medium text-green-700">
+                                {name}
+                                <X className="w-3 h-3 cursor-pointer hover:text-red-500" onClick={() => toggleModeFilter(name)} />
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </div>
         );
     };
 
@@ -566,6 +695,8 @@ const DetailedTransportationEmission: React.FC = () => {
                 </div>
 
                 <div className="space-y-6">
+                    {/* Mode of Transportation Filter + Chart */}
+                    {renderModeFilter()}
                     <ChartCard title="Mode of Transportation Emission" showExpand onExpand={() => setExpandedChart("mode")}>
                         {renderTransportMode()}
                     </ChartCard>

@@ -604,9 +604,13 @@ const ReportView: React.FC = () => {
                                                     return (
                                                         <td key={colIdx} className="px-6 py-4 text-sm text-gray-600">
                                                             {Array.isArray(displayValue) ? (
-                                                                <span className="whitespace-nowrap">
-                                                                    {displayValue.join(", ")}
-                                                                </span>
+                                                                <div className="space-y-0.5">
+                                                                    {displayValue.map((item: any, i: number) => (
+                                                                        <div key={i} className="whitespace-nowrap">
+                                                                            {displayValue.length > 1 ? `${i + 1}. ${item}` : String(item)}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
                                                             ) : (
                                                                 <span className="whitespace-nowrap">
                                                                     {displayValue !== undefined && displayValue !== null ? String(displayValue) : "-"}

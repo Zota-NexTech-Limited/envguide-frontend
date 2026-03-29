@@ -544,6 +544,53 @@ export async function getTreatmentTypeDropdown(): Promise<{ id: string; name: st
   }
 }
 
+// Get waste material types dropdown (distinct waste_type from waste emission factor setup)
+export async function getWasteTypeDropdown(): Promise<{ id: string; name: string }[]> {
+  try {
+    const res = await fetch(endpoint("waste-material-type-emission-factor", "drop-down-list"), {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (Array.isArray(data?.data)) {
+      return (data.data as any[]).map((item) => ({
+        id: item.wmttef_id || item.id || "",
+        name: item.waste_type || item.name || "",
+      }));
+    }
+    return [];
+  } catch (error) {
+    return [];
+  }
+}
+
+// Get packaging material types dropdown (distinct material_type from packaging emission factor setup)
+export async function getPackagingMaterialTypeDropdown(): Promise<{ id: string; name: string }[]> {
+  try {
+    const res = await fetch(endpoint("packaging-emission-factor", "drop-down-list"), {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (Array.isArray(data?.data)) {
+      // Deduplicate by material_type
+      const seen = new Set<string>();
+      const result: { id: string; name: string }[] = [];
+      for (const item of data.data as any[]) {
+        const name = item.material_type || item.name || "";
+        if (name && !seen.has(name)) {
+          seen.add(name);
+          result.push({ id: item.pef_id || item.id || "", name });
+        }
+      }
+      return result;
+    }
+    return [];
+  } catch (error) {
+    return [];
+  }
+}
+
 // Get waste treatment types dropdown for waste material type emission factor
 export async function getWasteTreatmentTypeDropdown(): Promise<{ id: string; name: string }[]> {
   try {

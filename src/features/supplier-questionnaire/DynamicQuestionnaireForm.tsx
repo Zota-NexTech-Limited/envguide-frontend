@@ -1291,9 +1291,8 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                                 // Find the selected item to get the bom_id, material_number, and product_name
                                 const selectedItem = bomMaterialOptions.find((opt: any) => opt.id === value);
                                 if (selectedItem) {
-                                  if (selectedItem.bom_id) {
-                                    form.setFieldValue([...fieldPath, fieldRecord.name, 'bom_id'], selectedItem.bom_id);
-                                  }
+                                  // Always set bom_id (even if undefined) to prevent stale values
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'bom_id'], selectedItem.bom_id || undefined);
                                   if (selectedItem.id) {
                                     form.setFieldValue([...fieldPath, fieldRecord.name, 'material_number'], selectedItem.id);
                                   }
@@ -1514,22 +1513,9 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                     <Button
                       type="dashed"
                       onClick={() => {
-                        // Inherit bom_id, material_number, mpn, component_name from the last row
-                        // so that newly added rows stay linked to the same BOM component
-                        const fieldPath = field.name.split('.');
-                        const currentRows = form.getFieldValue(fieldPath) || [];
-                        const lastRow = currentRows.length > 0 ? currentRows[currentRows.length - 1] : null;
-                        if (lastRow && (lastRow.bom_id || lastRow.material_number || lastRow.mpn)) {
-                          add({
-                            bom_id: lastRow.bom_id,
-                            material_number: lastRow.material_number,
-                            mpn: lastRow.mpn || lastRow.material_number,
-                            component_name: lastRow.component_name,
-                            product_name: lastRow.product_name,
-                          });
-                        } else {
-                          add();
-                        }
+                        // Add empty row — supplier must select MPN/component for each row
+                        // to ensure correct bom_id mapping across multiple components
+                        add();
                       }}
                       icon={<PlusOutlined />}
                       className="hover:border-green-400 hover:text-green-600"

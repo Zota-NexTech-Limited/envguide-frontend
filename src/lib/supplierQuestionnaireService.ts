@@ -413,25 +413,26 @@ function resolveComponentRefFromMpnOrName(
   data: SupplierQuestionnaireData,
   row: { bom_id?: string; mpn?: string; material_number?: string; component_name?: string; product_name?: string }
 ): { bom_id?: string; material_number?: string; mpn?: string; component_name?: string; product_name?: string } | undefined {
-  if (row?.bom_id) return { bom_id: row.bom_id };
-
-  const mpn = (row?.mpn || row?.material_number || "").trim();
-
   const candidates: Array<{ bom_id?: string; mpn?: string; material_number?: string; product_name?: string; component_name?: string }> = [
     ...(data?.product_details?.products_manufactured || []),
     ...(data?.product_details?.production_site_details || [])
   ];
 
-  if (!candidates.length) return undefined;
+  if (!candidates.length) {
+    // No candidates — fall back to row's own bom_id
+    if (row?.bom_id) return { bom_id: row.bom_id };
+    return undefined;
+  }
 
-  // Primary match: by MPN / material_number
+  const mpn = (row?.mpn || row?.material_number || "").trim();
+
+  // Primary match: by MPN / material_number (ALWAYS prefer this over row.bom_id)
   if (mpn) {
     const foundByMpn = candidates.find(c => (c?.mpn || c?.material_number || "").trim() === mpn);
     if (foundByMpn?.bom_id) return foundByMpn;
   }
 
-  // Fallback: match by component_name / product_name when MPN is missing
-  // This handles the case where rows are added manually without selecting the MPN dropdown
+  // Secondary match: by component_name / product_name
   const compName = (row?.component_name || row?.product_name || "").trim();
   if (compName) {
     const foundByName = candidates.find(c =>
@@ -439,6 +440,9 @@ function resolveComponentRefFromMpnOrName(
     );
     if (foundByName?.bom_id) return foundByName;
   }
+
+  // Fallback: use row's own bom_id if it exists
+  if (row?.bom_id) return { bom_id: row.bom_id };
 
   // If only one candidate exists, use it (single-component questionnaire)
   if (candidates.length === 1 && candidates[0]?.bom_id) {
@@ -1376,7 +1380,7 @@ class SupplierQuestionnaireService {
                   .filter(item => item.raw_material && item.transport_mode && item.source && item.destination && (item.co2e !== undefined && item.co2e !== null && item.co2e !== ''))
                   .map(item => {
                       const ref = resolveComponentRefFromMpnOrName(data, item as any);
-                      const bomId = (item as { bom_id?: string }).bom_id || ref?.bom_id;
+                      const bomId = ref?.bom_id ?? (item as { bom_id?: string }).bom_id;
                       return {
                       ...(bomId && { bom_id: bomId }),
                       ...(item.mpn && { mpn: item.mpn }),
@@ -1407,9 +1411,9 @@ class SupplierQuestionnaireService {
                           const ref = resolveComponentRefFromMpnOrName(data, item as any);
                           return { item, ref };
                       })
-                      .filter(({ ref, item }) => (item.bom_id || ref?.bom_id) != null)
+                      .filter(({ ref, item }) => (ref?.bom_id ?? item.bom_id) != null)
                       .map(({ item, ref }) => ({
-                          ...((item.bom_id || ref?.bom_id) && { bom_id: item.bom_id || ref?.bom_id }),
+                          ...((ref?.bom_id ?? item.bom_id) && { bom_id: ref?.bom_id ?? item.bom_id }),
                           ...(((ref?.material_number || item.material_number)) && { material_number: (ref?.material_number || item.material_number) }),
                           ...(item.mpn && { mpn: item.mpn }),
                           ...(item.component_name && { component_name: item.component_name }),

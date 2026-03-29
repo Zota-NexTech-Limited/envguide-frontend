@@ -708,7 +708,7 @@ const SupplierQuestionnaire: React.FC = () => {
     const timer = setTimeout(() => {
       const allFormValues = form.getFieldsValue();
       if (Object.keys(allFormValues).length > 0) {
-        setFormData((prev) => ({ ...prev, ...allFormValues }));
+        setFormData((prev) => deepMerge(prev, allFormValues, false, true));
       }
     }, 500); // Debounce form value updates
 

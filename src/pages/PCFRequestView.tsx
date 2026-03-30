@@ -1817,13 +1817,21 @@ const PCFRequestView: React.FC = () => {
                             (item: any, index: number) => {
                               const transportDetails =
                                 item.transportation_details || [];
-                              const logisticCalc =
-                                item.logistic_emission_calculation || {};
+                              // logistic_emission_calculation is now an array of per-leg records
+                              const logisticCalcArr = Array.isArray(item.logistic_emission_calculation)
+                                ? item.logistic_emission_calculation
+                                : item.logistic_emission_calculation ? [item.logistic_emission_calculation] : [];
                               const isExpanded =
                                 expandedTransportRow === item.id;
                               const totalDistance = transportDetails.reduce(
                                 (sum: number, t: any) =>
                                   sum + (parseFloat(t.distance) || 0),
+                                0,
+                              );
+                              // Sum all leg emissions for total transport emission per component
+                              const totalTransportEmission = logisticCalcArr.reduce(
+                                (sum: number, leg: any) =>
+                                  sum + (parseFloat(leg.leg_wise_transport_emissions_per_unit_kg_co2e) || 0),
                                 0,
                               );
 
@@ -1864,14 +1872,14 @@ const PCFRequestView: React.FC = () => {
                                       {totalDistance.toLocaleString()}
                                     </td>
                                     <td className="px-4 py-3 text-sm font-semibold text-green-700 text-right">
-                                      {(
-                                        logisticCalc.leg_wise_transport_emissions_per_unit_kg_co2e ||
-                                        0
-                                      ).toFixed(4)}
+                                      {totalTransportEmission.toFixed(4)}
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-600 text-right">
-                                      {logisticCalc.transport_mode_emission_factor_value_kg_co2e_t_km ||
-                                        0}
+                                      {logisticCalcArr.length > 0
+                                        ? logisticCalcArr.map((leg: any) =>
+                                            leg.transport_mode_emission_factor_value_kg_co2e_t_km || 0
+                                          ).join(', ')
+                                        : 0}
                                     </td>
                                   </tr>
                                   {isExpanded &&
@@ -2015,10 +2023,13 @@ const PCFRequestView: React.FC = () => {
                         <div className="text-2xl font-bold text-orange-700">
                           {(requestData?.bom_list || [])
                             .reduce(
-                              (sum: number, item: any) =>
-                                sum +
-                                (item.logistic_emission_calculation
-                                  ?.mass_transported_kg || 0),
+                              (sum: number, item: any) => {
+                                const calcArr = Array.isArray(item.logistic_emission_calculation)
+                                  ? item.logistic_emission_calculation
+                                  : item.logistic_emission_calculation ? [item.logistic_emission_calculation] : [];
+                                // mass_transported_kg is the same for all legs of a component, so take from first leg
+                                return sum + (calcArr.length > 0 ? (parseFloat(calcArr[0]?.mass_transported_kg) || 0) : 0);
+                              },
                               0,
                             )
                             .toFixed(2)}

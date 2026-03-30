@@ -1010,6 +1010,18 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
 
               if (prevList.length !== currList.length) return true;
 
+              // For transport_modes table, re-render when destination, source, or mpn changes
+              // so that the chain validation (auto-fill source from previous drop point) stays in sync
+              const isTransportTable = field.name.includes('transport_modes');
+              if (isTransportTable) {
+                return prevList.some((prevRow: any, index: number) => {
+                  const currRow = currList[index];
+                  return prevRow?.destination !== currRow?.destination ||
+                         prevRow?.source !== currRow?.source ||
+                         prevRow?.mpn !== currRow?.mpn;
+                });
+              }
+
               // Check if any dependent field values changed
               const hasDependentColumns = field.columns?.some(c => c.dependsOnField);
               if (hasDependentColumns) {
@@ -1380,6 +1392,100 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                           value: value ? (typeof value === 'string' || typeof value === 'number' ? dayjs(value) : value) : undefined,
                         }),
                       } : {};
+
+                      // === Q74 Transport Chain Validation ===
+                      // For transport_modes table, enforce route chain per MPN:
+                      // Row 1 (per MPN): source is free, Row 2+: source auto-filled from previous row's destination (read-only)
+                      const isTransportTable = field.name.includes('transport_modes');
+                      const isSourceCol = col.name === 'source';
+                      const isDestinationCol = col.name === 'destination';
+
+                      if (isTransportTable && (isSourceCol || isDestinationCol)) {
+                        const allRows = form.getFieldValue(fieldPath) || [];
+                        const currentRowIndex = fieldRecord.name;
+                        const currentRow = allRows[currentRowIndex] || {};
+                        const currentMpn = currentRow.mpn || currentRow.material_number || '';
+
+                        if (isSourceCol) {
+                          // Find the previous row with the same MPN
+                          let prevRowWithSameMpn: any = null;
+                          for (let i = currentRowIndex - 1; i >= 0; i--) {
+                            const row = allRows[i];
+                            if (row && (row.mpn === currentMpn || row.material_number === currentMpn) && currentMpn) {
+                              prevRowWithSameMpn = row;
+                              break;
+                            }
+                          }
+
+                          const isChainedRow = prevRowWithSameMpn !== null;
+                          const chainedSource = prevRowWithSameMpn?.destination || '';
+
+                          // Auto-fill source from previous row's destination
+                          if (isChainedRow && chainedSource) {
+                            const currentSource = form.getFieldValue([...fieldPath, currentRowIndex, 'source']);
+                            if (currentSource !== chainedSource) {
+                              setTimeout(() => {
+                                form.setFieldValue([...fieldPath, currentRowIndex, 'source'], chainedSource);
+                              }, 0);
+                            }
+                          }
+
+                          return (
+                            <Form.Item
+                              name={[fieldRecord.name, col.name]}
+                              rules={[
+                                {
+                                  required: col.required,
+                                  message: col.required
+                                    ? `Please fill in "${col.label}" for this row. This field is required.`
+                                    : undefined
+                                }
+                              ].filter(Boolean)}
+                              className="mb-0"
+                            >
+                              <Input
+                                placeholder={isChainedRow ? 'Auto-filled from previous drop point' : col.placeholder}
+                                disabled={isChainedRow && !!chainedSource}
+                                className={isChainedRow && chainedSource ? 'bg-blue-50' : (isAutoPopulatedCol ? 'bg-green-50' : '')}
+                              />
+                            </Form.Item>
+                          );
+                        }
+
+                        if (isDestinationCol) {
+                          return (
+                            <Form.Item
+                              name={[fieldRecord.name, col.name]}
+                              rules={[
+                                {
+                                  required: col.required,
+                                  message: col.required
+                                    ? `Please fill in "${col.label}" for this row. This field is required.`
+                                    : undefined
+                                }
+                              ].filter(Boolean)}
+                              className="mb-0"
+                            >
+                              <Input
+                                placeholder={col.placeholder}
+                                className={isAutoPopulatedCol ? 'bg-green-50' : ''}
+                                onChange={(e) => {
+                                  const newDestination = e.target.value;
+                                  // Find the next row with the same MPN and auto-fill its source
+                                  for (let i = currentRowIndex + 1; i < allRows.length; i++) {
+                                    const nextRow = allRows[i];
+                                    if (nextRow && (nextRow.mpn === currentMpn || nextRow.material_number === currentMpn) && currentMpn) {
+                                      form.setFieldValue([...fieldPath, i, 'source'], newDestination);
+                                      break;
+                                    }
+                                  }
+                                }}
+                              />
+                            </Form.Item>
+                          );
+                        }
+                      }
+                      // === End Q74 Transport Chain Validation ===
 
                       return (
                         <Form.Item

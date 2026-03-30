@@ -1807,9 +1807,6 @@ const PCFRequestView: React.FC = () => {
                             <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
                               Emissions (kg CO₂e)
                             </th>
-                            <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Emission Factor
-                            </th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
@@ -1874,19 +1871,12 @@ const PCFRequestView: React.FC = () => {
                                     <td className="px-4 py-3 text-sm font-semibold text-green-700 text-right">
                                       {totalTransportEmission.toFixed(4)}
                                     </td>
-                                    <td className="px-4 py-3 text-sm text-gray-600 text-right">
-                                      {logisticCalcArr.length > 0
-                                        ? logisticCalcArr.map((leg: any) =>
-                                            leg.transport_mode_emission_factor_value_kg_co2e_t_km || 0
-                                          ).join(', ')
-                                        : 0}
-                                    </td>
                                   </tr>
                                   {isExpanded &&
                                     transportDetails.length > 0 && (
                                       <tr>
                                         <td
-                                          colSpan={7}
+                                          colSpan={6}
                                           className="px-4 py-4 bg-gradient-to-b from-green-50 to-white"
                                         >
                                           <div className="ml-8">

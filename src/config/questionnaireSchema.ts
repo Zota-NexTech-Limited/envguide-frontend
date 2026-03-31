@@ -12,7 +12,8 @@ export type FieldType =
   | "table"
   | "group"
   | "info" // For static text/info blocks
-  | "tags"; // For pill-based multi-input (array of strings)
+  | "tags" // For pill-based multi-input (array of strings)
+  | "location_autocomplete"; // For location search with geocoding
 
 export interface QuestionnaireOption {
   label: string;
@@ -83,6 +84,8 @@ export interface QuestionnaireField {
   autoPopulateFromProducts?: boolean;
   // For file uploads - allow multiple files
   multiple?: boolean;
+  // For read-only fields (e.g., auto-calculated distance)
+  readOnly?: boolean;
 }
 
 export interface QuestionnaireSection {
@@ -2125,20 +2128,21 @@ export const QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
           {
             name: "source",
             label: "Source Point",
-            type: "text",
-            placeholder: "Source",
+            type: "location_autocomplete",
+            placeholder: "Search source location...",
           },
           {
             name: "destination",
             label: "Drop Point",
-            type: "text",
-            placeholder: "Destination",
+            type: "location_autocomplete",
+            placeholder: "Search drop location...",
           },
           {
             name: "distance",
             label: "Distance (KMS)",
             type: "number",
-            placeholder: "0",
+            placeholder: "Auto-calculated",
+            readOnly: true,
           },
         ],
       },

@@ -915,7 +915,7 @@ class SupplierQuestionnaireService {
 
   // Helper to ensure a value is an array (handles undefined, null, objects, strings, etc.)
   private ensureArray(value: any): any[] {
-      if (Array.isArray(value)) return value;
+      if (Array.isArray(value)) return value.filter(item => item != null);
       // Handle single string values (e.g., file paths) by wrapping in array
       if (typeof value === 'string' && value.trim() !== '') return [value];
       return [];
@@ -1420,7 +1420,11 @@ class SupplierQuestionnaireService {
                           mode_of_transport: item.mode,
                           weight_transported: item.weight || '',
                           source_point: item.source,
+                          ...(item.source_lat != null && { source_lat: item.source_lat }),
+                          ...(item.source_lng != null && { source_lng: item.source_lng }),
                           drop_point: item.destination,
+                          ...(item.destination_lat != null && { drop_lat: item.destination_lat }),
+                          ...(item.destination_lng != null && { drop_lng: item.destination_lng }),
                           distance: item.distance
                       }));
               })(),
@@ -1817,7 +1821,11 @@ class SupplierQuestionnaireService {
                       mode: item.mode_of_transport,
                       weight: item.weight_transported,
                       source: item.source_point,
+                      ...(item.source_lat != null && { source_lat: parseFloat(item.source_lat) }),
+                      ...(item.source_lng != null && { source_lng: parseFloat(item.source_lng) }),
                       destination: item.drop_point,
+                      ...(item.drop_lat != null && { destination_lat: parseFloat(item.drop_lat) }),
+                      ...(item.drop_lng != null && { destination_lng: parseFloat(item.drop_lng) }),
                       distance: item.distance
                   })),
                   // Convert boolean to Yes/No for radio button field

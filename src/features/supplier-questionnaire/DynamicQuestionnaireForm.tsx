@@ -7,6 +7,8 @@ import { PlusOutlined, DeleteOutlined, UploadOutlined, QuestionCircleOutlined, C
 import type { QuestionnaireSection, QuestionnaireField, ApiDropdownType } from '../../config/questionnaireSchema';
 import questionnaireDropdownService, { type DropdownItem } from '../../lib/questionnaireDropdownService';
 import supplierQuestionnaireService from '../../lib/supplierQuestionnaireService';
+import LocationAutocomplete from '../../components/LocationAutocomplete';
+import type { LocationValue } from '../../components/LocationAutocomplete';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -107,6 +109,9 @@ type DropdownDataMap = Record<ApiDropdownType, DropdownItem[]>;
 // Type for dependent dropdown data (keyed by parent value)
 type DependentDropdownMap = Record<string, DropdownItem[]>;
 
+// Module-level coord + distance store — survives re-renders, no React state needed
+const _transportCoords: Record<string, { sLat?: number; sLng?: number; dLat?: number; dLng?: number; distance?: number }> = {};
+
 const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
   section,
   initialValues,
@@ -126,6 +131,48 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
   // State for dependent/cascading dropdowns (sub-fuel types by fuel type, energy types by source)
   const [subFuelTypesByFuel, setSubFuelTypesByFuel] = useState<DependentDropdownMap>({});
   const [energyTypesBySource, setEnergyTypesBySource] = useState<DependentDropdownMap>({});
+
+  // Counter to force re-render when distance is calculated (since distance lives in module-level _transportCoords)
+  const [distanceTick, setDistanceTick] = useState(0);
+
+  // ---- Haversine + correction factor — pure frontend, synchronous, instant ----
+  const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const R = 6371; // Earth radius in KM
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const getTransportCorrectionFactor = (mode: string): number => {
+    if (!mode) return 1.2;
+    const m = mode.toLowerCase();
+    if (m.includes('ship') || m.includes('sea') || m.includes('vessel') || m.includes('barge') || m.includes('ferry')) return 1.0;
+    if (m.includes('air') || m.includes('flight') || m.includes('aircraft') || m.includes('plane')) return 1.0;
+    if (m.includes('rail') || m.includes('train') || m.includes('intermodal')) return 1.15;
+    return 1.2; // all road: truck, van, bus, etc.
+  };
+
+  // Calculate and set distance for a transport row. Stores in _transportCoords (module-level) + triggers re-render.
+  const setTransportDistance = useCallback((
+    fieldPath: string[],
+    rowIndex: number,
+    srcLat: number, srcLng: number,
+    dstLat: number, dstLng: number,
+    mode?: string
+  ) => {
+    const modeOfTransport = mode ?? (form.getFieldValue([...fieldPath, rowIndex])?.mode || '');
+    const straightLine = haversineDistance(srcLat, srcLng, dstLat, dstLng);
+    const factor = getTransportCorrectionFactor(modeOfTransport);
+    const distance = Math.round(straightLine * factor);
+    // Store in module-level object (won't be wiped by initialValues sync)
+    _transportCoords[String(rowIndex)] = { ..._transportCoords[String(rowIndex)], distance };
+    // Also write to form for saving (may get wiped by re-render but _transportCoords is the source of truth for display)
+    form.setFieldValue([...fieldPath, rowIndex, 'distance'], distance);
+    // Force re-render to update the distance display
+    setDistanceTick(t => t + 1);
+  }, [form]);
 
   // Sync initialValues when they change (for auto-population)
   // This is important for Form.List components that need to be updated when data is auto-populated
@@ -1018,6 +1065,8 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                   const currRow = currList[index];
                   return prevRow?.destination !== currRow?.destination ||
                          prevRow?.source !== currRow?.source ||
+                         prevRow?.distance !== currRow?.distance ||
+                         prevRow?.mode !== currRow?.mode ||
                          prevRow?.mpn !== currRow?.mpn;
                 });
               }
@@ -1319,6 +1368,18 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                                   form.setFieldValue([...fieldPath, fieldRecord.name, 'component_name'], undefined);
                                   form.setFieldValue([...fieldPath, fieldRecord.name, 'product_name'], undefined);
                                 }
+
+                                // Transport table: when MPN changes, clear source/destination/distance
+                                // so the row starts fresh for the new component
+                                if (field.name.includes('transport_modes')) {
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'source'], undefined);
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'source_lat'], undefined);
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'source_lng'], undefined);
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'destination'], undefined);
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'destination_lat'], undefined);
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'destination_lng'], undefined);
+                                  form.setFieldValue([...fieldPath, fieldRecord.name, 'distance'], undefined);
+                                }
                               }}
                             >
                               {bomMaterialOptions.map((opt: any) => (
@@ -1345,6 +1406,9 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                                             !apiOptions.some(opt => opt.name === currentValue) &&
                                             apiOptions.some(opt => opt.id === currentValue);
 
+                        // Check if this is the transport mode dropdown in transport_modes table
+                        const isTransportModeDropdown = field.name.includes('transport_modes') && col.apiDropdown === 'transportMode';
+
                         return (
                           <Form.Item
                             name={[fieldRecord.name, col.name]}
@@ -1367,6 +1431,13 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                               filterOption={(input, option) =>
                                 (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
                               }
+                              onChange={isTransportModeDropdown ? (selectedMode: string) => {
+                                // Recalculate distance from _transportCoords (reliable, no form state issues)
+                                const c = _transportCoords[String(fieldRecord.name)];
+                                if (c?.sLat != null && c?.sLng != null && c?.dLat != null && c?.dLng != null) {
+                                  setTransportDistance(fieldPath, fieldRecord.name, c.sLat, c.sLng, c.dLat, c.dLng, selectedMode);
+                                }
+                              } : undefined}
                             >
                               {apiOptions.map((opt: DropdownItem) => (
                                 <Select.Option key={opt.id} value={opt.name}>{opt.name}</Select.Option>
@@ -1393,60 +1464,110 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         }),
                       } : {};
 
-                      // === Q74 Transport Chain Validation ===
-                      // For transport_modes table, enforce route chain per MPN:
-                      // Row 1 (per MPN): source is free, Row 2+: source auto-filled from previous row's destination (read-only)
+                      // === Q74 Transport Chain + Location Autocomplete + Auto Distance ===
+                      // Uses module-level _transportCoords map (not form state) for reliable coord tracking
                       const isTransportTable = field.name.includes('transport_modes');
                       const isSourceCol = col.name === 'source';
                       const isDestinationCol = col.name === 'destination';
+                      const isDistanceCol = col.name === 'distance';
+
+                      if (isTransportTable && isDistanceCol) {
+                        // Read distance from _transportCoords (source of truth, not wiped by initialValues sync)
+                        const storedDist = _transportCoords[String(fieldRecord.name)]?.distance;
+                        // Sync to form for saving (write on every render so form always has latest)
+                        if (storedDist != null) {
+                          const formDist = form.getFieldValue([...fieldPath, fieldRecord.name, 'distance']);
+                          if (formDist !== storedDist) {
+                            setTimeout(() => form.setFieldValue([...fieldPath, fieldRecord.name, 'distance'], storedDist), 0);
+                          }
+                        }
+                        return (
+                          <>
+                            <Form.Item name={[fieldRecord.name, 'source_lat']} hidden><Input type="hidden" /></Form.Item>
+                            <Form.Item name={[fieldRecord.name, 'source_lng']} hidden><Input type="hidden" /></Form.Item>
+                            <Form.Item name={[fieldRecord.name, 'destination_lat']} hidden><Input type="hidden" /></Form.Item>
+                            <Form.Item name={[fieldRecord.name, 'destination_lng']} hidden><Input type="hidden" /></Form.Item>
+                            <Form.Item name={[fieldRecord.name, col.name]} hidden><Input type="hidden" /></Form.Item>
+                            <div className="mb-0">
+                              <InputNumber
+                                value={storedDist ?? undefined}
+                                placeholder="Auto-calculated"
+                                style={{ width: '100%' }}
+                                disabled
+                                className="bg-gray-50"
+                              />
+                            </div>
+                          </>
+                        );
+                      }
 
                       if (isTransportTable && (isSourceCol || isDestinationCol)) {
                         const allRows = form.getFieldValue(fieldPath) || [];
-                        const currentRowIndex = fieldRecord.name;
-                        const currentRow = allRows[currentRowIndex] || {};
+                        const ri = fieldRecord.name; // row index
+                        const currentRow = allRows[ri] || {};
                         const currentMpn = currentRow.mpn || currentRow.material_number || '';
+                        const key = String(ri);
 
-                        if (isSourceCol) {
-                          // Find the previous row with the same MPN
-                          let prevRowWithSameMpn: any = null;
-                          for (let i = currentRowIndex - 1; i >= 0; i--) {
-                            const row = allRows[i];
-                            if (row && (row.mpn === currentMpn || row.material_number === currentMpn) && currentMpn) {
-                              prevRowWithSameMpn = row;
+                        // Find prev row with same MPN for chaining
+                        let prevRow: any = null;
+                        let prevKey = '';
+                        if (currentMpn) {
+                          for (let i = ri - 1; i >= 0; i--) {
+                            const r = allRows[i];
+                            if (r && (r.mpn || r.material_number || '') === currentMpn) {
+                              prevRow = r;
+                              prevKey = String(i);
                               break;
                             }
                           }
+                        }
+                        const isChainedRow = prevRow !== null;
+                        const chainedSource = prevRow?.destination || '';
 
-                          const isChainedRow = prevRowWithSameMpn !== null;
-                          const chainedSource = prevRowWithSameMpn?.destination || '';
-
-                          // Auto-fill source from previous row's destination
+                        if (isSourceCol) {
+                          // Auto-fill chained source + store coords in _transportCoords
                           if (isChainedRow && chainedSource) {
-                            const currentSource = form.getFieldValue([...fieldPath, currentRowIndex, 'source']);
-                            if (currentSource !== chainedSource) {
+                            const prevCoords = _transportCoords[prevKey];
+                            if (prevCoords?.dLat != null && prevCoords?.dLng != null) {
+                              _transportCoords[key] = { ..._transportCoords[key], sLat: prevCoords.dLat, sLng: prevCoords.dLng };
+                            }
+                            const cur = form.getFieldValue([...fieldPath, ri, 'source']);
+                            if (cur !== chainedSource) {
                               setTimeout(() => {
-                                form.setFieldValue([...fieldPath, currentRowIndex, 'source'], chainedSource);
+                                form.setFieldValue([...fieldPath, ri, 'source'], chainedSource);
+                                if (prevCoords?.dLat != null) {
+                                  form.setFieldValue([...fieldPath, ri, 'source_lat'], prevCoords.dLat);
+                                  form.setFieldValue([...fieldPath, ri, 'source_lng'], prevCoords.dLng);
+                                }
                               }, 0);
                             }
+                            return (
+                              <Form.Item name={[fieldRecord.name, col.name]}
+                                rules={[{ required: col.required, message: 'Source auto-filled from previous drop point' }].filter(Boolean)}
+                                className="mb-0">
+                                <Input placeholder={chainedSource || 'Set drop point in previous row first'} disabled className="bg-blue-50" />
+                              </Form.Item>
+                            );
                           }
 
+                          // Free source (first row for this MPN)
                           return (
-                            <Form.Item
-                              name={[fieldRecord.name, col.name]}
-                              rules={[
-                                {
-                                  required: col.required,
-                                  message: col.required
-                                    ? `Please fill in "${col.label}" for this row. This field is required.`
-                                    : undefined
-                                }
-                              ].filter(Boolean)}
-                              className="mb-0"
-                            >
-                              <Input
-                                placeholder={isChainedRow ? 'Auto-filled from previous drop point' : col.placeholder}
-                                disabled={isChainedRow && !!chainedSource}
-                                className={isChainedRow && chainedSource ? 'bg-blue-50' : (isAutoPopulatedCol ? 'bg-green-50' : '')}
+                            <Form.Item name={[fieldRecord.name, col.name]}
+                              rules={[{ required: col.required, message: `Please select "${col.label}"` }].filter(Boolean)}
+                              className="mb-0">
+                              <LocationAutocomplete
+                                placeholder={col.placeholder || 'Search source location...'}
+                                onLocationSelect={(loc: LocationValue) => {
+                                  form.setFieldValue([...fieldPath, ri, 'source'], loc.name);
+                                  form.setFieldValue([...fieldPath, ri, 'source_lat'], loc.lat);
+                                  form.setFieldValue([...fieldPath, ri, 'source_lng'], loc.lng);
+                                  _transportCoords[key] = { ..._transportCoords[key], sLat: loc.lat, sLng: loc.lng };
+                                  // Calculate distance if destination already set
+                                  const dc = _transportCoords[key];
+                                  if (dc?.dLat != null && dc?.dLng != null) {
+                                    setTransportDistance(fieldPath, ri, loc.lat, loc.lng, dc.dLat, dc.dLng);
+                                  }
+                                }}
                               />
                             </Form.Item>
                           );
@@ -1454,29 +1575,49 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
 
                         if (isDestinationCol) {
                           return (
-                            <Form.Item
-                              name={[fieldRecord.name, col.name]}
-                              rules={[
-                                {
-                                  required: col.required,
-                                  message: col.required
-                                    ? `Please fill in "${col.label}" for this row. This field is required.`
-                                    : undefined
-                                }
-                              ].filter(Boolean)}
-                              className="mb-0"
-                            >
-                              <Input
-                                placeholder={col.placeholder}
-                                className={isAutoPopulatedCol ? 'bg-green-50' : ''}
-                                onChange={(e) => {
-                                  const newDestination = e.target.value;
-                                  // Find the next row with the same MPN and auto-fill its source
-                                  for (let i = currentRowIndex + 1; i < allRows.length; i++) {
-                                    const nextRow = allRows[i];
-                                    if (nextRow && (nextRow.mpn === currentMpn || nextRow.material_number === currentMpn) && currentMpn) {
-                                      form.setFieldValue([...fieldPath, i, 'source'], newDestination);
-                                      break;
+                            <Form.Item name={[fieldRecord.name, col.name]}
+                              rules={[{ required: col.required, message: `Please select "${col.label}"` }].filter(Boolean)}
+                              className="mb-0">
+                              <LocationAutocomplete
+                                placeholder={col.placeholder || 'Search drop location...'}
+                                onLocationSelect={(loc: LocationValue) => {
+                                  form.setFieldValue([...fieldPath, ri, 'destination'], loc.name);
+                                  form.setFieldValue([...fieldPath, ri, 'destination_lat'], loc.lat);
+                                  form.setFieldValue([...fieldPath, ri, 'destination_lng'], loc.lng);
+                                  _transportCoords[key] = { ..._transportCoords[key], dLat: loc.lat, dLng: loc.lng };
+
+                                  // Get source coords from _transportCoords (reliable)
+                                  let sLat = _transportCoords[key]?.sLat;
+                                  let sLng = _transportCoords[key]?.sLng;
+
+                                  // Chained row fallback: read from prev row's destination in _transportCoords
+                                  if (sLat == null || sLng == null) {
+                                    if (prevKey && _transportCoords[prevKey]) {
+                                      sLat = _transportCoords[prevKey].dLat;
+                                      sLng = _transportCoords[prevKey].dLng;
+                                      if (sLat != null && sLng != null) {
+                                        _transportCoords[key] = { ..._transportCoords[key], sLat, sLng };
+                                      }
+                                    }
+                                  }
+
+                                  // INSTANT distance calculation
+                                  if (sLat != null && sLng != null) {
+                                    setTransportDistance(fieldPath, ri, sLat, sLng, loc.lat, loc.lng);
+                                  }
+
+                                  // Chain: auto-fill next same-MPN row
+                                  if (currentMpn) {
+                                    const rows = form.getFieldValue(fieldPath) || [];
+                                    for (let i = ri + 1; i < rows.length; i++) {
+                                      const nr = rows[i];
+                                      if (nr && (nr.mpn || nr.material_number || '') === currentMpn) {
+                                        form.setFieldValue([...fieldPath, i, 'source'], loc.name);
+                                        form.setFieldValue([...fieldPath, i, 'source_lat'], loc.lat);
+                                        form.setFieldValue([...fieldPath, i, 'source_lng'], loc.lng);
+                                        _transportCoords[String(i)] = { ..._transportCoords[String(i)], sLat: loc.lat, sLng: loc.lng };
+                                        break;
+                                      }
                                     }
                                   }
                                 }}
@@ -1485,7 +1626,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                           );
                         }
                       }
-                      // === End Q74 Transport Chain Validation ===
+                      // === End Q74 Transport Chain ===
 
                       return (
                         <Form.Item

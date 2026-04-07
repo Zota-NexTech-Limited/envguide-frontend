@@ -471,6 +471,7 @@ export const QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             label: "Co-product Name",
             type: "text",
             placeholder: "Enter co-product name",
+            required: true,
           },
           {
             name: "weight",
@@ -483,6 +484,7 @@ export const QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             label: "Price per Product (₹)",
             type: "number",
             placeholder: "0.00",
+            required: true,
           },
           {
             name: "quantity",

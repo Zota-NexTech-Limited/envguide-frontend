@@ -1132,7 +1132,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
 
                   return {
                     title: (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 whitespace-nowrap">
                         <span>{displayLabel}</span>
                         {col.required && <span className="text-red-500">*</span>}
                         {col.apiDropdown && dropdownLoading[col.apiDropdown] && (

@@ -1149,7 +1149,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                     ),
                     dataIndex: col.name,
                     key: col.name,
-                    width: col.width || (col.type === 'number' ? 130 : col.type === 'select' ? 160 : 150),
+                    width: col.type === 'number' ? 130 : col.type === 'select' ? 160 : 150,
                     render: (_: any, fieldRecord: any) => {
                       const fieldPath = field.name.split('.');
 

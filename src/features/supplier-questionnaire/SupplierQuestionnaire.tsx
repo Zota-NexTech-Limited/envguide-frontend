@@ -556,6 +556,20 @@ const SupplierQuestionnaire: React.FC = () => {
     }
   }, [formData, currentStep, isCreateMode, isViewMode, form, sup_id, bom_pcf_id]);
 
+  // Save draft before browser close/refresh to prevent data loss
+  useEffect(() => {
+    if (!isCreateMode || isViewMode) return;
+
+    const handleBeforeUnload = () => {
+      const values = form.getFieldsValue();
+      const merged = deepMerge(formData, values, false, true);
+      supplierQuestionnaireService.saveDraft(merged, currentStep, sup_id, bom_pcf_id);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [formData, currentStep, isCreateMode, isViewMode, form, sup_id, bom_pcf_id]);
+
   // Track completed steps
   useEffect(() => {
     const checkStepCompletion = async () => {
@@ -778,8 +792,16 @@ const SupplierQuestionnaire: React.FC = () => {
   const handlePrev = () => {
     // Save current values before moving back (mergeArrayItems preserves bom_id on rows)
     const values = form.getFieldsValue();
-    setFormData(deepMerge(formData, values, false, true));
+    const updatedData = deepMerge(formData, values, false, true);
+    setFormData(updatedData);
     setFormErrors({});
+
+    // Save draft immediately on navigation to prevent data loss
+    if (isCreateMode) {
+      supplierQuestionnaireService.saveDraft(updatedData, currentStep - 1, sup_id, bom_pcf_id);
+      setLastSaved(new Date());
+    }
+
     setCurrentStep(currentStep - 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -787,8 +809,16 @@ const SupplierQuestionnaire: React.FC = () => {
   const handleStepJump = (step: number) => {
     if (step < currentStep || completedSteps.has(step)) {
       const values = form.getFieldsValue();
-      setFormData(deepMerge(formData, values, false, true));
+      const updatedData = deepMerge(formData, values, false, true);
+      setFormData(updatedData);
       setFormErrors({});
+
+      // Save draft immediately on navigation to prevent data loss
+      if (isCreateMode) {
+        supplierQuestionnaireService.saveDraft(updatedData, step, sup_id, bom_pcf_id);
+        setLastSaved(new Date());
+      }
+
       setCurrentStep(step);
       window.scrollTo({ top: 0, behavior: "smooth" });
       setSidebarVisible(false); // Close mobile sidebar

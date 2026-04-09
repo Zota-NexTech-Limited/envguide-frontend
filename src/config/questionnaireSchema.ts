@@ -1538,7 +1538,7 @@ export const QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
   },
   {
     id: "scope_3",
-    title: "Scope 3: Other Indirect Emissions",
+    title: "Section 5: Scope 3 - Other Indirect Emissions",
     fields: [
       {
         name: "scope_3.materials.raw_materials",

@@ -2124,7 +2124,7 @@ const PCFRequestView: React.FC = () => {
                                     </Tag>
                                   </td>
                                   <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                                    {item.economic_ratio || 0}%
+                                    {Number(item.economic_ratio || 0).toFixed(2)}%
                                   </td>
                                   <td className="px-4 py-3 text-sm font-semibold text-green-700 text-right">
                                     {(

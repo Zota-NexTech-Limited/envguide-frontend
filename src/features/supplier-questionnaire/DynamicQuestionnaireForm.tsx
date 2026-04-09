@@ -168,11 +168,18 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
     const distance = Math.round(straightLine * factor);
     // Store in module-level object (won't be wiped by initialValues sync)
     _transportCoords[String(rowIndex)] = { ..._transportCoords[String(rowIndex)], distance };
-    // Also write to form for saving (may get wiped by re-render but _transportCoords is the source of truth for display)
+    // Also write to form for saving
     form.setFieldValue([...fieldPath, rowIndex, 'distance'], distance);
     // Force re-render to update the distance display
     setDistanceTick(t => t + 1);
-  }, [form]);
+    // Trigger onValuesChange so distance is captured in formData for auto-save
+    if (onValuesChange) {
+      setTimeout(() => {
+        const allValues = form.getFieldsValue();
+        onValuesChange({ [fieldPath.join('.')]: allValues[fieldPath[0]] }, allValues);
+      }, 100);
+    }
+  }, [form, onValuesChange]);
 
   // Sync initialValues when they change (for auto-population)
   // This is important for Form.List components that need to be updated when data is auto-populated
@@ -1132,17 +1139,17 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
 
                   return {
                     title: (
-                      <div className="flex items-center gap-1 whitespace-nowrap">
-                        <span>{displayLabel}</span>
-                        {col.required && <span className="text-red-500">*</span>}
+                      <div className="flex items-start gap-1" style={{ minWidth: 80, maxWidth: 180 }}>
+                        <span className="leading-tight">{displayLabel}</span>
+                        {col.required && <span className="text-red-500 shrink-0">*</span>}
                         {col.apiDropdown && dropdownLoading[col.apiDropdown] && (
-                          <LoadingOutlined className="text-blue-500 text-xs" />
+                          <LoadingOutlined className="text-blue-500 text-xs shrink-0" />
                         )}
                       </div>
                     ),
                     dataIndex: col.name,
                     key: col.name,
-                    width: col.type === 'number' ? 120 : undefined,
+                    width: col.width || (col.type === 'number' ? 130 : col.type === 'select' ? 160 : 150),
                     render: (_: any, fieldRecord: any) => {
                       const fieldPath = field.name.split('.');
 
@@ -1472,8 +1479,16 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                       const isDistanceCol = col.name === 'distance';
 
                       if (isTransportTable && isDistanceCol) {
-                        // Read distance from _transportCoords (source of truth, not wiped by initialValues sync)
-                        const storedDist = _transportCoords[String(fieldRecord.name)]?.distance;
+                        // Read distance from _transportCoords first, fall back to form value (for restored drafts)
+                        let storedDist = _transportCoords[String(fieldRecord.name)]?.distance;
+                        if (storedDist == null) {
+                          // Restore from form/draft data so distance shows after refresh
+                          const formSavedDist = form.getFieldValue([...fieldPath, fieldRecord.name, 'distance']);
+                          if (formSavedDist != null && formSavedDist !== 0) {
+                            storedDist = formSavedDist;
+                            _transportCoords[String(fieldRecord.name)] = { ..._transportCoords[String(fieldRecord.name)], distance: formSavedDist };
+                          }
+                        }
                         // Sync to form for saving (write on every render so form always has latest)
                         if (storedDist != null) {
                           const formDist = form.getFieldValue([...fieldPath, fieldRecord.name, 'distance']);
@@ -1488,7 +1503,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                             <Form.Item name={[fieldRecord.name, 'destination_lat']} hidden><Input type="hidden" /></Form.Item>
                             <Form.Item name={[fieldRecord.name, 'destination_lng']} hidden><Input type="hidden" /></Form.Item>
                             <Form.Item name={[fieldRecord.name, col.name]} hidden><Input type="hidden" /></Form.Item>
-                            <div className="mb-0">
+                            <Form.Item className="mb-0">
                               <InputNumber
                                 value={storedDist ?? undefined}
                                 placeholder="Auto-calculated"
@@ -1496,7 +1511,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                                 disabled
                                 className="bg-gray-50"
                               />
-                            </div>
+                            </Form.Item>
                           </>
                         );
                       }

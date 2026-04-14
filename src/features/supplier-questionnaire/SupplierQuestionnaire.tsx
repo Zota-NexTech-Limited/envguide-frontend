@@ -28,6 +28,7 @@ import {
   ClockCircleOutlined,
   InfoCircleOutlined,
   SmileOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import supplierQuestionnaireService from "../../lib/supplierQuestionnaireService";
 import authService from "../../lib/authService";
@@ -36,6 +37,7 @@ import userManagementService from "../../lib/userManagementService";
 import type { SupplierOnboarding } from "../../types/userManagement";
 import { QUESTIONNAIRE_SCHEMA } from "../../config/questionnaireSchema";
 import DynamicQuestionnaireForm from "./DynamicQuestionnaireForm";
+import QuestionnairePreviewModal from "./QuestionnairePreviewModal";
 
 const { Step } = Steps;
 
@@ -97,6 +99,7 @@ const SupplierQuestionnaire: React.FC = () => {
     new Set(),
   );
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Supplier onboarding state
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
@@ -1307,10 +1310,19 @@ const SupplierQuestionnaire: React.FC = () => {
         </div>
 
         {/* Steps */}
+        <style>{`
+          .questionnaire-sidebar .ant-steps-item-title {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: unset !important;
+            line-height: 1.4 !important;
+          }
+        `}</style>
         <Steps
           direction="vertical"
           current={currentStep}
           onChange={handleStepJump}
+          className="questionnaire-sidebar"
         >
           {QUESTIONNAIRE_SCHEMA.map((section, index) => (
             <Step
@@ -1574,6 +1586,19 @@ const SupplierQuestionnaire: React.FC = () => {
                   ) : (
                     <>
                       <Button
+                        onClick={() => {
+                          // Merge current form values before showing preview
+                          const values = form.getFieldsValue();
+                          const updatedData = deepMerge(formData, values, false, true);
+                          setFormData(updatedData);
+                          setIsPreviewOpen(true);
+                        }}
+                        icon={<EyeOutlined />}
+                        size="large"
+                      >
+                        Preview
+                      </Button>
+                      <Button
                         type="primary"
                         onClick={handleSubmit}
                         loading={isSaving}
@@ -1608,6 +1633,13 @@ const SupplierQuestionnaire: React.FC = () => {
       >
         {renderSidebar()}
       </Drawer>
+
+      {/* Preview Modal */}
+      <QuestionnairePreviewModal
+        open={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        formData={formData}
+      />
     </div>
   );
 };

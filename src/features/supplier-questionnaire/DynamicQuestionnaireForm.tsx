@@ -1139,11 +1139,13 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
 
                   return {
                     title: (
-                      <div className="flex items-start gap-1" style={{ minWidth: 80, maxWidth: 180 }}>
-                        <span className="leading-tight">{displayLabel}</span>
-                        {col.required && <span className="text-red-500 shrink-0">*</span>}
+                      <div style={{ minWidth: 80, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}>
+                        <span className="leading-tight">
+                          {displayLabel}
+                          {col.required && <span className="text-red-500 ml-0.5">*</span>}
+                        </span>
                         {col.apiDropdown && dropdownLoading[col.apiDropdown] && (
-                          <LoadingOutlined className="text-blue-500 text-xs shrink-0" />
+                          <LoadingOutlined className="text-blue-500 text-xs ml-1" />
                         )}
                       </div>
                     ),

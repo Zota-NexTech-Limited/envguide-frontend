@@ -2819,6 +2819,61 @@ class SupplierQuestionnaireService {
       };
     }
   }
+
+  /**
+   * Request PDF report from backend and trigger browser download.
+   * Backend renders the PDF using pdfkit from pre-prepared sections data.
+   */
+  async downloadQuestionnairePdf(payload: {
+    sections: any[];
+    supplier_name: string;
+    submission_date: string;
+    reference_id?: string;
+    bom_pcf_id?: string;
+  }): Promise<{ success: boolean; message?: string }> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/supplier-input-questions-pdf`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: `Failed to download PDF (status ${response.status})`,
+        };
+      }
+
+      // Filename from Content-Disposition header (backend sets this)
+      const contentDisposition = response.headers.get("Content-Disposition") || "";
+      const match = contentDisposition.match(/filename="([^"]+)"/);
+      const sanitized = (payload.supplier_name || "Supplier").replace(/[^a-zA-Z0-9]/g, "_");
+      const fallback = `Supplier_Questionnaire_${sanitized}_${new Date().toISOString().split("T")[0]}.pdf`;
+      const filename = match?.[1] || fallback;
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error downloading PDF report:", error);
+      return {
+        success: false,
+        message: "Failed to download PDF report. Please try again.",
+      };
+    }
+  }
 }
 
 export const supplierQuestionnaireService = new SupplierQuestionnaireService();

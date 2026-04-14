@@ -29,6 +29,7 @@ import {
   InfoCircleOutlined,
   SmileOutlined,
   EyeOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
 import supplierQuestionnaireService from "../../lib/supplierQuestionnaireService";
 import authService from "../../lib/authService";
@@ -38,6 +39,17 @@ import type { SupplierOnboarding } from "../../types/userManagement";
 import { QUESTIONNAIRE_SCHEMA } from "../../config/questionnaireSchema";
 import DynamicQuestionnaireForm from "./DynamicQuestionnaireForm";
 import QuestionnairePreviewModal from "./QuestionnairePreviewModal";
+import { buildPdfSections } from "./buildPdfSections";
+import {
+  getFuelTypeDropdown,
+  getSubFuelTypeDropdown,
+  getEnergySourceDropdown,
+  getEnergyTypeDropdown,
+  getRefrigerantTypeDropdown,
+  getProcessSpecificEnergyDropdown,
+  getTransportModeDropdown,
+  type DropdownItem,
+} from "../../lib/questionnaireDropdownService";
 
 const { Step } = Steps;
 
@@ -100,6 +112,8 @@ const SupplierQuestionnaire: React.FC = () => {
   );
   const [isCompleted, setIsCompleted] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [submittedSgiqId, setSubmittedSgiqId] = useState<string | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   // Supplier onboarding state
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
@@ -898,6 +912,15 @@ const SupplierQuestionnaire: React.FC = () => {
       if (result.success) {
         supplierQuestionnaireService.clearDraft(sup_id, bom_pcf_id);
 
+        // Capture the new sgiq_id for PDF reference
+        const newSgiqId =
+          result.data?.general_info?.sgiq_id ||
+          result.data?.sgiq_id ||
+          questionnaireId;
+        if (newSgiqId) {
+          setSubmittedSgiqId(newSgiqId);
+        }
+
         // For supplier mode (public route) or client mode, show thank you page instead of navigating
         if (isPublicRoute || isClientMode) {
           setIsCompleted(true);
@@ -962,6 +985,87 @@ const SupplierQuestionnaire: React.FC = () => {
       }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Handle PDF download on Thank You screen.
+  // Frontend resolves dropdown IDs -> names and builds a schema-shaped
+  // sections structure, then posts it to the backend which renders the PDF
+  // via pdfkit (consistent output, branding, future extensibility).
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      const [
+        fuelTypes,
+        subFuelTypes,
+        energySources,
+        energyTypes,
+        refrigerantTypes,
+        processSpecificEnergy,
+        transportModes,
+      ] = await Promise.all([
+        getFuelTypeDropdown().catch(() => [] as DropdownItem[]),
+        getSubFuelTypeDropdown().catch(() => [] as DropdownItem[]),
+        getEnergySourceDropdown().catch(() => [] as DropdownItem[]),
+        getEnergyTypeDropdown().catch(() => [] as DropdownItem[]),
+        getRefrigerantTypeDropdown().catch(() => [] as DropdownItem[]),
+        getProcessSpecificEnergyDropdown().catch(() => [] as DropdownItem[]),
+        getTransportModeDropdown().catch(() => [] as DropdownItem[]),
+      ]);
+
+      const buildMap = (items: DropdownItem[]) => {
+        const map: Record<string, string> = {};
+        items.forEach((item) => {
+          map[item.id] = item.name;
+        });
+        return map;
+      };
+
+      const dropdownMaps: Record<string, Record<string, string>> = {
+        fuelType: buildMap(fuelTypes),
+        subFuelType: buildMap(subFuelTypes),
+        subFuelTypeByFuel: buildMap(subFuelTypes),
+        energySource: buildMap(energySources),
+        energyType: buildMap(energyTypes),
+        energyTypeBySource: buildMap(energyTypes),
+        refrigerantType: buildMap(refrigerantTypes),
+        processSpecificEnergy: buildMap(processSpecificEnergy),
+        transportMode: buildMap(transportModes),
+      };
+
+      const sections = buildPdfSections(formData, dropdownMaps);
+      const supplierName =
+        formData?.organization_details?.organization_name ||
+        formData?.supplier_company_name ||
+        "Supplier";
+
+      const result = await supplierQuestionnaireService.downloadQuestionnairePdf({
+        sections,
+        supplier_name: supplierName,
+        submission_date: new Date().toISOString(),
+        reference_id: submittedSgiqId || undefined,
+        bom_pcf_id: bom_pcf_id || undefined,
+      });
+
+      if (result.success) {
+        message.success({
+          content: "PDF report downloaded successfully!",
+          duration: 3,
+        });
+      } else {
+        message.error({
+          content: result.message || "Failed to generate PDF. Please try again.",
+          duration: 4,
+        });
+      }
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      message.error({
+        content: "Failed to generate PDF report. Please try again.",
+        duration: 4,
+      });
+    } finally {
+      setIsDownloadingPdf(false);
     }
   };
 
@@ -1270,9 +1374,22 @@ const SupplierQuestionnaire: React.FC = () => {
               </span>
             </div>
           </div>
+
+          {/* Download PDF Button */}
+          <Button
+            type="primary"
+            size="large"
+            icon={<DownloadOutlined />}
+            onClick={handleDownloadPdf}
+            loading={isDownloadingPdf}
+            block
+            className="!bg-green-600 hover:!bg-green-700 !border-green-600 shadow-lg shadow-green-600/20 h-12 text-base font-medium mb-4"
+          >
+            Download PDF Report
+          </Button>
+
           <p className="text-sm text-gray-500">
-            Your responses have been recorded and will be used for the Product Carbon Footprint calculation.
-            You may now close this window.
+            Download a copy of your responses for your records. Your data has been recorded and will be used for the Product Carbon Footprint calculation.
           </p>
         </div>
       </div>

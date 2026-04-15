@@ -221,9 +221,14 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
 
     if (productsManufactured.length === 0) return;
 
-    // Find tables that need auto-population
+    // Find tables that need auto-population.
+    // Only auto-populate MANDATORY tables — optional tables start empty
+    // so the supplier can decide whether to fill them.
     const tablesNeedingAutoPopulate = section.fields.filter(
-      (field) => field.type === 'table' && field.autoPopulateFromProducts
+      (field) =>
+        field.type === 'table' &&
+        field.autoPopulateFromProducts &&
+        field.required === true
     );
 
     tablesNeedingAutoPopulate.forEach((field) => {
@@ -280,9 +285,15 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
   useEffect(() => {
     if (!section) return;
 
-    // Find all tables with autoPopulateFromProducts that have dependencies
+    // Find all tables with autoPopulateFromProducts that have dependencies.
+    // Still only mandatory ones — optional tables don't auto-populate even
+    // when their dependency becomes true.
     const conditionalTables = section.fields.filter(
-      (field) => field.type === 'table' && field.autoPopulateFromProducts && field.dependency
+      (field) =>
+        field.type === 'table' &&
+        field.autoPopulateFromProducts &&
+        field.dependency &&
+        field.required === true
     );
 
     conditionalTables.forEach((field) => {
@@ -640,11 +651,27 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
         break;
       case 'number':
         inputComponent = (
-          <InputNumber 
+          <InputNumber
             {...commonProps}
             style={{ width: '100%' }}
             min={field.min}
             max={field.max}
+            // Strip non-numeric characters as user types
+            // (allows digits, one leading '-', and one '.' for decimals)
+            parser={(value) => {
+              if (!value) return '' as any;
+              // Keep only digits, minus, dot — then normalize
+              const cleaned = String(value).replace(/[^\d.\-]/g, '');
+              // Ensure minus only at start, only one dot
+              const minus = cleaned.startsWith('-') ? '-' : '';
+              const rest = cleaned.replace(/-/g, '');
+              const firstDot = rest.indexOf('.');
+              const normalized =
+                firstDot === -1
+                  ? rest
+                  : rest.slice(0, firstDot + 1) + rest.slice(firstDot + 1).replace(/\./g, '');
+              return (minus + normalized) as any;
+            }}
           />
         );
         break;
@@ -1691,6 +1718,18 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                               style={{ width: '100%' }}
                               min={col.min}
                               max={col.max}
+                              parser={(value) => {
+                                if (!value) return '' as any;
+                                const cleaned = String(value).replace(/[^\d.\-]/g, '');
+                                const minus = cleaned.startsWith('-') ? '-' : '';
+                                const rest = cleaned.replace(/-/g, '');
+                                const firstDot = rest.indexOf('.');
+                                const normalized =
+                                  firstDot === -1
+                                    ? rest
+                                    : rest.slice(0, firstDot + 1) + rest.slice(firstDot + 1).replace(/\./g, '');
+                                return (minus + normalized) as any;
+                              }}
                             />
                           ) : col.type === 'date' ? (
                             <DatePicker
@@ -1819,7 +1858,11 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
           // Check if any dependency field changed - trigger auto-populate for conditional tables
           if (section) {
             const conditionalTables = section.fields.filter(
-              (field) => field.type === 'table' && field.autoPopulateFromProducts && field.dependency
+              (field) =>
+                field.type === 'table' &&
+                field.autoPopulateFromProducts &&
+                field.dependency &&
+                field.required === true
             );
 
             conditionalTables.forEach((field) => {

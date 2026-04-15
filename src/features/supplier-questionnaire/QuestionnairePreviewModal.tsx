@@ -372,21 +372,16 @@ const QuestionnairePreviewModal: React.FC<QuestionnairePreviewModalProps> = ({
 
     return (
       <div className="space-y-4">
-        {/* Simple fields as Descriptions */}
+        {/* Simple fields as Descriptions — single column so long values
+            (org name, email, etc.) stay on one line */}
         {simpleFields.length > 0 && (
-          <Descriptions bordered size="small" column={2}>
+          <Descriptions bordered size="small" column={1}>
             {simpleFields.map((field) => {
               const value = getNestedValue(formData, field.name);
               return (
                 <Descriptions.Item
                   key={field.name}
                   label={getCleanLabel(field.label || field.name)}
-                  span={
-                    field.type === "textarea" ||
-                    field.type === "checkbox" && field.options
-                      ? 2
-                      : 1
-                  }
                 >
                   {renderFieldValue(field, value)}
                 </Descriptions.Item>

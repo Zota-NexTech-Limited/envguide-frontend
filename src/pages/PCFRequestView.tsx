@@ -200,7 +200,8 @@ const PCFRequestView: React.FC = () => {
   ) => {
     const sgiq_id = getSgiqIdBySupplier(sup_id);
     if (!sgiq_id) {
-      message.warning("Questionnaire data not found for this supplier");
+      console.warn("View Responses failed — no sgiq_id found for sup_id:", sup_id, "| dqrList has", dqrList.length, "entries:", dqrList.map((d: any) => d.sup_id));
+      message.warning("Questionnaire data not found for this supplier. Please refresh the page and try again.");
       return;
     }
 

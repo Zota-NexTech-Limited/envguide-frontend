@@ -714,7 +714,7 @@ class PCFService {
   ): Promise<{ success: boolean; message: string; data?: any[] }> {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/dqr-rating/list?bom_pcf_id=${encodeURIComponent(bom_pcf_id)}`,
+        `${API_BASE_URL}/api/dqr-rating/list?bom_pcf_id=${encodeURIComponent(bom_pcf_id)}&pageSize=200`,
         {
           method: "GET",
           headers: this.getHeaders(),

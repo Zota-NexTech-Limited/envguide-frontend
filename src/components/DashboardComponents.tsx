@@ -20,7 +20,7 @@ interface StatCardProps {
     title: string;
     value: string;
     subValue: string;
-    trend: number;
+    trend?: number;
     icon: LucideIcon;
     iconBg: string;
     iconColor: string;
@@ -37,7 +37,8 @@ export const StatCard: React.FC<StatCardProps> = ({
     iconColor,
     positiveIsGood = false
 }) => {
-    const isPositive = trend > 0;
+    const hasTrend = typeof trend === "number";
+    const isPositive = hasTrend && trend! > 0;
     const isGood = positiveIsGood ? isPositive : !isPositive;
 
     return (
@@ -46,12 +47,14 @@ export const StatCard: React.FC<StatCardProps> = ({
                 <div className={`${iconBg} ${iconColor} p-2.5 rounded-xl`}>
                     <Icon className="w-5 h-5" />
                 </div>
-                <div className={`flex items-center gap-0.5 px-2 py-1 rounded-full text-xs font-bold ${isGood
-                    ? 'bg-green-50 text-green-600'
-                    : 'bg-red-50 text-red-600'
-                    }`}>
-                    {isPositive ? '+' : ''}{trend}%
-                </div>
+                {hasTrend && (
+                    <div className={`flex items-center gap-0.5 px-2 py-1 rounded-full text-xs font-bold ${isGood
+                        ? 'bg-green-50 text-green-600'
+                        : 'bg-red-50 text-red-600'
+                        }`}>
+                        {isPositive ? '+' : ''}{trend}%
+                    </div>
+                )}
             </div>
             <div className="space-y-1">
                 <h3 className="text-2xl font-bold text-gray-900">{value}</h3>

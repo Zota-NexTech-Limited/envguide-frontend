@@ -25,7 +25,9 @@ import {
 import {
     DetailedHeader,
     ChartCard,
-    ChartModal
+    ChartModal,
+    ChartTooltip,
+    chartTooltipCursor
 } from "../components/DashboardComponents";
 import dashboardService from "../lib/dashboardService";
 import { getMaterialsMaterialTypeDropdown } from "../lib/ecoInventService";
@@ -40,16 +42,20 @@ interface Supplier {
     supplier_name: string;
 }
 
-const DEFAULT_MANUFACTURING = [
-  { name: "Extrusion", energy: 1.05, emission: 0.82 },
-  { name: "Injection Molding", energy: 0.92, emission: 0.71 },
-  { name: "Drying", energy: 0.35, emission: 0.27 },
-  { name: "Assembly", energy: 0.2, emission: 0.15 },
-  { name: "Finishing", energy: 0.15, emission: 0.12 },
+// Fallback data from Excel reference (shown when API returns empty)
+const FALLBACK_MANUFACTURING = [
+    { name: "Extrusion", energy: 5.2, emission: 1.05 },
+    { name: "Injection Molding", energy: 4.8, emission: 0.92 },
+    { name: "Drying", energy: 2, emission: 0.35 },
+    { name: "Assembly", energy: 1.2, emission: 0.2 },
+    { name: "Finishing", energy: 0.9, emission: 0.15 },
 ];
-const DEFAULT_ENERGY = [
-  { name: "Electricity", electricity: 850, heating: 120, cooling: 95, steam: 180 },
-  { name: "Natural Gas", electricity: 0, heating: 320, cooling: 0, steam: 0 },
+
+const FALLBACK_ENERGY = [
+    { name: "Electricity (kg CO\u2082e)", extrusion: 0.8, molding: 0.7, drying: 0.1 },
+    { name: "Natural Gas", extrusion: 0.15, molding: 0.1, drying: 0.2 },
+    { name: "Steam", extrusion: 0.05, molding: 0.05, drying: 0.03 },
+    { name: "Renewable", extrusion: 0.05, molding: 0.07, drying: 0.02 },
 ];
 
 const DEFAULT_TOP_COUNT = 4;
@@ -57,6 +63,7 @@ const DEFAULT_TOP_COUNT = 4;
 const DetailedRawMaterialEmission: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const fromSuperAdmin = location.state?.fromSuperAdmin;
     const [expandedChart, setExpandedChart] = useState<string | null>(null);
 
     // State for Dropdowns
@@ -70,8 +77,8 @@ const DetailedRawMaterialEmission: React.FC = () => {
     const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
 
     // State for Graph Data (full API data)
-    const [manufacturingData, setManufacturingData] = useState<any[]>(DEFAULT_MANUFACTURING);
-    const [processEnergyStateData, setProcessEnergyStateData] = useState<any[]>(DEFAULT_ENERGY);
+    const [manufacturingData, setManufacturingData] = useState<any[]>([]);
+    const [processEnergyStateData, setProcessEnergyStateData] = useState<any[]>([]);
     const [materialCompData, setMaterialCompData] = useState<any[]>([]);
     const [intensityData, setIntensityData] = useState<any[]>([]);
     const [shareData, setShareData] = useState<any[]>([]);
@@ -132,9 +139,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
         return data;
     };
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     const displayedCompData = useMemo(() => filterMaterialData(materialCompData, "contribution"), [materialCompData, selectedMaterials, showTopOnly]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     const displayedIntensityData = useMemo(() => filterMaterialData(intensityData, "virgin"), [intensityData, selectedMaterials, showTopOnly]);
     const displayedShareData = useMemo(() => {
         const filtered = filterMaterialData(shareData, "value");
@@ -142,7 +147,6 @@ const DetailedRawMaterialEmission: React.FC = () => {
             ...item,
             color: COLOR_PALETTE[index % COLOR_PALETTE.length]
         }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [shareData, selectedMaterials, showTopOnly]);
 
     // Fetch Clients and Master Materials on Mount
@@ -193,13 +197,8 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setManufacturingData(mapped);
                 } else {
-                    setManufacturingData([
-                        { name: "Extrusion", energy: 1200, emission: 1.05 },
-                        { name: "Injection Molding", energy: 980, emission: 0.92 },
-                        { name: "Drying", energy: 450, emission: 0.35 },
-                        { name: "Assembly", energy: 280, emission: 0.2 },
-                        { name: "Finishing", energy: 180, emission: 0.15 },
-                    ]);
+                    // API returned empty — use fallback
+                    setManufacturingData(FALLBACK_MANUFACTURING);
                 }
                 setIsLoadingManufacturing(false);
             };
@@ -224,11 +223,11 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     if (pivoted.length > 0) {
                         setProcessEnergyStateData(pivoted);
                     } else {
-                        setProcessEnergyStateData(DEFAULT_ENERGY);
+                        setProcessEnergyStateData(FALLBACK_ENERGY);
                         }
                 } else {
-                    // API returned empty — use fallback data
-                    setProcessEnergyStateData(DEFAULT_ENERGY);
+                    // API returned empty — use fallback
+                    setProcessEnergyStateData(FALLBACK_ENERGY);
                 }
                 setIsLoadingEnergy(false);
             };
@@ -244,12 +243,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setMaterialCompData(mapped);
                 } else {
-                    setMaterialCompData([
-                        { name: "Cobalt", contribution: 900, share: 38 },
-                        { name: "Silver", contribution: 180, share: 18 },
-                        { name: "Gold", contribution: 90, share: 37 },
-                        { name: "Palladium", contribution: 270, share: 7 },
-                    ]);
+                    setMaterialCompData([]);
                 }
                 setIsLoadingComp(false);
             };
@@ -291,12 +285,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setIntensityData(mapped);
                 } else {
-                    setIntensityData([
-                        { name: "Cobalt", virgin: 17, recycled: 0 },
-                        { name: "Silver", virgin: 40, recycled: 0 },
-                        { name: "Gold", virgin: 16500, recycled: 0 },
-                        { name: "Palladium", virgin: 9200, recycled: 0 },
-                    ]);
+                    setIntensityData([]);
                 }
                 setIsLoadingIntensity(false);
             };
@@ -312,14 +301,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setShareData(mapped);
                 } else {
-                    setShareData([
-                        { name: "Cobalt", value: 50 },
-                        { name: "Silver", value: 10 },
-                        { name: "Gold", value: 5 },
-                        { name: "Palladium", value: 15 },
-                        { name: "Tungsten", value: 10 },
-                        { name: "Niobium", value: 10 },
-                    ]);
+                    setShareData([]);
                 }
                 setIsLoadingShare(false);
             };
@@ -333,30 +315,12 @@ const DetailedRawMaterialEmission: React.FC = () => {
             setSelectedSupplier(null);
         } else {
             setSuppliers([]);
-            setManufacturingData(DEFAULT_MANUFACTURING);
-            setProcessEnergyStateData(DEFAULT_ENERGY);
-            setMaterialCompData([
-                { name: "Cobalt", contribution: 900, share: 38 },
-                { name: "Silver", contribution: 180, share: 18 },
-                { name: "Gold", contribution: 90, share: 37 },
-                { name: "Palladium", contribution: 270, share: 7 },
-            ]);
-            setIntensityData([
-                { name: "Cobalt", virgin: 17, recycled: 0 },
-                { name: "Silver", virgin: 40, recycled: 0 },
-                { name: "Gold", virgin: 16500, recycled: 0 },
-                { name: "Palladium", virgin: 9200, recycled: 0 },
-            ]);
-            setShareData([
-                { name: "Cobalt", value: 50 },
-                { name: "Silver", value: 10 },
-                { name: "Gold", value: 5 },
-                { name: "Palladium", value: 15 },
-                { name: "Tungsten", value: 10 },
-                { name: "Niobium", value: 10 },
-            ]);
+            setManufacturingData([]);
+            setProcessEnergyStateData([]);
+            setMaterialCompData([]);
+            setIntensityData([]);
+            setShareData([]);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedClient]);
 
     // Fetch Supplier-specific Data
@@ -378,12 +342,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setMaterialCompData(mapped);
                 } else {
-                    setMaterialCompData([
-                        { name: "Cobalt", contribution: 900, share: 38 },
-                        { name: "Silver", contribution: 180, share: 18 },
-                        { name: "Gold", contribution: 90, share: 37 },
-                        { name: "Palladium", contribution: 270, share: 7 },
-                    ]);
+                    setMaterialCompData([]);
                 }
                 setIsLoadingComp(false);
             };
@@ -418,12 +377,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     });
                     setIntensityData(Object.values(mergedMap));
                 } else {
-                    setIntensityData([
-                        { name: "Cobalt", virgin: 17, recycled: 0 },
-                        { name: "Silver", virgin: 40, recycled: 0 },
-                        { name: "Gold", virgin: 16500, recycled: 0 },
-                        { name: "Palladium", virgin: 9200, recycled: 0 },
-                    ]);
+                    setIntensityData([]);
                 }
                 setIsLoadingIntensity(false);
             };
@@ -439,14 +393,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     }));
                     setShareData(mapped);
                 } else {
-                    setShareData([
-                        { name: "Cobalt", value: 50 },
-                        { name: "Silver", value: 10 },
-                        { name: "Gold", value: 5 },
-                        { name: "Palladium", value: 15 },
-                        { name: "Tungsten", value: 10 },
-                        { name: "Niobium", value: 10 },
-                    ]);
+                    setShareData([]);
                 }
                 setIsLoadingShare(false);
             };
@@ -455,7 +402,6 @@ const DetailedRawMaterialEmission: React.FC = () => {
             fetchSupplierIntensity();
             fetchSupplierShare();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedSupplier, selectedClient]);
 
     // Close material filter dropdown on outside click
@@ -527,6 +473,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
 
     const renderManufacturingProcess = (isModal = false) => {
         if (isLoadingManufacturing) return renderLoader();
+        if (!selectedClient) return renderNoData("Select a client to view data");
         if (manufacturingData.length === 0) return renderNoData("No data available");
 
         const chartData = manufacturingData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
@@ -537,7 +484,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxisVal} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar dataKey="energy" fill="#458C21" radius={[4, 4, 0, 0]} barSize={isModal ? 60 : 30} name="Energy Used (kWh/unit)" />
                     <Bar dataKey="emission" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={isModal ? 60 : 30} name="CO₂e (kg/unit)" />
@@ -548,6 +495,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
 
     const renderProcessEnergy = (isModal = false) => {
         if (isLoadingEnergy) return renderLoader();
+        if (!selectedClient) return renderNoData("Select a client to view data");
         if (processEnergyStateData.length === 0) return renderNoData("No data available");
 
         const chartData = processEnergyStateData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
@@ -559,7 +507,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxisVal} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     {energyTypes.map((type, index) => (
                         <Bar key={type} dataKey={type} fill={COLOR_PALETTE[index % COLOR_PALETTE.length]} radius={[4, 4, 0, 0]} name={type.charAt(0).toUpperCase() + type.slice(1)} />
@@ -571,7 +519,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
 
     const renderMaterialComposition = (isModal = false) => {
         if (isLoadingComp) return renderLoader();
-
+        if (!selectedClient) return renderNoData("Select a client to view data");
         if (displayedCompData.length === 0) return renderNoData("No data available");
 
         const chartData = displayedCompData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
@@ -583,7 +531,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxisVal} />
                     <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar yAxisId="left" dataKey="contribution" fill="#52C41A" radius={[4, 4, 0, 0]} name="Emission Contribution (kg CO₂e)" barSize={isModal ? 60 : 30} />
                     <Line yAxisId="right" type="monotone" dataKey="share" stroke="#1A5D1A" strokeWidth={3} name="Share of Total (%)" dot={{ fill: '#1A5D1A', r: 4 }} activeDot={{ r: 6 }} />
@@ -594,7 +542,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
 
     const renderMaterialCarbonIntensity = (isModal = false) => {
         if (isLoadingIntensity) return renderLoader();
-
+        if (!selectedClient) return renderNoData("Select a client to view data");
         if (displayedIntensityData.length === 0) return renderNoData("No data available");
 
         const chartData = displayedIntensityData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
@@ -605,7 +553,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxisVal} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar dataKey="virgin" fill="#458C21" radius={[4, 4, 0, 0]} barSize={isModal ? 60 : 30} name="Virgin Material (kg CO₂e/kg)" />
                     <Bar dataKey="recycled" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={isModal ? 60 : 30} name="Recycled Material (kg CO₂e/kg)" />
@@ -616,7 +564,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
 
     const renderEmissionShare = (isModal = false) => {
         if (isLoadingShare) return renderLoader();
-
+        if (!selectedClient) return renderNoData("Select a client to view data");
         if (displayedShareData.length === 0) return renderNoData("No data available");
 
         const chartData = displayedShareData.map(d => ({ ...d, displayName: cleanName(d.name || d.process_name || "Unknown") }));
@@ -627,7 +575,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={isModal ? 80 : 40} name="Share of Total (%)">
                         {displayedShareData.map((entry, index) => (
@@ -812,7 +760,7 @@ const DetailedRawMaterialEmission: React.FC = () => {
                 <DetailedHeader
                     title="Raw Material Emission Details"
                     subtitle="Comprehensive breakdown of material-specific carbon footprint"
-                    onBack={() => navigate("/dashboard", { state: { selectedClient } })}
+                    onBack={() => navigate("/dashboard", { state: { selectedClient, fromSuperAdmin } })}
                     icon={Box}
                 />
 

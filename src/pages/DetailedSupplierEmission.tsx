@@ -19,7 +19,9 @@ import {
 import {
     DetailedHeader,
     ChartCard,
-    ChartModal
+    ChartModal,
+    ChartTooltip,
+    chartTooltipCursor
 } from "../components/DashboardComponents";
 import dashboardService from "../lib/dashboardService";
 
@@ -70,6 +72,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 const DetailedSupplierEmission: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const fromSuperAdmin = location.state?.fromSuperAdmin;
     const [expandedChart, setExpandedChart] = useState<string | null>(null);
 
     // State for Dropdowns
@@ -267,7 +270,7 @@ const DetailedSupplierEmission: React.FC = () => {
                         domain={hasExtremeOutlier ? [1, 'dataMax * 1.3'] : [0, 'dataMax * 1.2']}
                         allowDataOverflow
                     />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
                     <Bar dataKey="emission" fill={BAR_COLOR} radius={[4, 4, 0, 0]} barSize={isModal ? 80 : 50} name="Emission (kg CO₂e/kg)" label={{ position: 'top', fontSize: 9, fill: '#6B7280', formatter: (v: any) => { const n = Number(v); return n >= 1000 ? `${(n/1000).toFixed(1)}k` : n.toFixed(1); } }} />
                 </BarChart>
@@ -309,7 +312,7 @@ const DetailedSupplierEmission: React.FC = () => {
                         interval={0}
                     />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(2)} domain={[0, 'dataMax * 1.2']} />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
                     <Bar dataKey="value" fill={BAR_COLOR} radius={[4, 4, 0, 0]} barSize={isModal ? 80 : 50} name="Emission Comparison (kg CO₂e/kg)" label={{ position: 'top', fontSize: 9, fill: '#6B7280', formatter: (v: any) => Number(v).toFixed(2) }} />
                 </BarChart>
@@ -370,7 +373,7 @@ const DetailedSupplierEmission: React.FC = () => {
                 <DetailedHeader
                     title="Comprehensive Supplier Emission Breakdown"
                     subtitle="Detailed analysis of carbon footprint across all supplier partners"
-                    onBack={() => navigate("/dashboard", { state: { selectedClient } })}
+                    onBack={() => navigate("/dashboard", { state: { selectedClient, fromSuperAdmin } })}
                     icon={Truck}
                 />
 

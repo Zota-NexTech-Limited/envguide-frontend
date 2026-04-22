@@ -40,6 +40,20 @@ class DashboardService {
         }
     }
 
+    async getSummaryKpis(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/summary-kpis?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            console.error("Error fetching summary KPIs:", error);
+            return { status: false, message: "Network error", data: {} };
+        }
+    }
+
     async getSupplierDropdown(userId: string) {
         try {
             const response = await fetch(`${API_BASE_URL}/api/dashboard/supplier-dropdown?user_id=${userId}`, {
@@ -268,11 +282,11 @@ class DashboardService {
         }
     }
 
-    async getWasteEmissionDetails(clientId: string, supplierId?: string, wasteTypes?: string[]) {
+    async getWasteEmissionDetails(clientId: string, supplierId?: string) {
         try {
-            let url = `${API_BASE_URL}/api/dashboard/waste-emission?client_id=${clientId}`;
-            if (supplierId) url += `&supplier_id=${supplierId}`;
-            if (wasteTypes && wasteTypes.length > 0) url += `&waste_type=${encodeURIComponent(wasteTypes.join(','))}`;
+            const url = supplierId
+                ? `${API_BASE_URL}/api/dashboard/waste-emission?client_id=${clientId}&supplier_id=${supplierId}`
+                : `${API_BASE_URL}/api/dashboard/waste-emission?client_id=${clientId}`;
             const response = await fetch(url, {
                 method: "GET",
                 headers: this.getHeaders(),
@@ -282,20 +296,6 @@ class DashboardService {
         } catch (error) {
             console.error("Error fetching waste emission details:", error);
             return { success: false, message: "Network error", data: [], totals: {} };
-        }
-    }
-
-    async getWasteTypeDropdown(clientId: string) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/dashboard/waste-type-dropdown?client_id=${clientId}`, {
-                method: "GET",
-                headers: this.getHeaders(),
-            });
-            const result = await response.json();
-            return result;
-        } catch (error) {
-            console.error("Error fetching waste type dropdown:", error);
-            return { success: false, message: "Network error", data: [] };
         }
     }
 
@@ -352,6 +352,214 @@ class DashboardService {
         } catch (error) {
             console.error("Error fetching forecasted emission:", error);
             return { success: false, message: "Network error", data: [] };
+        }
+    }
+
+    async getPlatformStats() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/platform-stats`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching platform stats:", error);
+            return { success: false, message: "Network error", data: {} };
+        }
+    }
+
+    async getClientStatusDistribution() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/client-status-distribution`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching client status distribution:", error);
+            return { success: false, message: "Network error", data: {} };
+        }
+    }
+
+    async getRequestStatusDistribution() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/request-status-distribution`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching request status distribution:", error);
+            return { success: false, message: "Network error", data: {} };
+        }
+    }
+
+    async getTopEmitters() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/top-emitters`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching top emitters:", error);
+            return { success: false, message: "Network error", data: [] };
+        }
+    }
+
+    async getRecentActivities() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/recent-activities`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching recent activities:", error);
+            return { success: false, message: "Network error", data: [] };
+        }
+    }
+
+    async getProductEmissions(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/product-emissions?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching product emissions:", error);
+            return { success: false, message: "Network error", data: [] };
+        }
+    }
+
+    async getMonthlyEmissionTrend(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/monthly-emission-trend?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching monthly emission trend:", error);
+            return { success: false, message: "Network error", data: [] };
+        }
+    }
+
+    async getScopeBreakdown(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/scope-breakdown?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching scope breakdown:", error);
+            return { success: false, message: "Network error", data: {} };
+        }
+    }
+
+    async getPackagingEmissionDetails(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/packaging-emission-details?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching packaging emission details:", error);
+            return { success: false, message: "Network error", data: {} };
+        }
+    }
+
+    async getClientKpis(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/client-kpis?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching client KPIs:", error);
+            return { success: false, message: "Network error", data: {} };
+        }
+    }
+
+    async getClientPendingPcfRequests(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/client-pending-pcf-requests?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching client pending PCF requests:", error);
+            return { success: false, message: "Network error", data: [] };
+        }
+    }
+
+    async getClientRecentActivity(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/client-recent-activity?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching client recent activity:", error);
+            return { success: false, message: "Network error", data: [] };
+        }
+    }
+
+    async getClientTopSuppliers(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/client-top-suppliers?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching client top suppliers:", error);
+            return { success: false, message: "Network error", data: [] };
+        }
+    }
+
+    async getClientEnergyResources(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/client-energy-resources?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching client energy resources:", error);
+            return { success: false, message: "Network error", data: {} };
+        }
+    }
+
+    async getClientEmissionHotspots(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/client-emission-hotspots?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching client emission hotspots:", error);
+            return { success: false, message: "Network error", data: [] };
+        }
+    }
+
+    async getClientAlerts(userId: string) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/client-alerts?user_id=${userId}`, {
+                method: "GET",
+                headers: this.getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching client alerts:", error);
+            return { success: false, message: "Network error", data: { count: 0, alerts: [] } };
         }
     }
 }

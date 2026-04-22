@@ -1,13 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
     Users,
     ChevronDown,
-    Package,
-    RefreshCw,
-    Search,
-    X,
-    Filter
+    Package
 } from "lucide-react";
 import {
     BarChart,
@@ -22,19 +18,35 @@ import {
 import {
     DetailedHeader,
     ChartCard,
-    ChartModal
+    ChartModal,
+    ChartTooltip,
+    chartTooltipCursor
 } from "../components/DashboardComponents";
 import dashboardService from "../lib/dashboardService";
-import { getMaterialsMaterialTypeDropdown, getWasteTreatmentTypeDropdown, getTreatmentTypeDropdown } from "../lib/ecoInventService";
 
 interface Client {
     user_id: string;
     user_name: string;
 }
 
+const packagingRecyclabilityData = [
+    { name: "Corrugated Cardboard", share: 48, recyclability: 90 },
+    { name: "LDPE Film", share: 22, recyclability: 75 },
+    { name: "PET Plastic", share: 25, recyclability: 85 },
+    { name: "Metal Cap", share: 10, recyclability: 100 },
+];
+
+const packagingEmissionData = [
+    { name: "Corrugated Cardboard", mass: 0.5, factor: 0.8, emission: 0.4 },
+    { name: "LDPE Film", mass: 0.15, factor: 2.1, emission: 0.31 },
+    { name: "PET Plastic", mass: 0.2, factor: 2.5, emission: 0.8 },
+    { name: "Metal Cap", mass: 0.05, factor: 3.2, emission: 0.16 },
+];
+
 const DetailedPackagingEmission: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const fromSuperAdmin = location.state?.fromSuperAdmin;
     const [expandedChart, setExpandedChart] = useState<string | null>(null);
 
     // State
@@ -42,27 +54,7 @@ const DetailedPackagingEmission: React.FC = () => {
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
 
-    // Data states
-    const [wasteData, setWasteData] = useState<any[]>([]);
-    const [recyclabilityData, setRecyclabilityData] = useState<any[]>([]);
-    const [loadingWaste, setLoadingWaste] = useState(false);
-    const [loadingRecyclability, setLoadingRecyclability] = useState(false);
-    const [showTopOnly, setShowTopOnly] = useState(true);
-
-    // Material filter state
-    const [masterMaterials, setMasterMaterials] = useState<string[]>([]);
-    const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
-    const [materialSearch, setMaterialSearch] = useState("");
-    const [isMaterialFilterOpen, setIsMaterialFilterOpen] = useState(false);
-
-    // Waste type filter state
-    const [wasteTypeOptions, setWasteTypeOptions] = useState<string[]>([]);
-    const [selectedWasteTypes, setSelectedWasteTypes] = useState<string[]>([]);
-    const [wasteTypeSearch, setWasteTypeSearch] = useState("");
-    const [isWasteTypeFilterOpen, setIsWasteTypeFilterOpen] = useState(false);
-    const [showTopOnlyWaste, setShowTopOnlyWaste] = useState(true);
-
-    // Fetch Clients, Master Materials, and Master Waste Types
+    // Fetch Clients
     useEffect(() => {
         const fetchClients = async () => {
             const result = await dashboardService.getClientsDropdown();
@@ -71,30 +63,7 @@ const DetailedPackagingEmission: React.FC = () => {
                 setClients(clientList);
             }
         };
-        const fetchMasterMaterials = async () => {
-            const materials = await getMaterialsMaterialTypeDropdown();
-            if (Array.isArray(materials)) {
-                setMasterMaterials(materials.map(m => m.name).filter(Boolean));
-            }
-        };
-        const fetchTreatmentTypes = async () => {
-            // Fetch BOTH packaging treatment types AND waste treatment types, then combine
-            const [packagingTreatments, wasteTreatments] = await Promise.all([
-                getTreatmentTypeDropdown(),
-                getWasteTreatmentTypeDropdown()
-            ]);
-            const allNames = new Set<string>();
-            if (Array.isArray(packagingTreatments)) {
-                packagingTreatments.forEach(p => { if (p.name) allNames.add(p.name); });
-            }
-            if (Array.isArray(wasteTreatments)) {
-                wasteTreatments.forEach(w => { if (w.name) allNames.add(w.name); });
-            }
-            setWasteTypeOptions(Array.from(allNames).sort());
-        };
         fetchClients();
-        fetchMasterMaterials();
-        fetchTreatmentTypes();
     }, []);
 
     // Set Client from Navigation
@@ -103,101 +72,6 @@ const DetailedPackagingEmission: React.FC = () => {
             setSelectedClient(location.state.selectedClient);
         }
     }, [location.state]);
-
-    // Fetch data when client changes
-    useEffect(() => {
-        if (!selectedClient) {
-            setRecyclabilityData([
-                { name: "Cobalt", displayName: "Cobalt", totalUsed: 0.9, recycledPercent: 0, recycledKg: 0 },
-                { name: "Silver", displayName: "Silver", totalUsed: 0.18, recycledPercent: 0, recycledKg: 0 },
-                { name: "Gold", displayName: "Gold", totalUsed: 0.09, recycledPercent: 0, recycledKg: 0 },
-                { name: "Palladium", displayName: "Palladium", totalUsed: 0.27, recycledPercent: 0, recycledKg: 0 },
-            ]);
-            return;
-        }
-
-        // Reset material filter on client change
-        setSelectedMaterials([]);
-        setShowTopOnly(true);
-        setMaterialSearch("");
-
-        // Reset waste type filter on client change
-        setSelectedWasteTypes([]);
-        setShowTopOnlyWaste(true);
-        setWasteTypeSearch("");
-
-        const clientId = selectedClient.user_id;
-
-        // Waste data is fetched in a separate effect that responds to waste type filter changes
-
-        // Fetch recyclability data for packaging materials
-        const fetchRecyclability = async () => {
-            setLoadingRecyclability(true);
-            try {
-                const res = await dashboardService.getRecyclabilityEmission(clientId);
-                if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-                    const formatted = res.data.map((item: any) => ({
-                        name: item.material_type || "Unknown",
-                        displayName: cleanName(item.material_type || "Unknown"),
-                        totalUsed: parseFloat(item.total_material_used_in_kg) || 0,
-                        recycledPercent: parseFloat(item.total_recycled_material_percentage) || 0,
-                        recycledKg: parseFloat(item.total_recycled_content_used_in_kg) || 0,
-                    })).filter((item: any) => item.totalUsed > 0);
-                    setRecyclabilityData(formatted);
-                } else {
-                    setRecyclabilityData([
-                        { name: "Cobalt", displayName: "Cobalt", totalUsed: 0.9, recycledPercent: 0, recycledKg: 0 },
-                        { name: "Silver", displayName: "Silver", totalUsed: 0.18, recycledPercent: 0, recycledKg: 0 },
-                        { name: "Gold", displayName: "Gold", totalUsed: 0.09, recycledPercent: 0, recycledKg: 0 },
-                        { name: "Palladium", displayName: "Palladium", totalUsed: 0.27, recycledPercent: 0, recycledKg: 0 },
-                    ]);
-                }
-            } catch {
-                setRecyclabilityData([
-                    { name: "Cobalt", displayName: "Cobalt", totalUsed: 0.9, recycledPercent: 0, recycledKg: 0 },
-                    { name: "Silver", displayName: "Silver", totalUsed: 0.18, recycledPercent: 0, recycledKg: 0 },
-                    { name: "Gold", displayName: "Gold", totalUsed: 0.09, recycledPercent: 0, recycledKg: 0 },
-                    { name: "Palladium", displayName: "Palladium", totalUsed: 0.27, recycledPercent: 0, recycledKg: 0 },
-                ]);
-            }
-            setLoadingRecyclability(false);
-        };
-
-        fetchRecyclability();
-    }, [selectedClient]);
-
-    // Fetch waste data once when client changes (no backend filtering by waste type)
-    useEffect(() => {
-        if (!selectedClient) {
-            setWasteData([]);
-            return;
-        }
-
-        const clientId = selectedClient.user_id;
-
-        const fetchWaste = async () => {
-            setLoadingWaste(true);
-            try {
-                const res = await dashboardService.getWasteEmissionDetails(clientId);
-                if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-                    const formatted = res.data.map((item: any) => ({
-                        name: item.treatment_type || "Unknown",
-                        displayName: cleanName(item.treatment_type || "Unknown"),
-                        weight: parseFloat(item.total_waste_weight) || 0,
-                        emission: parseFloat(item.total_co2_emission) || 0,
-                    })).filter((item: any) => item.weight > 0 || item.emission !== 0);
-                    setWasteData(formatted);
-                } else {
-                    setWasteData([]);
-                }
-            } catch {
-                setWasteData([]);
-            }
-            setLoadingWaste(false);
-        };
-
-        fetchWaste();
-    }, [selectedClient]);
 
     const cleanName = (name: string): string => {
         const dashIdx = name.indexOf(" - ");
@@ -236,364 +110,58 @@ const DetailedPackagingEmission: React.FC = () => {
         );
     };
 
-    const renderLoading = () => (
-        <div className="flex items-center justify-center h-full min-h-[300px] text-gray-400">
-            <RefreshCw className="w-5 h-5 animate-spin mr-2" />Loading...
-        </div>
-    );
+    const recyclabilityChartData = packagingRecyclabilityData.map(item => ({
+        ...item,
+        displayName: cleanName(item.name),
+    }));
 
-    const renderNoClient = () => (
-        <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
-            Select a client to view data
-        </div>
-    );
+    const emissionChartData = packagingEmissionData.map(item => ({
+        ...item,
+        displayName: cleanName(item.name),
+    }));
 
-    const renderEmpty = () => (
-        <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400">
-            No data available
-        </div>
-    );
-
-    // Get all unique material names — merge master setup list + chart data
-    const allMaterialNames = useMemo(() => {
-        const names = new Set<string>();
-        masterMaterials.forEach(n => names.add(n));
-        recyclabilityData.forEach(d => names.add(d.name));
-        return Array.from(names).sort();
-    }, [masterMaterials, recyclabilityData]);
-
-    // Filtered material names based on search
-    const filteredMaterialOptions = useMemo(() => {
-        if (!materialSearch) return allMaterialNames;
-        return allMaterialNames.filter(n =>
-            n.toLowerCase().includes(materialSearch.toLowerCase())
-        );
-    }, [allMaterialNames, materialSearch]);
-
-    // Close filter dropdowns on outside click
-    useEffect(() => {
-        const handleClick = (e: MouseEvent) => {
-            const target = e.target as HTMLElement;
-            if (!target.closest('.material-filter-container')) {
-                setIsMaterialFilterOpen(false);
-            }
-            if (!target.closest('.waste-type-filter-container')) {
-                setIsWasteTypeFilterOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClick);
-        return () => document.removeEventListener('mousedown', handleClick);
-    }, []);
-
-    const toggleMaterial = (name: string) => {
-        setSelectedMaterials(prev =>
-            prev.includes(name)
-                ? prev.filter(m => m !== name)
-                : [...prev, name]
-        );
-    };
-
-    const clearMaterialFilter = () => {
-        setSelectedMaterials([]);
-        setShowTopOnly(true);
-        setMaterialSearch("");
-    };
-
-    // Waste type filter helpers
-    const filteredWasteTypeOptions = useMemo(() => {
-        if (!wasteTypeSearch) return wasteTypeOptions;
-        return wasteTypeOptions.filter(n =>
-            n.toLowerCase().includes(wasteTypeSearch.toLowerCase())
-        );
-    }, [wasteTypeOptions, wasteTypeSearch]);
-
-    const toggleWasteType = (name: string) => {
-        setSelectedWasteTypes(prev =>
-            prev.includes(name)
-                ? prev.filter(w => w !== name)
-                : [...prev, name]
-        );
-    };
-
-    const clearWasteTypeFilter = () => {
-        setSelectedWasteTypes([]);
-        setShowTopOnlyWaste(true);
-        setWasteTypeSearch("");
-    };
-
-    // Filtered waste data for chart (Top 5 / Show All + treatment type filter)
-    const filteredWasteData = useMemo(() => {
-        let data = [...wasteData];
-        if (selectedWasteTypes.length > 0) {
-            // Normalize for comparison (collapse whitespace, lowercase)
-            const normalize = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
-            const selectedNorm = selectedWasteTypes.map(normalize);
-            data = data.filter(d => selectedNorm.includes(normalize(d.name)));
+    const renderRecyclability = (isModal = false) => {
+        if (!selectedClient) {
+            return (
+                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
+                    Select a client to view packaging recyclability data
+                </div>
+            );
         }
-        const sorted = data.sort((a, b) => Math.abs(b.emission) - Math.abs(a.emission));
-        return showTopOnlyWaste ? sorted.slice(0, 5) : sorted;
-    }, [wasteData, showTopOnlyWaste, selectedWasteTypes]);
-
-    // Sort by totalUsed descending, apply material filter, and optionally slice to top 5
-    const filteredRecyclabilityData = React.useMemo(() => {
-        if (selectedMaterials.length > 0) {
-            return recyclabilityData.filter(d => selectedMaterials.includes(d.name));
-        }
-        const sorted = [...recyclabilityData].sort((a, b) => b.totalUsed - a.totalUsed);
-        return showTopOnly ? sorted.slice(0, 5) : sorted;
-    }, [recyclabilityData, showTopOnly, selectedMaterials]);
-
-    const renderMaterialFilter = () => {
-        if (!selectedClient || allMaterialNames.length === 0) return null;
-
         return (
-            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm mb-6">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                        <Filter className="w-4 h-4 text-green-600" />
-                        <span className="text-sm font-bold text-gray-700">Filter Materials</span>
-                        <span className="text-xs text-gray-400">({allMaterialNames.length} total)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => { setShowTopOnly(true); setSelectedMaterials([]); }}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${showTopOnly && selectedMaterials.length === 0 ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                        >
-                            Top 5
-                        </button>
-                        <button
-                            onClick={() => { setShowTopOnly(false); setSelectedMaterials([]); }}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${!showTopOnly && selectedMaterials.length === 0 ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                        >
-                            Show All
-                        </button>
-                        {selectedMaterials.length > 0 && (
-                            <button
-                                onClick={clearMaterialFilter}
-                                className="px-3 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-500 hover:bg-red-100 transition-colors cursor-pointer"
-                            >
-                                Clear Filter
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Search + Dropdown */}
-                <div className="relative material-filter-container">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl">
-                        <Search className="w-4 h-4 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search materials..."
-                            value={materialSearch}
-                            onChange={(e) => {
-                                setMaterialSearch(e.target.value);
-                                setIsMaterialFilterOpen(true);
-                            }}
-                            onFocus={() => setIsMaterialFilterOpen(true)}
-                            className="flex-1 bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
-                        />
-                        {materialSearch && (
-                            <X
-                                className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-600"
-                                onClick={() => setMaterialSearch("")}
-                            />
-                        )}
-                    </div>
-
-                    {/* Dropdown */}
-                    {isMaterialFilterOpen && (
-                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                            {filteredMaterialOptions.map((name) => (
-                                <div
-                                    key={name}
-                                    className={`px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2 ${selectedMaterials.includes(name)
-                                        ? 'bg-green-50 text-green-700 font-medium'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                        }`}
-                                    onClick={() => toggleMaterial(name)}
-                                >
-                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${selectedMaterials.includes(name) ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
-                                        {selectedMaterials.includes(name) && (
-                                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                        )}
-                                    </div>
-                                    {name}
-                                </div>
-                            ))}
-                            {filteredMaterialOptions.length === 0 && (
-                                <div className="px-4 py-2 text-sm text-gray-400 italic">No materials match "{materialSearch}"</div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Selected chips */}
-                {selectedMaterials.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-3">
-                        {selectedMaterials.map((name) => (
-                            <span
-                                key={name}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 border border-green-200 rounded-lg text-xs font-medium text-green-700"
-                            >
-                                {name}
-                                <X
-                                    className="w-3 h-3 cursor-pointer hover:text-red-500"
-                                    onClick={() => toggleMaterial(name)}
-                                />
-                            </span>
-                        ))}
-                    </div>
-                )}
-            </div>
-        );
-    };
-
-    const renderWasteTypeFilter = () => {
-        if (!selectedClient || wasteTypeOptions.length === 0) return null;
-
-        return (
-            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm mb-6">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                        <Filter className="w-4 h-4 text-green-600" />
-                        <span className="text-sm font-bold text-gray-700">Filter Treatment Types</span>
-                        <span className="text-xs text-gray-400">({wasteTypeOptions.length} total)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => { setShowTopOnlyWaste(true); setSelectedWasteTypes([]); }}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${showTopOnlyWaste && selectedWasteTypes.length === 0 ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                        >
-                            Top 5
-                        </button>
-                        <button
-                            onClick={() => { setShowTopOnlyWaste(false); setSelectedWasteTypes([]); }}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${!showTopOnlyWaste && selectedWasteTypes.length === 0 ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                        >
-                            Show All
-                        </button>
-                        {selectedWasteTypes.length > 0 && (
-                            <button
-                                onClick={clearWasteTypeFilter}
-                                className="px-3 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-500 hover:bg-red-100 transition-colors cursor-pointer"
-                            >
-                                Clear Filter
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Search + Dropdown */}
-                <div className="relative waste-type-filter-container">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl">
-                        <Search className="w-4 h-4 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search treatment types..."
-                            value={wasteTypeSearch}
-                            onChange={(e) => {
-                                setWasteTypeSearch(e.target.value);
-                                setIsWasteTypeFilterOpen(true);
-                            }}
-                            onFocus={() => setIsWasteTypeFilterOpen(true)}
-                            className="flex-1 bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
-                        />
-                        {wasteTypeSearch && (
-                            <X
-                                className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-600"
-                                onClick={() => setWasteTypeSearch("")}
-                            />
-                        )}
-                    </div>
-
-                    {/* Dropdown */}
-                    {isWasteTypeFilterOpen && (
-                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                            {filteredWasteTypeOptions.map((name) => (
-                                <div
-                                    key={name}
-                                    className={`px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2 ${selectedWasteTypes.includes(name)
-                                        ? 'bg-green-50 text-green-700 font-medium'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                        }`}
-                                    onClick={() => toggleWasteType(name)}
-                                >
-                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${selectedWasteTypes.includes(name) ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
-                                        {selectedWasteTypes.includes(name) && (
-                                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                        )}
-                                    </div>
-                                    {name}
-                                </div>
-                            ))}
-                            {filteredWasteTypeOptions.length === 0 && (
-                                <div className="px-4 py-2 text-sm text-gray-400 italic">No treatment types match "{wasteTypeSearch}"</div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Selected chips */}
-                {selectedWasteTypes.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-3">
-                        {selectedWasteTypes.map((name) => (
-                            <span
-                                key={name}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 border border-green-200 rounded-lg text-xs font-medium text-green-700"
-                            >
-                                {name}
-                                <X
-                                    className="w-3 h-3 cursor-pointer hover:text-red-500"
-                                    onClick={() => toggleWasteType(name)}
-                                />
-                            </span>
-                        ))}
-                    </div>
-                )}
-            </div>
-        );
-    };
-
-    const renderRecyclability = () => {
-        if (!selectedClient) return renderNoClient();
-        if (loadingRecyclability) return renderLoading();
-        if (recyclabilityData.length === 0) return renderEmpty();
-
-        return (
-            <div className="h-full flex flex-col">
-                <div className="flex-1">
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={filteredRecyclabilityData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
+                <BarChart data={recyclabilityChartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} />
-                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
-                    <Bar dataKey="totalUsed" fill="#52C41A" radius={[4, 4, 0, 0]} name="Total Used (kg)" />
-                    <Bar dataKey="recycledPercent" fill="#D9F5C5" radius={[4, 4, 0, 0]} name="Recycled (%)" />
+                    <Bar dataKey="share" fill="#52C41A" radius={[4, 4, 0, 0]} name="Share (%)" />
+                    <Bar dataKey="recyclability" fill="#D9F5C5" radius={[4, 4, 0, 0]} name="Recyclability (%)" />
                 </BarChart>
             </ResponsiveContainer>
-                </div>
-            </div>
         );
     };
 
-    const renderWasteEmission = () => {
-        if (!selectedClient) return renderNoClient();
-        if (loadingWaste) return renderLoading();
-        if (wasteData.length === 0) return renderEmpty();
-
+    const renderEmission = (isModal = false) => {
+        if (!selectedClient) {
+            return (
+                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
+                    Select a client to view packaging emission data
+                </div>
+            );
+        }
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={filteredWasteData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
+                <BarChart data={emissionChartData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} />
-                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
-                    <Bar dataKey="weight" fill="#D9F5C5" radius={[4, 4, 0, 0]} name="Waste Weight (kg)" />
-                    <Bar dataKey="emission" fill="#52C41A" radius={[4, 4, 0, 0]} name="Emission (kg CO₂e)" />
+                    <Bar dataKey="mass" fill="#D9F5C5" radius={[4, 4, 0, 0]} name="Mass (kg/unit)" />
+                    <Bar dataKey="factor" fill="#B3E699" radius={[4, 4, 0, 0]} name="Emission Factor (kg CO₂e/kg)" />
+                    <Bar dataKey="emission" fill="#52C41A" radius={[4, 4, 0, 0]} name="Emission (kg CO₂e/unit)" />
                 </BarChart>
             </ResponsiveContainer>
         );
@@ -605,7 +173,7 @@ const DetailedPackagingEmission: React.FC = () => {
                 <DetailedHeader
                     title="Packaging Emission Details"
                     subtitle="In-depth analysis of packaging carbon footprint"
-                    onBack={() => navigate("/dashboard", { state: { selectedClient } })}
+                    onBack={() => navigate("/dashboard", { state: { selectedClient, fromSuperAdmin } })}
                     icon={Package}
                 />
 
@@ -647,26 +215,21 @@ const DetailedPackagingEmission: React.FC = () => {
                 </div>
 
                 <div className="space-y-6">
-                    {/* Material Recyclability Section */}
-                    {renderMaterialFilter()}
-                    <ChartCard title="Material Recyclability" showExpand onExpand={() => setExpandedChart("recyclability")}>
+                    <ChartCard title="Packaging Material and Recyclability" showExpand onExpand={() => setExpandedChart("recyclability")}>
                         {renderRecyclability()}
                     </ChartCard>
-
-                    {/* Packaging & Waste Emission Section */}
-                    {renderWasteTypeFilter()}
-                    <ChartCard title="Packaging & Waste Emission by Treatment" showExpand onExpand={() => setExpandedChart("emission")}>
-                        {renderWasteEmission()}
+                    <ChartCard title="Packaging Emission" showExpand onExpand={() => setExpandedChart("emission")}>
+                        {renderEmission()}
                     </ChartCard>
                 </div>
             </div>
 
             {/* Expansion Modals */}
-            <ChartModal isOpen={expandedChart === "recyclability"} onClose={() => setExpandedChart(null)} title="Material Recyclability">
-                {renderRecyclability()}
+            <ChartModal isOpen={expandedChart === "recyclability"} onClose={() => setExpandedChart(null)} title="Packaging Material and Recyclability">
+                {renderRecyclability(true)}
             </ChartModal>
-            <ChartModal isOpen={expandedChart === "emission"} onClose={() => setExpandedChart(null)} title="Packaging & Waste Emission by Treatment">
-                {renderWasteEmission()}
+            <ChartModal isOpen={expandedChart === "emission"} onClose={() => setExpandedChart(null)} title="Packaging Emission">
+                {renderEmission(true)}
             </ChartModal>
         </div>
     );

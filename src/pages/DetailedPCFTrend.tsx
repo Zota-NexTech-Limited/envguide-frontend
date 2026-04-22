@@ -23,7 +23,9 @@ import {
 import {
     DetailedHeader,
     ChartCard,
-    ChartModal
+    ChartModal,
+    ChartTooltip,
+    chartTooltipCursor
 } from "../components/DashboardComponents";
 import dashboardService from "../lib/dashboardService";
 
@@ -45,33 +47,36 @@ interface ForecastedData {
     emission: number;
 }
 
-const DEFAULT_REDUCTION: ReductionData[] = [
-  { name: "2021", emission: 3800, reduction: 0, product: "All Products", year: 2021 },
-  { name: "2022", emission: 3500, reduction: 7.9, product: "All Products", year: 2022 },
-  { name: "2023", emission: 3200, reduction: 8.6, product: "All Products", year: 2023 },
-  { name: "2024", emission: 2847, reduction: 11.0, product: "All Products", year: 2024 },
-  { name: "2025", emission: 2650, reduction: 6.9, product: "All Products", year: 2025 },
+const FALLBACK_REDUCTION: ReductionData[] = [
+    { name: "Product A (2021)", emission: 28, reduction: 0, product: "Product A", year: 2021 },
+    { name: "Product A (2022)", emission: 25, reduction: 10.7, product: "Product A", year: 2022 },
+    { name: "Product A (2023)", emission: 20.75, reduction: 17, product: "Product A", year: 2023 },
+    { name: "Product A (2024)", emission: 16.1, reduction: 22.4, product: "Product A", year: 2024 },
+    { name: "Product A (2025)", emission: 14.6, reduction: 9.3, product: "Product A", year: 2025 },
 ];
-const DEFAULT_ACTUAL: ActualEmissionData[] = [
-  { name: "Gear Shaft", actual: 4010 },
-  { name: "Motor Mount", actual: 9955 },
-  { name: "Bearing Housing", actual: 5748 },
-  { name: "Assembly Unit", actual: 2200 },
+
+const FALLBACK_ACTUAL: ActualEmissionData[] = [
+    { name: "Product A", actual: 22.5 },
+    { name: "Product B", actual: 18.3 },
+    { name: "Product C", actual: 27.8 },
+    { name: "Product D", actual: 16.4 },
 ];
-const DEFAULT_FORECASTED: ForecastedData[] = [
-  { name: "2023", emission: 3200 },
-  { name: "2024", emission: 2847 },
-  { name: "2025", emission: 2650 },
-  { name: "2026", emission: 2400 },
-  { name: "2027", emission: 2150 },
-  { name: "2028", emission: 1900 },
-  { name: "2029", emission: 1700 },
-  { name: "2030", emission: 1500 },
+
+const FALLBACK_FORECASTED: ForecastedData[] = [
+    { name: "2023", emission: 520 },
+    { name: "2024", emission: 470 },
+    { name: "2025", emission: 410 },
+    { name: "2026", emission: 360 },
+    { name: "2027", emission: 310 },
+    { name: "2028", emission: 270 },
+    { name: "2029", emission: 240 },
+    { name: "2030", emission: 200 },
 ];
 
 const DetailedPCFTrend: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const fromSuperAdmin = location.state?.fromSuperAdmin;
     const [expandedChart, setExpandedChart] = useState<string | null>(null);
 
     // Dropdown state
@@ -89,9 +94,9 @@ const DetailedPCFTrend: React.FC = () => {
     const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
 
     // Data state
-    const [reductionData, setReductionData] = useState<ReductionData[]>(DEFAULT_REDUCTION);
-    const [actualEmissionData, setActualEmissionData] = useState<ActualEmissionData[]>(DEFAULT_ACTUAL);
-    const [forecastedEmissionData, setForecastedEmissionData] = useState<ForecastedData[]>(DEFAULT_FORECASTED);
+    const [reductionData, setReductionData] = useState<ReductionData[]>([]);
+    const [actualEmissionData, setActualEmissionData] = useState<ActualEmissionData[]>([]);
+    const [forecastedEmissionData, setForecastedEmissionData] = useState<ForecastedData[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
 
     useEffect(() => {
@@ -109,9 +114,9 @@ const DetailedPCFTrend: React.FC = () => {
             fetchSuppliers(selectedClient.user_id);
             fetchGraphData(selectedClient.user_id);
         } else {
-            setReductionData(DEFAULT_REDUCTION);
-            setActualEmissionData(DEFAULT_ACTUAL);
-            setForecastedEmissionData(DEFAULT_FORECASTED);
+            setReductionData([]);
+            setActualEmissionData([]);
+            setForecastedEmissionData([]);
             setSuppliers([]);
             setSelectedSupplier(null);
             setSelectedProduct("all");
@@ -151,10 +156,10 @@ const DetailedPCFTrend: React.FC = () => {
                 }));
                 setReductionData(formatted);
             } else {
-                setReductionData(DEFAULT_REDUCTION);
+                setReductionData(FALLBACK_REDUCTION);
             }
         } catch {
-            setReductionData(DEFAULT_REDUCTION);
+            setReductionData(FALLBACK_REDUCTION);
         }
 
         // Actual PCF Emission
@@ -167,10 +172,10 @@ const DetailedPCFTrend: React.FC = () => {
                 }));
                 setActualEmissionData(formatted);
             } else {
-                setActualEmissionData(DEFAULT_ACTUAL);
+                setActualEmissionData(FALLBACK_ACTUAL);
             }
         } catch {
-            setActualEmissionData(DEFAULT_ACTUAL);
+            setActualEmissionData(FALLBACK_ACTUAL);
         }
 
         // Forecasted Emission
@@ -183,10 +188,10 @@ const DetailedPCFTrend: React.FC = () => {
                 }));
                 setForecastedEmissionData(formatted);
             } else {
-                setForecastedEmissionData(DEFAULT_FORECASTED);
+                setForecastedEmissionData(FALLBACK_FORECASTED);
             }
         } catch {
-            setForecastedEmissionData(DEFAULT_FORECASTED);
+            setForecastedEmissionData(FALLBACK_FORECASTED);
         }
 
         setLoading(false);
@@ -326,6 +331,13 @@ const DetailedPCFTrend: React.FC = () => {
     [filteredActualData]);
 
     const renderReductionGraph = (isModal = false) => {
+        if (!selectedClient) {
+            return (
+                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
+                    Select a client to view PCF reduction data
+                </div>
+            );
+        }
         if (loading) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-gray-400">
@@ -351,13 +363,7 @@ const DetailedPCFTrend: React.FC = () => {
                     />
                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
                     <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => `${v.toFixed(1)}%`} />
-                    <Tooltip
-                        labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _}
-                        formatter={(value: any, name: any) => {
-                            if (name === "% Reduction") return [`${Number(value).toFixed(2)}%`, name];
-                            return [Number(value).toLocaleString(), name];
-                        }}
-                    />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend
                         verticalAlign="top"
                         align="center"
@@ -373,6 +379,13 @@ const DetailedPCFTrend: React.FC = () => {
     };
 
     const renderActualEmission = (isModal = false) => {
+        if (!selectedClient) {
+            return (
+                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
+                    Select a client to view actual emission data
+                </div>
+            );
+        }
         if (loading) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-gray-400">
@@ -397,7 +410,7 @@ const DetailedPCFTrend: React.FC = () => {
                         height={70}
                     />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} formatter={(value: any) => [Number(value).toLocaleString() + ' kg CO₂e', 'Actual Emission']} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
                     <Bar dataKey="actual" fill="#52C41A" radius={[4, 4, 0, 0]} name="Actual Emission (kg CO₂e)" maxBarSize={50} />
                 </BarChart>
@@ -406,6 +419,13 @@ const DetailedPCFTrend: React.FC = () => {
     };
 
     const renderForecastedEmission = (isModal = false) => {
+        if (!selectedClient) {
+            return (
+                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
+                    Select a client to view forecasted emission data
+                </div>
+            );
+        }
         if (loading) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-gray-400">
@@ -423,7 +443,7 @@ const DetailedPCFTrend: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-                    <Tooltip formatter={(value: any) => [Number(value).toLocaleString() + ' kg CO₂e', 'Forecasted Emission']} />
+                    <Tooltip content={<ChartTooltip />} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
                     <Bar dataKey="emission" fill="#74D14C" radius={[4, 4, 0, 0]} name="Forecasted Emission (kg CO₂e)" maxBarSize={60} />
                 </BarChart>
@@ -477,7 +497,7 @@ const DetailedPCFTrend: React.FC = () => {
                 <DetailedHeader
                     title="PCF Visualisation Trends"
                     subtitle="Detailed emission insights across life cycle stages"
-                    onBack={() => navigate("/dashboard", { state: { selectedClient } })}
+                    onBack={() => navigate("/dashboard", { state: { selectedClient, fromSuperAdmin } })}
                     icon={LineChartIcon}
                 />
 

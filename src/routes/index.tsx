@@ -12,7 +12,7 @@ import {
 } from "../config/dataSetupGroups";
 
 // Lazy-loaded page components for code splitting
-const Dashboard = lazy(() => import("../pages/Dashboard"));
+const DashboardRouter = lazy(() => import("../pages/DashboardRouter"));
 const VisitorManagement = lazy(() => import("../pages/VisitorManagement"));
 const SuiteManagement = lazy(() => import("../pages/SuiteManagement"));
 const Bookings = lazy(() => import("../pages/Bookings"));
@@ -142,7 +142,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "dashboard",
-        element: <S><Dashboard /></S>,
+        element: <S><DashboardRouter /></S>,
       },
       {
         path: "dashboard/detailed-lifecycle",

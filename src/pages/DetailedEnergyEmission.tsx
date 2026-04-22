@@ -19,7 +19,9 @@ import {
 import {
     DetailedHeader,
     ChartCard,
-    ChartModal
+    ChartModal,
+    ChartTooltip,
+    chartTooltipCursor
 } from "../components/DashboardComponents";
 import dashboardService from "../lib/dashboardService";
 
@@ -45,16 +47,10 @@ interface ProcessEnergyItem {
     emission: number;
 }
 
-const DEFAULT_ENERGY_SOURCES = [
-  { name: "Electricity-Grid", share: 58, emission: 850 },
-  { name: "Natural Gas", share: 22, emission: 320 },
-  { name: "Steam", share: 12, emission: 180 },
-  { name: "Cooling", share: 8, emission: 95 },
-];
-
 const DetailedEnergyEmission: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const fromSuperAdmin = location.state?.fromSuperAdmin;
     const [expandedChart, setExpandedChart] = useState<string | null>(null);
 
     // State
@@ -66,7 +62,7 @@ const DetailedEnergyEmission: React.FC = () => {
     const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
 
-    const [energySourceData, setEnergySourceData] = useState<EnergySourceItem[]>(DEFAULT_ENERGY_SOURCES);
+    const [energySourceData, setEnergySourceData] = useState<EnergySourceItem[]>([]);
     const [processEnergyData, setProcessEnergyData] = useState<ProcessEnergyItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -118,7 +114,7 @@ const DetailedEnergyEmission: React.FC = () => {
     useEffect(() => {
         const fetchData = async () => {
             if (!selectedClient) {
-                setEnergySourceData(DEFAULT_ENERGY_SOURCES);
+                setEnergySourceData([]);
                 setProcessEnergyData([]);
                 return;
             }
@@ -138,11 +134,12 @@ const DetailedEnergyEmission: React.FC = () => {
                     }));
                     setEnergySourceData(formatted);
                 } else {
+                    // Fallback reference data when API returns empty
                     setEnergySourceData([
-                        { name: "Electricity-Grid", share: 58, emission: 850 },
-                        { name: "Natural Gas", share: 22, emission: 320 },
-                        { name: "Steam", share: 12, emission: 180 },
-                        { name: "Cooling", share: 8, emission: 95 },
+                        { name: "Electricity - Grid", share: 45, emission: 850 },
+                        { name: "Natural Gas", share: 25, emission: 320 },
+                        { name: "Steam - Industrial", share: 18, emission: 180 },
+                        { name: "Cooling - District", share: 12, emission: 95 },
                     ]);
                 }
 
@@ -219,10 +216,10 @@ const DetailedEnergyEmission: React.FC = () => {
     }));
 
     const renderEnergySource = (isModal = false) => {
-        if (energySourceData.length === 0) {
+        if (!selectedClient) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
-                    No data available
+                    Select a client to view energy source data
                 </div>
             );
         }
@@ -234,7 +231,7 @@ const DetailedEnergyEmission: React.FC = () => {
                     <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => `${v}%`} />
                     <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
                     <Bar yAxisId="left" dataKey="share" fill="#52C41A" radius={[4, 4, 0, 0]} name="Energy Share (%)" />
                     <Bar yAxisId="right" dataKey="emission" fill="#B3E699" radius={[4, 4, 0, 0]} name="Total Emission (kg CO₂e)" />
@@ -244,10 +241,10 @@ const DetailedEnergyEmission: React.FC = () => {
     };
 
     const renderProcessEnergy = (isModal = false) => {
-        if (processEnergyData.length === 0) {
+        if (!selectedClient) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
-                    No data available
+                    Select a client to view process energy data
                 </div>
             );
         }
@@ -262,9 +259,10 @@ const DetailedEnergyEmission: React.FC = () => {
                         tickLine={false}
                         tick={<WrappedTick />}
                         interval={0}
+                        tickFormatter={(value: string) => value.length > 14 ? value.slice(0, 12) + '..' : value}
                     />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value} />
-                    <Tooltip labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
                     <Bar dataKey="consumption" fill="#1A5D1A" radius={[4, 4, 0, 0]} name="Energy Consumption (kWh)" />
                     {/* Keeping emission bar but it will be 0/empty based on current data understanding */}
@@ -280,7 +278,7 @@ const DetailedEnergyEmission: React.FC = () => {
                 <DetailedHeader
                     title="Energy Consumption Emission Analysis"
                     subtitle="Comprehensive breakdown of emissions associated with different energy sources across operations"
-                    onBack={() => navigate("/dashboard", { state: { selectedClient } })}
+                    onBack={() => navigate("/dashboard", { state: { selectedClient, fromSuperAdmin } })}
                     icon={Zap}
                 />
 

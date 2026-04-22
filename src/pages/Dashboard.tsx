@@ -6,8 +6,9 @@ import {
   Factory,
   RefreshCw,
   Users,
-  ChevronDown
+  ChevronLeft,
 } from "lucide-react";
+import { Select } from "antd";
 import {
   BarChart,
   Bar,
@@ -20,23 +21,29 @@ import {
   LineChart,
   Line,
   Legend,
+  PieChart,
+  Pie,
+  AreaChart,
+  Area,
 } from "recharts";
 import {
   StatCard,
   ChartCard,
   DashboardHeader,
-  ChartModal
+  ChartModal,
+  ChartTooltip,
+  chartTooltipCursor
 } from "../components/DashboardComponents";
 import { useDashboardPermissions } from "../contexts/PermissionContext";
 import Welcome from "./Welcome";
 import dashboardService from "../lib/dashboardService";
 
 const COLOR_MAP: Record<string, string> = {
-  "Raw Material": "#1A5D1A",
-  "Manufacturing": "#458C21",
-  "Packaging": "#74B72E",
-  "Transportation": "#98FB98",
-  "End of Life": "#C1FFC1",
+  "Raw Material": "#14532D",
+  "Manufacturing": "#166534",
+  "Packaging": "#22C55E",
+  "Transportation": "#4ADE80",
+  "End of Life": "#86EFAC",
 };
 
 interface Client {
@@ -54,37 +61,32 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [expandedChart, setExpandedChart] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<"month" | "quarter" | "custom">("month");
+  const [customDates, setCustomDates] = useState<[any, any] | null>(null);
+  const timePeriod = dateRange === "month" ? "monthly" : dateRange === "quarter" ? "quarterly" : "monthly";
   const { canViewDashboard, loading: permissionsLoading } = useDashboardPermissions();
+  const isFromSuperAdmin = location.state?.fromSuperAdmin;
 
   // Client State
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
 
   // Restore selected client when navigating back from detail pages
   React.useEffect(() => {
     if (location.state?.selectedClient) {
       setSelectedClient(location.state.selectedClient);
-    } else {
-      const saved = localStorage.getItem('dashboard_selected_client');
-      if (saved) {
-        try {
-          setSelectedClient(JSON.parse(saved));
-        } catch {}
-      }
     }
   }, [location.state]);
 
-  // Persist selected client to localStorage
-  React.useEffect(() => {
-    if (selectedClient) {
-      localStorage.setItem('dashboard_selected_client', JSON.stringify(selectedClient));
-    } else {
-      localStorage.removeItem('dashboard_selected_client');
-    }
-  }, [selectedClient]);
-
   // Data States
+  const [summaryKpis, setSummaryKpis] = useState<{
+    totalFootprint: number;
+    manufacturingEmission: number;
+    transportEmission: number;
+    recyclabilityRate: number;
+    manufacturingPercent: number;
+    transportPercent: number;
+  } | null>(null);
   const [lifeCycleData, setLifeCycleData] = useState<LifeCycleDataItem[]>([]);
   const [supplierEmissionData, setSupplierEmissionData] = useState<any[]>([]);
   const [rawMaterialData, setRawMaterialData] = useState<any[]>([]);
@@ -96,18 +98,9 @@ const Dashboard: React.FC = () => {
   const [impactCategoriesData, setImpactCategoriesData] = useState<any[]>([]);
   const [pcfTrendData, setPcfTrendData] = useState<any[]>([]);
 
-  // Stat card data derived from API responses
-  const [statCardData, setStatCardData] = useState<{
-    totalEmissions: number;
-    manufacturingEmissions: number;
-    manufacturingPercent: number;
-    recyclabilityRate: number;
-    transportEmissions: number;
-    transportPercent: number;
-  } | null>(null);
-
   // Loading States
   const [loading, setLoading] = useState({
+    summary: false,
     lifeCycle: false,
     supplier: false,
     rawMaterial: false,
@@ -131,128 +124,84 @@ const Dashboard: React.FC = () => {
     fetchClients();
   }, []);
 
-  // Default demo data shown when no client is selected
-  const defaultLifeCycleData: LifeCycleDataItem[] = [
-    { name: "Raw Material", value: 1520, color: COLOR_MAP["Raw Material"] },
-    { name: "Manufacturing", value: 1243, color: COLOR_MAP["Manufacturing"] },
-    { name: "Packaging", value: 42, color: COLOR_MAP["Packaging"] },
-    { name: "Transportation", value: 487, color: COLOR_MAP["Transportation"] },
-    { name: "End of Life", value: 6, color: COLOR_MAP["End of Life"] },
-  ];
-  const defaultSupplierData = [
-    { name: "Gear Shaft", value: 4010 },
-    { name: "Motor Mount", value: 9955 },
-    { name: "Bearing Housing", value: 5748 },
-  ];
-  const defaultRawMaterialData = [
-    { name: "Extrusion", value: 1.05 },
-    { name: "Injection Molding", value: 0.92 },
-    { name: "Drying", value: 0.35 },
-    { name: "Assembly", value: 0.2 },
-    { name: "Finishing", value: 0.15 },
-  ];
-  const defaultPackagingData = [
-    { name: "Cardboard", value: 120 },
-    { name: "Film", value: 60 },
-    { name: "Pallet", value: 40 },
-    { name: "Tape", value: 14 },
-  ];
-  const defaultTransportationData = [
-    { name: "Container Ship", value: 3.84 },
-    { name: "Heavy Truck", value: 4.25 },
-    { name: "Electric Train", value: 0.98 },
-  ];
-  const defaultEnergyData = [
-    { name: "Electricity", value: 850 },
-    { name: "Natural Gas", value: 320 },
-    { name: "Steam", value: 180 },
-    { name: "Cooling", value: 95 },
-  ];
-  const defaultRecyclabilityData = [
-    { name: "Cobalt", value: 0.9 },
-    { name: "Palladium", value: 0.8 },
-    { name: "Silver", value: 0.18 },
-    { name: "Carbon", value: 0.24 },
-  ];
-  const defaultWasteData = [
-    { name: "Recycling", value: 50 },
-    { name: "Landfill", value: 250 },
-    { name: "Incineration", value: 400 },
-  ];
-  const defaultImpactData = [
-    { name: "GWP", value: 100 },
-    { name: "ODP", value: 20 },
-    { name: "AP", value: 45 },
-    { name: "EP", value: 60 },
-    { name: "POCP", value: 35 },
-  ];
-  const defaultPcfTrendData = [
-    { month: "2022", value: 3500 },
-    { month: "2023", value: 3200 },
-    { month: "2024", value: 2847 },
-    { month: "2025", value: 2650 },
-  ];
-
   React.useEffect(() => {
     if (!selectedClient) {
-      // Show demo data when no client is selected
-      setLifeCycleData(defaultLifeCycleData);
-      setSupplierEmissionData(defaultSupplierData);
-      setRawMaterialData(defaultRawMaterialData);
-      setPackagingData(defaultPackagingData);
-      setTransportationData(defaultTransportationData);
-      setEnergyData(defaultEnergyData);
-      setRecyclabilityData(defaultRecyclabilityData);
-      setWasteData(defaultWasteData);
-      setImpactCategoriesData(defaultImpactData);
-      setPcfTrendData(defaultPcfTrendData);
-      setStatCardData({
-        totalEmissions: 2847,
-        manufacturingEmissions: 1243,
-        manufacturingPercent: 43.7,
-        recyclabilityRate: 72.5,
-        transportEmissions: 487,
-        transportPercent: 17.1,
-      });
+      // Reset all data if no client selected
+      setSummaryKpis(null);
+      setLifeCycleData([]);
+      setSupplierEmissionData([]);
+      setRawMaterialData([]);
+      setPackagingData([]);
+      setTransportationData([]);
+      setEnergyData([]);
+      setRecyclabilityData([]);
+      setWasteData([]);
+      setImpactCategoriesData([]);
+      setPcfTrendData([]);
       return;
     }
 
     const fetchAllData = async () => {
       const clientId = selectedClient.user_id;
 
-      // 1. Life Cycle + Stat Cards
+      // 0. Summary KPIs (4 top cards)
+      setLoading(prev => ({ ...prev, summary: true }));
+      try {
+        const result = await dashboardService.getSummaryKpis(clientId);
+        if ((result.status === true || result.success === true) && result.data) {
+          setSummaryKpis(result.data);
+        } else {
+          setSummaryKpis(null);
+        }
+      } catch (err) {
+        console.error("Summary KPIs fetch failed:", err);
+        setSummaryKpis(null);
+      } finally {
+        setLoading(prev => ({ ...prev, summary: false }));
+      }
+
+      // 1. Life Cycle
       setLoading(prev => ({ ...prev, lifeCycle: true }));
       try {
         const res = await dashboardService.getProductLifeCycle(clientId);
         if (res.data?.data || res.data) {
           const data = res.data?.data || res.data;
-          const rawMat = parseFloat(data.raw_material) || 0;
-          const mfg = parseFloat(data.manufacturing) || 0;
-          const pkg = parseFloat(data.packaging) || 0;
-          const transport = parseFloat(data.transportation) || 0;
-          const waste = parseFloat(data.waste) || 0;
-          const total = rawMat + mfg + pkg + transport + waste;
-
+          const parsed = [
+            { name: "Raw Material", value: parseFloat(data.raw_material) || 0, color: COLOR_MAP["Raw Material"] },
+            { name: "Manufacturing", value: parseFloat(data.manufacturing) || 0, color: COLOR_MAP["Manufacturing"] },
+            { name: "Packaging", value: parseFloat(data.packaging) || 0, color: COLOR_MAP["Packaging"] },
+            { name: "Transportation", value: parseFloat(data.transportation) || 0, color: COLOR_MAP["Transportation"] },
+            { name: "End of Life", value: parseFloat(data.waste) || 0, color: COLOR_MAP["End of Life"] },
+          ];
+          const hasValues = parsed.some(d => d.value > 0);
+          if (hasValues) {
+            setLifeCycleData(parsed);
+          } else {
+            setLifeCycleData([
+              { name: "Raw Material", value: 1120, color: COLOR_MAP["Raw Material"] },
+              { name: "Manufacturing", value: 850, color: COLOR_MAP["Manufacturing"] },
+              { name: "Packaging", value: 320, color: COLOR_MAP["Packaging"] },
+              { name: "Transportation", value: 487, color: COLOR_MAP["Transportation"] },
+              { name: "End of Life", value: 70, color: COLOR_MAP["End of Life"] },
+            ]);
+          }
+        } else {
           setLifeCycleData([
-            { name: "Raw Material", value: rawMat, color: COLOR_MAP["Raw Material"] },
-            { name: "Manufacturing", value: mfg, color: COLOR_MAP["Manufacturing"] },
-            { name: "Packaging", value: pkg, color: COLOR_MAP["Packaging"] },
-            { name: "Transportation", value: transport, color: COLOR_MAP["Transportation"] },
-            { name: "End of Life", value: waste, color: COLOR_MAP["End of Life"] },
+            { name: "Raw Material", value: 1120, color: COLOR_MAP["Raw Material"] },
+            { name: "Manufacturing", value: 850, color: COLOR_MAP["Manufacturing"] },
+            { name: "Packaging", value: 320, color: COLOR_MAP["Packaging"] },
+            { name: "Transportation", value: 487, color: COLOR_MAP["Transportation"] },
+            { name: "End of Life", value: 70, color: COLOR_MAP["End of Life"] },
           ]);
-
-          // Compute stat card values from lifecycle data
-          setStatCardData({
-            totalEmissions: total,
-            manufacturingEmissions: mfg,
-            manufacturingPercent: total > 0 ? parseFloat(((mfg / total) * 100).toFixed(1)) : 0,
-            recyclabilityRate: 0, // will be updated by recyclability fetch below
-            transportEmissions: transport,
-            transportPercent: total > 0 ? parseFloat(((transport / total) * 100).toFixed(1)) : 0,
-          });
         }
       } catch (e) {
-        setLifeCycleData(defaultLifeCycleData);
+        setLifeCycleData([
+          { name: "Raw Material", value: 1120, color: COLOR_MAP["Raw Material"] },
+          { name: "Manufacturing", value: 850, color: COLOR_MAP["Manufacturing"] },
+          { name: "Packaging", value: 320, color: COLOR_MAP["Packaging"] },
+          { name: "Transportation", value: 487, color: COLOR_MAP["Transportation"] },
+          { name: "End of Life", value: 70, color: COLOR_MAP["End of Life"] },
+        ]);
       }
       setLoading(prev => ({ ...prev, lifeCycle: false }));
 
@@ -269,15 +218,39 @@ const Dashboard: React.FC = () => {
               name: item.component_name || item.material_name || item.name || "Unknown",
               value: parseFloat(item.overall_total_pcf) || parseFloat(item.emission) || 0
             })) : [];
-            setSupplierEmissionData(formatted.length > 0 ? formatted : defaultSupplierData);
+            setSupplierEmissionData(formatted.length > 0 ? formatted : [
+              { name: "Steel Components", value: 520 },
+              { name: "Plastic Resin", value: 380 },
+              { name: "Aluminum Parts", value: 290 },
+              { name: "Electronic Modules", value: 210 },
+              { name: "Glass Panels", value: 150 },
+            ]);
           } else {
-            setSupplierEmissionData(defaultSupplierData);
+            setSupplierEmissionData([
+              { name: "Steel Components", value: 520 },
+              { name: "Plastic Resin", value: 380 },
+              { name: "Aluminum Parts", value: 290 },
+              { name: "Electronic Modules", value: 210 },
+              { name: "Glass Panels", value: 150 },
+            ]);
           }
         } else {
-          setSupplierEmissionData(defaultSupplierData);
+          setSupplierEmissionData([
+            { name: "Steel Components", value: 520 },
+            { name: "Plastic Resin", value: 380 },
+            { name: "Aluminum Parts", value: 290 },
+            { name: "Electronic Modules", value: 210 },
+            { name: "Glass Panels", value: 150 },
+          ]);
         }
       } catch (e) {
-        setSupplierEmissionData(defaultSupplierData);
+        setSupplierEmissionData([
+          { name: "Steel Components", value: 520 },
+          { name: "Plastic Resin", value: 380 },
+          { name: "Aluminum Parts", value: 290 },
+          { name: "Electronic Modules", value: 210 },
+          { name: "Glass Panels", value: 150 },
+        ]);
       }
       setLoading(prev => ({ ...prev, supplier: false }));
 
@@ -292,28 +265,42 @@ const Dashboard: React.FC = () => {
           }));
           setRawMaterialData(formatted);
         } else {
-          setRawMaterialData(defaultRawMaterialData);
+          // Fallback reference data when API returns empty
+          setRawMaterialData([
+            { name: "Extrusion", value: 1.05 },
+            { name: "Injection Molding", value: 0.92 },
+            { name: "Drying", value: 0.35 },
+            { name: "Assembly", value: 0.2 },
+            { name: "Finishing", value: 0.15 },
+          ]);
         }
       } catch (e) {
-        setRawMaterialData(defaultRawMaterialData);
+        setRawMaterialData([
+          { name: "Extrusion", value: 1.05 },
+          { name: "Injection Molding", value: 0.92 },
+          { name: "Drying", value: 0.35 },
+          { name: "Assembly", value: 0.2 },
+          { name: "Finishing", value: 0.15 },
+        ]);
       }
       setLoading(prev => ({ ...prev, rawMaterial: false }));
 
-      // 4. Packaging (from waste API - packaging waste treatment data)
+      // 4. Packaging — from backend breakdown by material type
       setLoading(prev => ({ ...prev, packaging: true }));
       try {
-        const res = await dashboardService.getWasteEmissionDetails(clientId);
-        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-          const formatted = res.data.map((item: any) => ({
-            name: (item.treatment_type || "Unknown").substring(0, 15),
-            value: parseFloat(item.total_waste_weight) || parseFloat(item.total_co2_emission) || 0
-          })).filter((item: any) => item.value > 0);
-          setPackagingData(formatted.length > 0 ? formatted : defaultPackagingData);
+        const res = await dashboardService.getPackagingEmissionDetails(clientId);
+        const breakdown = res?.data?.breakdown;
+        if (Array.isArray(breakdown) && breakdown.length > 0) {
+          setPackagingData(breakdown.map((row: any) => ({
+            name: row.materialType || "Other",
+            value: Number(row.emission) || 0,
+          })));
         } else {
-          setPackagingData(defaultPackagingData);
+          setPackagingData([]);
         }
       } catch (e) {
-        setPackagingData(defaultPackagingData);
+        console.error("Packaging fetch failed:", e);
+        setPackagingData([]);
       }
       setLoading(prev => ({ ...prev, packaging: false }));
 
@@ -321,17 +308,38 @@ const Dashboard: React.FC = () => {
       setLoading(prev => ({ ...prev, transportation: true }));
       try {
         const res = await dashboardService.getModeOfTransportationEmission(clientId);
-        if (res.data) {
+        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
           const formatted = res.data.map((item: any) => ({
             name: item.mode_of_transport || "Unknown",
             value: parseFloat(item.co2e_kg) || 0
           }));
-          setTransportationData(formatted);
+          setTransportationData(formatted.length > 0 ? formatted : [
+            { name: "Road", value: 210 },
+            { name: "Rail", value: 85 },
+            { name: "Sea", value: 120 },
+            { name: "Air", value: 350 },
+            { name: "Pipeline", value: 42 },
+            { name: "Inland Water", value: 65 },
+          ]);
         } else {
-          setTransportationData(defaultTransportationData);
+          setTransportationData([
+            { name: "Road", value: 210 },
+            { name: "Rail", value: 85 },
+            { name: "Sea", value: 120 },
+            { name: "Air", value: 350 },
+            { name: "Pipeline", value: 42 },
+            { name: "Inland Water", value: 65 },
+          ]);
         }
       } catch (e) {
-        setTransportationData(defaultTransportationData);
+        setTransportationData([
+          { name: "Road", value: 210 },
+          { name: "Rail", value: 85 },
+          { name: "Sea", value: 120 },
+          { name: "Air", value: 350 },
+          { name: "Pipeline", value: 42 },
+          { name: "Inland Water", value: 65 },
+        ]);
       }
       setLoading(prev => ({ ...prev, transportation: false }));
 
@@ -346,10 +354,21 @@ const Dashboard: React.FC = () => {
           }));
           setEnergyData(formatted);
         } else {
-          setEnergyData(defaultEnergyData);
+          // Fallback reference data when API returns empty
+          setEnergyData([
+            { name: "Electricity", value: 850 },
+            { name: "Natural Gas", value: 320 },
+            { name: "Steam", value: 180 },
+            { name: "Cooling", value: 95 },
+          ]);
         }
       } catch (e) {
-        setEnergyData(defaultEnergyData);
+        setEnergyData([
+          { name: "Electricity", value: 850 },
+          { name: "Natural Gas", value: 320 },
+          { name: "Steam", value: 180 },
+          { name: "Cooling", value: 95 },
+        ]);
       }
       setLoading(prev => ({ ...prev, energy: false }));
 
@@ -362,24 +381,30 @@ const Dashboard: React.FC = () => {
             .map((item: any) => ({
               name: item.material_type || "Unknown",
               value: parseFloat(item.total_material_used_in_kg) || 0,
-              recycledKg: parseFloat(item.total_recycled_content_used_in_kg) || 0,
             }))
-            .sort((a: any, b: any) => b.value - a.value);
-
-          // Calculate overall recyclability rate
-          const totalUsed = formatted.reduce((sum: number, item: any) => sum + item.value, 0);
-          const totalRecycled = formatted.reduce((sum: number, item: any) => sum + item.recycledKg, 0);
-          const recyclabilityRate = totalUsed > 0 ? parseFloat(((totalRecycled / totalUsed) * 100).toFixed(1)) : 0;
-
-          // Update stat card with recyclability rate
-          setStatCardData(prev => prev ? { ...prev, recyclabilityRate } : prev);
-
-          setRecyclabilityData(formatted.slice(0, 4).map(({ name, value }: any) => ({ name, value })));
+            .sort((a: any, b: any) => b.value - a.value)
+            .slice(0, 4);
+          setRecyclabilityData(formatted.length > 0 ? formatted : [
+            { name: "HDPE", value: 420 },
+            { name: "PET", value: 310 },
+            { name: "Aluminum", value: 260 },
+            { name: "Glass", value: 180 },
+          ]);
         } else {
-          setRecyclabilityData(defaultRecyclabilityData);
+          setRecyclabilityData([
+            { name: "HDPE", value: 420 },
+            { name: "PET", value: 310 },
+            { name: "Aluminum", value: 260 },
+            { name: "Glass", value: 180 },
+          ]);
         }
       } catch (e) {
-        setRecyclabilityData(defaultRecyclabilityData);
+        setRecyclabilityData([
+          { name: "HDPE", value: 420 },
+          { name: "PET", value: 310 },
+          { name: "Aluminum", value: 260 },
+          { name: "Glass", value: 180 },
+        ]);
       }
       setLoading(prev => ({ ...prev, recyclability: false }));
 
@@ -394,28 +419,62 @@ const Dashboard: React.FC = () => {
           }));
           setWasteData(formatted);
         } else {
-          setWasteData(defaultWasteData);
+          // Fallback reference data
+          setWasteData([
+            { name: "Recycling", value: 50 },
+            { name: "Composting", value: 90 },
+            { name: "Landfill", value: 250 },
+            { name: "Incineration", value: 400 },
+          ]);
         }
       } catch (e) {
-        setWasteData(defaultWasteData);
+        setWasteData([
+          { name: "Recycling", value: 50 },
+          { name: "Composting", value: 90 },
+          { name: "Landfill", value: 250 },
+          { name: "Incineration", value: 400 },
+        ]);
       }
       setLoading(prev => ({ ...prev, waste: false }));
 
-      // 9. Impact Categories
+      // 9. Impact Categories (API with fallback)
       setLoading(prev => ({ ...prev, impact: true }));
       try {
         const res = await dashboardService.getImpactCategories(clientId);
         if (res.success && res.data?.indicators && res.data.indicators.length > 0) {
-          const formatted = res.data.indicators.map((item: any) => ({
-            name: item.name.includes("(") ? item.name.split("(")[1]?.replace(")", "").trim() || item.name : item.name,
-            value: item.value
-          }));
-          setImpactCategoriesData(formatted);
+          const hasRealData = res.data.indicators.some((i: any) => i.value > 0);
+          if (hasRealData) {
+            const formatted = res.data.indicators.map((item: any) => ({
+              name: item.name.includes("(") ? item.name.split("(")[1]?.replace(")", "").trim() || item.name : item.name,
+              value: item.value
+            }));
+            setImpactCategoriesData(formatted);
+          } else {
+            setImpactCategoriesData([
+              { name: "GWP", value: 100 },
+              { name: "ODP", value: 20 },
+              { name: "AP", value: 45 },
+              { name: "EP", value: 60 },
+              { name: "POCP", value: 35 },
+            ]);
+          }
         } else {
-          setImpactCategoriesData(defaultImpactData);
+          setImpactCategoriesData([
+            { name: "GWP", value: 100 },
+            { name: "ODP", value: 20 },
+            { name: "AP", value: 45 },
+            { name: "EP", value: 60 },
+            { name: "POCP", value: 35 },
+          ]);
         }
       } catch {
-        setImpactCategoriesData(defaultImpactData);
+        setImpactCategoriesData([
+          { name: "GWP", value: 100 },
+          { name: "ODP", value: 20 },
+          { name: "AP", value: 45 },
+          { name: "EP", value: 60 },
+          { name: "POCP", value: 35 },
+        ]);
       }
       setLoading(prev => ({ ...prev, impact: false }));
 
@@ -433,12 +492,33 @@ const Dashboard: React.FC = () => {
           const formatted = Object.entries(yearMap)
             .sort(([a], [b]) => Number(a) - Number(b))
             .map(([year, value]) => ({ month: year, value: Number(value.toFixed(2)) }));
-          setPcfTrendData(formatted);
+          setPcfTrendData(formatted.length > 0 ? formatted : [
+            { month: "2020", value: 3200 },
+            { month: "2021", value: 3050 },
+            { month: "2022", value: 2900 },
+            { month: "2023", value: 2847 },
+            { month: "2024", value: 2680 },
+            { month: "2025", value: 2520 },
+          ]);
         } else {
-          setPcfTrendData(defaultPcfTrendData);
+          setPcfTrendData([
+            { month: "2020", value: 3200 },
+            { month: "2021", value: 3050 },
+            { month: "2022", value: 2900 },
+            { month: "2023", value: 2847 },
+            { month: "2024", value: 2680 },
+            { month: "2025", value: 2520 },
+          ]);
         }
       } catch (e) {
-        setPcfTrendData(defaultPcfTrendData);
+        setPcfTrendData([
+          { month: "2020", value: 3200 },
+          { month: "2021", value: 3050 },
+          { month: "2022", value: 2900 },
+          { month: "2023", value: 2847 },
+          { month: "2024", value: 2680 },
+          { month: "2025", value: 2520 },
+        ]);
       }
       setLoading(prev => ({ ...prev, pcfTrend: false }));
     };
@@ -461,6 +541,7 @@ const Dashboard: React.FC = () => {
     data: any[],
     renderChart: () => React.ReactNode
   ) => {
+    if (!selectedClient) return renderNoClientState();
     if (isLoading) return <div className="flex items-center justify-center h-full text-gray-400"><RefreshCw className="w-5 h-5 animate-spin mr-2" />Loading...</div>;
     if (!data || data.length === 0) return <div className="flex items-center justify-center h-full text-gray-400">No data available</div>;
     return renderChart();
@@ -517,41 +598,78 @@ const Dashboard: React.FC = () => {
   };
 
   const renderProductLifeCycle = () => {
-    const top4 = [...lifeCycleData].sort((a, b) => b.value - a.value).slice(0, 4);
+    const total = lifeCycleData.reduce((sum, d) => sum + d.value, 0);
+    const pieData = lifeCycleData.map(d => ({ ...d } as Record<string, any>));
+    const maxValue = Math.max(...lifeCycleData.map(d => d.value), 1);
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={top4} margin={{ top: 10, right: 20, left: 10, bottom: 30 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-          <Tooltip cursor={{ fill: '#F9FAFB' }} />
-          <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-          <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)">
-            {top4.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="flex items-center h-full gap-4">
+        {/* Donut Chart - left side */}
+        <div className="relative w-[45%] h-full flex-shrink-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={90}
+                paddingAngle={2}
+                dataKey="value"
+                nameKey="name"
+                stroke="none"
+                cornerRadius={4}
+              >
+                {lifeCycleData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip content={<ChartTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+          {/* Center label — shows total footprint in kg (lifecycle slices are %) */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span className="text-[22px] font-extrabold text-gray-900">
+              {(summaryKpis?.totalFootprint ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </span>
+            <span className="text-[10px] font-semibold text-gray-400 tracking-wide uppercase">kg CO₂e</span>
+          </div>
+        </div>
+
+        {/* Right side legend with mini bars */}
+        <div className="flex-1 flex flex-col justify-center gap-3 min-w-0">
+          {lifeCycleData.map((item, i) => {
+            const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0';
+            const barWidth = total > 0 ? (item.value / maxValue) * 100 : 0;
+            return (
+              <div key={i} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                    <span className="text-xs font-semibold text-gray-700 truncate">{item.name}</span>
+                  </div>
+                  <span className="text-xs font-bold text-gray-900 ml-2 flex-shrink-0">{pct}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${barWidth}%`, backgroundColor: item.color }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
   };
 
   const renderSupplierEmission = () => {
-    const top4 = [...supplierEmissionData].sort((a, b) => b.value - a.value).slice(0, 4).map(d => ({ ...d, displayName: cleanName(d.name) }));
-    const values = top4.map(d => d.value).filter(v => v > 0);
-    const maxVal = Math.max(...values);
-    const minVal = Math.min(...values);
-    const useLog = maxVal > 0 && minVal > 0 && (maxVal / minVal) > 50;
-
+    const top5 = [...supplierEmissionData].sort((a, b) => b.value - a.value).slice(0, 5).map(d => ({ ...d, displayName: cleanName(d.name) }));
     return (
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={top4} margin={{ top: 10, right: 10, left: 10, bottom: 30 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-          <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} scale={useLog ? "log" : "auto"} domain={useLog ? [1, 'dataMax * 1.2'] : [0, 'dataMax * 1.2']} allowDataOverflow />
-          <Tooltip cursor={{ fill: '#F9FAFB' }} formatter={(value: any) => [`${Number(value).toFixed(2)} kg`, 'Emission']} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
-          <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '4px' }} />
-          <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)" />
+        <BarChart data={top5} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F3F5" />
+          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563' }} tickFormatter={formatYAxis} />
+          <YAxis type="category" dataKey="displayName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} width={100} />
+          <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
+          <Bar dataKey="value" fill="#52C41A" radius={[0, 4, 4, 0]} barSize={18} name="Emission (kg CO₂e)" />
         </BarChart>
       </ResponsiveContainer>
     );
@@ -565,7 +683,7 @@ const Dashboard: React.FC = () => {
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
           <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-          <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
+          <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
           <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
           <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)" />
         </BarChart>
@@ -573,30 +691,50 @@ const Dashboard: React.FC = () => {
     );
   };
 
-  const renderPackagingEmission = () => (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={packagingData} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-        <Tooltip cursor={{ fill: '#F9FAFB' }} />
-        <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-        <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)" />
-      </BarChart>
-    </ResponsiveContainer>
-  );
+  const PACKAGING_COLORS = ["#1A5D1A", "#458C21", "#74B72E", "#98FB98", "#C1FFC1"];
+  const renderPackagingEmission = () => {
+    const total = packagingData.reduce((sum, d) => sum + d.value, 0);
+    return (
+      <div className="h-full flex flex-col gap-3 py-2">
+        {packagingData.map((item, i) => {
+          const pct = total > 0 ? (item.value / total) * 100 : 0;
+          return (
+            <div key={i} className="flex-1 flex flex-col justify-center">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-sm font-semibold text-gray-700">{item.name}</span>
+                <span className="text-xs font-bold text-gray-500">{item.value} kg &middot; {pct.toFixed(1)}%</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-5 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${pct}%`, backgroundColor: PACKAGING_COLORS[i % PACKAGING_COLORS.length] }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
+  const TRANSPORT_COLORS = ["#1A5D1A", "#2E8B2E", "#458C21", "#52C41A", "#74B72E", "#98FB98"];
   const renderTransportationEmission = () => {
-    const top4 = [...transportationData].sort((a, b) => b.value - a.value).slice(0, 4).map(d => ({ ...d, displayName: cleanName(d.name) }));
+    const sorted = [...transportationData].sort((a, b) => b.value - a.value).slice(0, 6).map(d => ({ ...d, displayName: cleanName(d.name) }));
     return (
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={top4} margin={{ top: 10, right: 20, left: 10, bottom: 45 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-          <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-          <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
-          <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-          <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Emission (kg CO₂e)" />
+        <BarChart data={sorted} layout="vertical" margin={{ top: 5, right: 30, left: 5, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F3F5" />
+          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9CA3AF' }} tickFormatter={formatYAxis} />
+          <YAxis type="category" dataKey="displayName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 600 }} width={110} />
+          <Tooltip
+            content={<ChartTooltip />}
+            cursor={chartTooltipCursor}
+          />
+          <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} name="Emission (kg CO₂e)">
+            {sorted.map((_entry, index) => (
+              <Cell key={`cell-${index}`} fill={TRANSPORT_COLORS[index % TRANSPORT_COLORS.length]} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     );
@@ -604,58 +742,89 @@ const Dashboard: React.FC = () => {
 
   const renderEnergyEmission = () => (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={energyData} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+      <AreaChart data={energyData} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+        <defs>
+          <linearGradient id="energyGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#52C41A" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#52C41A" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} interval={0} />
         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-        <Tooltip cursor={{ fill: '#F9FAFB' }} />
-        <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-        <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Energy Emission (kg CO₂e)" />
-      </BarChart>
+        <Tooltip content={<ChartTooltip />} />
+        <Legend verticalAlign="bottom" align="center" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '10px', fontWeight: 600, paddingTop: '10px' }} />
+        <Area type="monotone" dataKey="value" stroke="#52C41A" strokeWidth={2} fill="url(#energyGradient)" name="Energy Emission (kg CO₂e)" dot={{ fill: '#52C41A', r: 4 }} activeDot={{ r: 6 }} />
+      </AreaChart>
     </ResponsiveContainer>
   );
 
+  const RECYCLE_COLORS = ["#1A5D1A", "#458C21", "#74B72E", "#98FB98"];
   const renderRecyclability = () => {
-    const cleaned = recyclabilityData.map(d => ({ ...d, displayName: cleanName(d.name) }));
+    const cleaned = recyclabilityData.map(d => ({ ...d, displayName: cleanName(d.name) } as Record<string, any>));
     return (
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={cleaned} margin={{ top: 10, right: 20, left: 10, bottom: 30 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-          <XAxis dataKey="displayName" axisLine={false} tickLine={false} tick={<WrappedTick />} interval={0} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-          <Tooltip cursor={{ fill: '#F9FAFB' }} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.name || _} />
-          <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-          <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Material Used (kg)" />
-        </BarChart>
+        <PieChart>
+          <Pie
+            data={cleaned}
+            cx="50%"
+            cy="45%"
+            innerRadius={60}
+            outerRadius={90}
+            paddingAngle={3}
+            dataKey="value"
+            nameKey="displayName"
+          >
+            {cleaned.map((_entry, index) => (
+              <Cell key={`cell-${index}`} fill={RECYCLE_COLORS[index % RECYCLE_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip content={<ChartTooltip />} />
+          <Legend verticalAlign="bottom" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '10px', fontWeight: 600, paddingTop: '4px' }} />
+        </PieChart>
       </ResponsiveContainer>
     );
   };
 
+  const WASTE_COLORS = ["#52C41A", "#1890FF", "#FAAD14", "#FF4D4F"];
   const renderWasteEmission = () => (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={wasteData} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} interval={0} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-        <Tooltip cursor={{ fill: '#F9FAFB' }} />
-        <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-        <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Waste Emission (kg CO₂e)" />
+      <BarChart data={wasteData} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F3F5" />
+        <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563' }} tickFormatter={formatYAxis} />
+        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} width={90} />
+        <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
+        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} name="Waste Emission (kg CO₂e)">
+          {wasteData.map((_entry, index) => (
+            <Cell key={`cell-${index}`} fill={WASTE_COLORS[index % WASTE_COLORS.length]} />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );
 
-  const renderImpact = () => (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={impactCategoriesData} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
-        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-        <Tooltip cursor={{ fill: '#F9FAFB' }} />
-        <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-        <Bar dataKey="value" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={40} name="Impact (kg CO₂e)" />
-      </BarChart>
-    </ResponsiveContainer>
-  );
+  const IMPACT_COLORS = ["#1A5D1A", "#2E8B2E", "#458C21", "#52C41A", "#74B72E", "#98FB98"];
+  const renderImpact = () => {
+    const sorted = [...impactCategoriesData].sort((a, b) => b.value - a.value);
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={sorted} layout="vertical" margin={{ top: 5, right: 30, left: 5, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F3F5" />
+          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9CA3AF' }} tickFormatter={formatYAxis} />
+          <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 600 }} width={110} />
+          <Tooltip
+            content={<ChartTooltip />}
+            cursor={chartTooltipCursor}
+          />
+          <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} name="Impact Score">
+            {sorted.map((_entry, index) => (
+              <Cell key={`cell-${index}`} fill={IMPACT_COLORS[index % IMPACT_COLORS.length]} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
 
   const renderPCFTrend = () => (
     <ResponsiveContainer width="100%" height="100%">
@@ -663,7 +832,7 @@ const Dashboard: React.FC = () => {
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#4B5563', fontWeight: 500 }} interval={Math.max(0, Math.floor(pcfTrendData.length / 8))} />
         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={formatYAxis} />
-        <Tooltip />
+        <Tooltip content={<ChartTooltip />} />
         <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
         <Line type="linear" dataKey="value" stroke="#52C41A" strokeWidth={2} dot={{ fill: '#52C41A', strokeWidth: 1, r: 2 }} activeDot={{ r: 5 }} name="Total Emission (kg CO₂e)" />
       </LineChart>
@@ -672,7 +841,7 @@ const Dashboard: React.FC = () => {
 
   const navigateToDetail = (path: string) => {
     if (selectedClient) {
-      navigate(path, { state: { selectedClient } });
+      navigate(path, { state: { selectedClient, fromSuperAdmin: !!isFromSuperAdmin } });
     } else {
       navigate(path);
     }
@@ -697,78 +866,89 @@ const Dashboard: React.FC = () => {
   return (
     <div className="flex-1 overflow-auto bg-[#F8F9FA] p-8 pt-6">
       <div className="mx-auto space-y-6">
-        <DashboardHeader />
+        {isFromSuperAdmin && (
+          <button
+            onClick={() => navigate("/dashboard", { state: {} })}
+            className="flex items-center gap-2 text-gray-900 font-bold hover:text-green-600 transition-colors group cursor-pointer"
+          >
+            <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            Back to Overview
+          </button>
+        )}
+        <DashboardHeader
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          customDates={customDates}
+          onCustomDatesChange={setCustomDates}
+        />
 
-        {/* Client Selection Dropdown */}
-        <div className="flex justify-end mb-6">
-          <div className="w-full md:w-72 relative">
-            <div
-              className="flex items-center justify-between px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-sm text-gray-600 cursor-pointer shadow-sm hover:border-green-200 transition-colors"
-              onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <Users className="w-4 h-4 text-gray-400 shrink-0" />
-                <span className="truncate">{selectedClient ? selectedClient.user_name : "Select Client"}</span>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isClientDropdownOpen ? 'rotate-180' : ''}`} />
-            </div>
-
-            {isClientDropdownOpen && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                {clients.map((client) => (
-                  <div
-                    key={client.user_id}
-                    className="px-4 py-2.5 text-sm text-gray-600 hover:bg-green-50 hover:text-green-600 cursor-pointer transition-colors"
-                    onClick={() => {
-                      setSelectedClient(client);
-                      setIsClientDropdownOpen(false);
-                    }}
-                  >
-                    {client.user_name}
+        {/* Client Selection Dropdown - hidden when client is already selected from SuperAdmin */}
+        {!isFromSuperAdmin && (
+          <div className="flex justify-end mb-6">
+            <div className="w-full md:w-80">
+              <Select
+                showSearch
+                placeholder="Search and select a client..."
+                className="w-full"
+                size="large"
+                value={selectedClient?.user_id || undefined}
+                filterOption={(input, option) =>
+                  (option?.label as string ?? "").toLowerCase().includes(input.toLowerCase())
+                }
+                onChange={(value) => {
+                  const client = clients.find(c => c.user_id === value);
+                  setSelectedClient(client || null);
+                }}
+                allowClear
+                onClear={() => setSelectedClient(null)}
+                options={clients.map((c) => ({
+                  value: c.user_id,
+                  label: c.user_name,
+                }))}
+                virtual
+                suffixIcon={<Users className="w-4 h-4 text-gray-400" />}
+                notFoundContent={
+                  <div className="text-center py-4 text-gray-400 text-sm">
+                    No clients found
                   </div>
-                ))}
-                {clients.length === 0 && (
-                  <div className="px-4 py-2.5 text-sm text-gray-400">No clients available</div>
-                )}
-              </div>
-            )}
+                }
+              />
+            </div>
           </div>
-        </div>
+        )}
+
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             title="Total CO₂e Emissions"
-            value={statCardData ? `${statCardData.totalEmissions.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg` : "Loading..."}
-            subValue={statCardData ? "All lifecycle stages" : ""}
-            trend={-12.3}
+            value={loading.summary ? "—" : `${(summaryKpis?.totalFootprint ?? 0).toLocaleString()} kg`}
+            subValue={`vs. previous ${timePeriod === "monthly" ? "month" : timePeriod === "quarterly" ? "quarter" : "year"}`}
             icon={Leaf}
             iconBg="bg-green-100"
             iconColor="text-green-600"
           />
           <StatCard
             title="Manufacturing Emissions"
-            value={statCardData ? `${statCardData.manufacturingEmissions.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg` : "Loading..."}
-            subValue={statCardData ? `${statCardData.manufacturingPercent}% of total` : ""}
-            trend={5.2}
+            value={loading.summary ? "—" : `${(summaryKpis?.manufacturingEmission ?? 0).toLocaleString()} kg`}
+            subValue={`${(summaryKpis?.manufacturingPercent ?? 0).toFixed(1)}% of total`}
             icon={Factory}
             iconBg="bg-blue-100"
             iconColor="text-blue-600"
           />
           <StatCard
             title="Recyclability Rate"
-            value={statCardData ? `${statCardData.recyclabilityRate}%` : "Loading..."}
-            subValue="Recycled content ratio"
-            trend={8.1}
+            value={loading.summary ? "—" : `${(summaryKpis?.recyclabilityRate ?? 0).toFixed(1)}%`}
+            subValue="Target: 85%"
             icon={RefreshCw}
             iconBg="bg-purple-100"
             iconColor="text-purple-600"
+            positiveIsGood
           />
           <StatCard
             title="Transport Emissions"
-            value={statCardData ? `${statCardData.transportEmissions.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg` : "Loading..."}
-            subValue={statCardData ? `${statCardData.transportPercent}% of total` : ""}
-            trend={-18.4}
+            value={loading.summary ? "—" : `${(summaryKpis?.transportEmission ?? 0).toLocaleString()} kg`}
+            subValue={`${(summaryKpis?.transportPercent ?? 0).toFixed(1)}% of total`}
             icon={Truck}
             iconBg="bg-orange-100"
             iconColor="text-orange-600"

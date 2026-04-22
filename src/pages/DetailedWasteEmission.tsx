@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
     Users,
     ChevronDown,
@@ -19,7 +19,9 @@ import {
 import {
     DetailedHeader,
     ChartCard,
-    ChartModal
+    ChartModal,
+    ChartTooltip,
+    chartTooltipCursor
 } from "../components/DashboardComponents";
 import dashboardService from "../lib/dashboardService";
 
@@ -70,15 +72,10 @@ interface Supplier {
     // If I want to match DetailedEnergyEmission's types:
 }
 
-const DEFAULT_WASTE = [
-  { name: "Recycling", generated: 120, emission: 50 },
-  { name: "Composting", generated: 45, emission: 90 },
-  { name: "Landfill", generated: 200, emission: 250 },
-  { name: "Incineration", generated: 85, emission: 400 },
-];
-
 const DetailedWasteEmission: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const fromSuperAdmin = location.state?.fromSuperAdmin;
     const [expandedChart, setExpandedChart] = useState<string | null>(null);
     const [clients, setClients] = useState<any[]>([]);
     const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -87,7 +84,7 @@ const DetailedWasteEmission: React.FC = () => {
     const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
     const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
 
-    const [wasteData, setWasteData] = useState<WasteData[]>(DEFAULT_WASTE);
+    const [wasteData, setWasteData] = useState<WasteData[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
 
     useEffect(() => {
@@ -99,11 +96,10 @@ const DetailedWasteEmission: React.FC = () => {
             fetchSuppliers(selectedClient.user_id);
             fetchWasteEmissionData(selectedClient.user_id, selectedSupplier?.id);
         } else {
-            setWasteData(DEFAULT_WASTE);
+            setWasteData([]);
             setSuppliers([]);
             setSelectedSupplier(null);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedClient, selectedSupplier]);
 
     const fetchClients = async () => {
@@ -122,6 +118,14 @@ const DetailedWasteEmission: React.FC = () => {
             setSuppliers(supplierList);
         }
     };
+
+    const FALLBACK_WASTE: WasteData[] = [
+        { name: "Recycling", generated: 500, emission: 50 },
+        { name: "Composting", generated: 300, emission: 90 },
+        { name: "Landfill", generated: 400, emission: 250 },
+        { name: "Incineration", generated: 200, emission: 400 },
+        { name: "Total", generated: 1400, emission: 790 },
+    ];
 
     const fetchWasteEmissionData = async (clientId: string, supplierId?: string) => {
         setLoading(true);
@@ -142,17 +146,21 @@ const DetailedWasteEmission: React.FC = () => {
             }
             setWasteData(mappedData);
         } else {
-            setWasteData([
-                { name: "Recycling", generated: 120, emission: 50 },
-                { name: "Composting", generated: 45, emission: 90 },
-                { name: "Landfill", generated: 200, emission: 250 },
-                { name: "Incineration", generated: 85, emission: 400 },
-            ]);
+            // Fallback reference data
+            setWasteData(FALLBACK_WASTE);
         }
         setLoading(false);
     };
 
     const renderWasteTreatment = (isModal = false) => {
+        if (!selectedClient) {
+            return (
+                <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
+                    Select a client to view waste treatment data
+                </div>
+            );
+        }
+
         if (wasteData.length === 0) {
             return (
                 <div className="flex items-center justify-center h-full min-h-[300px] text-sm text-gray-400 italic">
@@ -168,7 +176,7 @@ const DetailedWasteEmission: React.FC = () => {
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#4B5563', fontWeight: 500 }} interval={0} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }}
                         tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} />
+                    <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                     <Legend verticalAlign="top" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '10px' }} />
                     <Bar dataKey="generated" fill="#52C41A" radius={[4, 4, 0, 0]} barSize={isModal ? 50 : 30} name="Waste Generated (kg)" />
                     <Bar dataKey="emission" fill="#B3E699" radius={[4, 4, 0, 0]} barSize={isModal ? 50 : 30} name="Emission (kg CO₂e)" />
@@ -183,7 +191,7 @@ const DetailedWasteEmission: React.FC = () => {
                 <DetailedHeader
                     title="Waste Emission Details"
                     subtitle="Comprehensive analysis of emissions caused by waste generation and disposal"
-                    onBack={() => navigate("/dashboard", { state: { selectedClient } })}
+                    onBack={() => navigate("/dashboard", { state: { selectedClient, fromSuperAdmin } })}
                     icon={Trash2}
                 />
 

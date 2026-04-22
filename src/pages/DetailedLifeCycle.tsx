@@ -19,7 +19,9 @@ import {
 import {
     DetailedHeader,
     ChartCard,
-    ChartModal
+    ChartModal,
+    ChartTooltip,
+    chartTooltipCursor
 } from "../components/DashboardComponents";
 import dashboardService from "../lib/dashboardService";
 
@@ -45,6 +47,7 @@ const COLOR_MAP: Record<string, string> = {
 const DetailedLifeCycle: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const fromSuperAdmin = location.state?.fromSuperAdmin;
     const [expandedChart, setExpandedChart] = useState<string | null>(null);
     const [clients, setClients] = useState<Client[]>([]);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -112,7 +115,7 @@ const DetailedLifeCycle: React.FC = () => {
                     interval={0}
                 />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#4B5563', fontWeight: 500 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                <Tooltip cursor={{ fill: '#F9FAFB' }} />
+                <Tooltip content={<ChartTooltip />} cursor={chartTooltipCursor} />
                 <Legend verticalAlign="bottom" align="center" iconType="square" iconSize={10} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={isModal ? 80 : 40} name="Emission Percentage (%)">
                     {lifeCycleData.map((entry, index) => (
@@ -129,7 +132,7 @@ const DetailedLifeCycle: React.FC = () => {
                 <DetailedHeader
                     title="Detailed Life Cycle Analysis"
                     subtitle="Comprehensive breakdown of emissions across all product life cycle stages"
-                    onBack={() => navigate("/dashboard", { state: { selectedClient } })}
+                    onBack={() => navigate("/dashboard", { state: { selectedClient, fromSuperAdmin } })}
                     icon={RefreshCw}
                 />
 

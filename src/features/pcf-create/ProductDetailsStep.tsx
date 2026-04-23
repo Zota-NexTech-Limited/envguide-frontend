@@ -157,60 +157,97 @@ const ProductDetailsStep: React.FC<ProductDetailsStepProps> = ({
     });
   };
 
+  // Common synonyms / aliases for each system field.
+  // These let the auto-detect match real-world CSV headers that don't use our exact labels.
+  const fieldAliases: Record<string, string[]> = {
+    materialNumber: ["material part number", "material number mpn", "material number", "part number", "material no", "mpn"],
+    componentName: ["component name", "part name", "component", "part"],
+    quantity: ["quantity", "qty", "pcs", "pieces", "count"],
+    productionLocation: ["production location", "production region", "production country", "country of origin", "origin", "region", "location"],
+    manufacturer: ["manufacturer", "mfr", "maker", "brand"],
+    detailedDescription: ["description of material", "detailed description", "material description", "description", "details", "desc"],
+    weight: ["weight per unit", "unit weight", "weight per piece", "weight gms", "weight grams", "weight g", "weight"],
+    totalWeight: ["total weight", "gross weight", "total wt"],
+    category: ["component category", "material category", "component type", "material type", "category"],
+    price: ["price per component", "price component", "price per unit", "unit price", "unit cost", "cost per unit", "price"],
+    totalPrice: ["total price", "total cost", "total amount", "line total"],
+    supplierEmail: ["supplier poc email", "supplier email id", "supplier email", "vendor email", "poc email", "contact email", "email"],
+    supplierName: ["supplier name", "vendor name", "supplier", "vendor"],
+    supplierNumber: ["supplier poc number", "supplier phone", "supplier contact", "supplier number", "vendor phone", "vendor number", "contact number", "phone number", "poc number", "mobile", "phone"],
+  };
+
   const autoDetectMapping = (headers: string[]): Record<string, string> => {
-    const mapping: Record<string, string> = {};
-    const usedHeaders = new Set<string>();
+    // Normalise: lowercase, strip brackets/punctuation, collapse whitespace.
+    // Keeps content inside brackets — e.g. "Weight (gms)" -> "weight gms".
+    const normalize = (s: string): string =>
+      s
+        .toLowerCase()
+        .replace(/[()[\]{}]/g, " ")
+        .replace(/[_/\\\-.,;:|]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
 
-    // Process fields in order of specificity (longer keys first)
-    // This ensures "totalPrice" finds its match before "price" can claim it
-    const sortedFields = [...fieldDefinitions].sort(
-      (a, b) => b.key.length - a.key.length
-    );
+    const scorePair = (fieldKey: string, fieldLabel: string, header: string): number => {
+      const headerN = normalize(header);
+      if (!headerN) return 0;
+      const labelN = normalize(fieldLabel);
+      const keyN = normalize(fieldKey);
 
-    // For each field, find the best matching header
-    sortedFields.forEach((field) => {
-      const fieldKeyLower = field.key.toLowerCase();
-      const fieldLabelLower = field.label.toLowerCase();
-      const fieldLabelNormalized = fieldLabelLower.replace(/[\s_-]/g, "");
+      // 100: exact match on the field's label or key (after normalisation)
+      if (headerN === labelN || headerN === keyN) return 100;
 
-      let bestMatch: string | null = null;
-      let bestMatchScore = 0; // Higher is better: 3 = exact, 2 = normalized exact, 1 = partial
-
-      headers.forEach((header) => {
-        if (usedHeaders.has(header)) return; // Skip already used headers
-
-        const headerLower = header.toLowerCase().trim();
-        const headerNormalized = headerLower.replace(/[\s_-]/g, "");
-
-        // Score 3: Exact match on original strings
-        if (headerLower === fieldLabelLower || headerLower === fieldKeyLower) {
-          if (bestMatchScore < 3) {
-            bestMatch = header;
-            bestMatchScore = 3;
-          }
-          return;
+      // Alias-based scoring
+      const aliases = fieldAliases[fieldKey] || [];
+      let best = 0;
+      for (const alias of aliases) {
+        const aliasN = normalize(alias);
+        if (!aliasN) continue;
+        if (headerN === aliasN) {
+          best = Math.max(best, 90);
+        } else if (headerN.includes(aliasN) || aliasN.includes(headerN)) {
+          // Longer alias = more specific match = higher score
+          best = Math.max(best, 60 + Math.min(aliasN.length, 20));
         }
-
-        // Score 2: Exact match on normalized strings (handles "Total Price" -> "totalprice" -> "totalPrice")
-        if (headerNormalized === fieldKeyLower || headerNormalized === fieldLabelNormalized) {
-          if (bestMatchScore < 2) {
-            bestMatch = header;
-            bestMatchScore = 2;
-          }
-          return;
-        }
-
-        // Score 1: Header contains the field key as a word boundary match
-        // Only for shorter field keys, and only if header is substantially longer
-        // This prevents "price" from matching "total price" but allows "unit price" to match "price" if needed
-        // Actually, let's skip partial matching to avoid confusion - exact/normalized matches are sufficient
-      });
-
-      if (bestMatch) {
-        mapping[field.key] = bestMatch;
-        usedHeaders.add(bestMatch);
       }
+      if (best > 0) return best;
+
+      // Weakest signal: shared word tokens
+      const headerTokens = new Set(headerN.split(" ").filter(Boolean));
+      const labelTokens = labelN.split(" ").filter(Boolean);
+      const overlap = labelTokens.filter((t) => headerTokens.has(t)).length;
+      if (overlap > 0) return 10 + overlap * 5;
+      return 0;
+    };
+
+    // Require at least a decent match. Token-overlap alone (max ~25) is rejected;
+    // alias substring matches (>=60) always pass.
+    const MIN_SCORE = 40;
+
+    // Score every (field, header) pair, then do greedy best-score assignment.
+    // This avoids order-of-field issues — e.g. prevents `totalWeight` from claiming
+    // a "Weight (gms)" column before `weight` (which is a stronger match) can take it.
+    type Candidate = { fieldKey: string; header: string; score: number };
+    const candidates: Candidate[] = [];
+    fieldDefinitions.forEach((field) => {
+      headers.forEach((header) => {
+        const score = scorePair(field.key, field.label, header);
+        if (score >= MIN_SCORE) {
+          candidates.push({ fieldKey: field.key, header, score });
+        }
+      });
     });
+
+    candidates.sort((a, b) => b.score - a.score);
+
+    const mapping: Record<string, string> = {};
+    const usedFields = new Set<string>();
+    const usedHeaders = new Set<string>();
+    for (const c of candidates) {
+      if (usedFields.has(c.fieldKey) || usedHeaders.has(c.header)) continue;
+      mapping[c.fieldKey] = c.header;
+      usedFields.add(c.fieldKey);
+      usedHeaders.add(c.header);
+    }
 
     return mapping;
   };

@@ -694,9 +694,10 @@ const Dashboard: React.FC = () => {
   const PACKAGING_COLORS = ["#1A5D1A", "#458C21", "#74B72E", "#98FB98", "#C1FFC1"];
   const renderPackagingEmission = () => {
     const total = packagingData.reduce((sum, d) => sum + d.value, 0);
+    const topItems = [...packagingData].sort((a, b) => b.value - a.value).slice(0, 5);
     return (
       <div className="h-full flex flex-col gap-3 py-2">
-        {packagingData.map((item, i) => {
+        {topItems.map((item, i) => {
           const pct = total > 0 ? (item.value / total) * 100 : 0;
           return (
             <div key={i} className="flex-1 flex flex-col justify-center">

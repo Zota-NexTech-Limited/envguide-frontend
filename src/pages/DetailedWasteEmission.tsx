@@ -94,7 +94,7 @@ const DetailedWasteEmission: React.FC = () => {
     useEffect(() => {
         if (selectedClient) {
             fetchSuppliers(selectedClient.user_id);
-            fetchWasteEmissionData(selectedClient.user_id, selectedSupplier?.id);
+            fetchWasteEmissionData(selectedClient.user_id, selectedSupplier?.sup_id);
         } else {
             setWasteData([]);
             setSuppliers([]);
@@ -242,7 +242,7 @@ const DetailedWasteEmission: React.FC = () => {
                         >
                             <div className="flex items-center gap-2">
                                 <Factory className="w-4 h-4 text-gray-400" />
-                                <span>{selectedSupplier ? (selectedSupplier.name || selectedSupplier.supplier_name) : "Select Supplier"}</span>
+                                <span>{selectedSupplier ? selectedSupplier.supplier_name : "Select Supplier"}</span>
                             </div>
                             <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isSupplierDropdownOpen ? 'rotate-180' : ''}`} />
                         </div>
@@ -260,14 +260,14 @@ const DetailedWasteEmission: React.FC = () => {
                                 </div>
                                 {suppliers.map((supplier) => (
                                     <div
-                                        key={supplier.id || supplier.supplier_id}
+                                        key={supplier.sup_id}
                                         className="px-4 py-2.5 text-sm text-gray-600 hover:bg-green-50 hover:text-green-600 cursor-pointer transition-colors"
                                         onClick={() => {
                                             setSelectedSupplier(supplier);
                                             setIsSupplierDropdownOpen(false);
                                         }}
                                     >
-                                        {supplier.name || supplier.supplier_name}
+                                        {supplier.supplier_name}
                                     </div>
                                 ))}
                                 {suppliers.length === 0 && (

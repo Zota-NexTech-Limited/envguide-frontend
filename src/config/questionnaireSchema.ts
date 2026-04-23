@@ -95,7 +95,10 @@ export interface QuestionnaireSection {
   fields: QuestionnaireField[];
 }
 
-export const QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
+// The full questionnaire definition (preserved untouched for reference and easy revival).
+// The active export at the bottom of this file filters this down to only the questions
+// currently needed for PCF calculation.
+const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
   {
     id: "general_information",
     title: "General Information",
@@ -2286,3 +2289,104 @@ export const QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
     ],
   },
 ];
+
+// ============================================================================
+// PCF-RELEVANT QUESTIONNAIRE FILTER
+// ============================================================================
+// Only the questions used by the PCF calculator are shown in the supplier UI.
+// The full schema above is preserved untouched. To bring back any question,
+// add its `name` to KEPT_QUESTION_NAMES below (or remove a section id from
+// HIDDEN_SECTION_IDS). The backend, database, and PCF logic are NOT affected.
+
+// Whole sections to hide (no questions from them are needed)
+const HIDDEN_SECTION_IDS = new Set<string>([
+  "scope_1", // Section 3: Scope 1 — Direct Emissions
+  "scope_4", // Section 6: Scope 4 — Avoided Emissions
+]);
+
+// Individual questions to keep (by `name`). The General Information section
+// is kept entirely (handled separately below).
+const KEPT_QUESTION_NAMES = new Set<string>([
+  // Section 1: Organization Details — Q1, Q4, Q7
+  "organization_details.organization_name",
+  "organization_details.email_address",
+  "organization_details.annual_reporting_period",
+
+  // Section 2: Product Details — Q13, Q15, Q15.1, Q15.2
+  "product_details.production_site_details",
+  "product_details.products_manufactured",
+  "product_details.any_co_product_have_economic_value",
+  "product_details.co_products",
+
+  // Section 4 (Scope 2) — Q22
+  "scope_2.purchased_energy",
+
+  // Section 5 (Scope 3) — Q52, Q60, Q61, Q68, Q74
+  "scope_3.materials.raw_materials",
+  "scope_3.packaging.materials_used",
+  "scope_3.packaging.weight_per_unit",
+  "scope_3.waste_disposal.types_and_weight",
+  "scope_3.logistics.transport_modes",
+]);
+
+// Renumber the leading "<n>." in each kept question's label so suppliers see
+// a clean 1, 2, 3… sequence instead of jumping numbers.
+const LABEL_NUMBER_REMAP: Record<string, string> = {
+  "1.": "1.",   // Q1  -> 1
+  "4.": "2.",   // Q4  -> 2
+  "7.": "3.",   // Q7  -> 3
+  "13.": "4.",  // Q13 -> 4
+  "15.": "5.",  // Q15 -> 5
+  "15.1": "5.1",
+  "15.2": "5.2",
+  "22.": "6.",  // Q22 -> 6
+  "52.": "7.",  // Q52 -> 7
+  "60.": "8.",  // Q60 -> 8
+  "61.": "9.",  // Q61 -> 9
+  "68.": "10.", // Q68 -> 10
+  "74.": "11.", // Q74 -> 11
+};
+
+const renumberLabel = (label?: string): string | undefined => {
+  if (!label) return label;
+  // Match leading number prefix (handles "1.", "15.", "15.1", "15.2")
+  const match = label.match(/^(\d+(?:\.\d+)?\.?)\s/);
+  if (!match) return label;
+  const replacement = LABEL_NUMBER_REMAP[match[1]];
+  if (!replacement) return label;
+  return replacement + label.slice(match[1].length);
+};
+
+const renumberSectionTitle = (title: string, newSectionNumber: number): string =>
+  title.replace(/^Section\s+\d+:/, `Section ${newSectionNumber}:`);
+
+const buildVisibleQuestionnaireSchema = (
+  schema: QuestionnaireSection[]
+): QuestionnaireSection[] => {
+  let visibleSectionNumber = 0;
+  return schema
+    .filter((section) => !HIDDEN_SECTION_IDS.has(section.id))
+    .map((section) => {
+      const isGeneralInfo = section.id === "general_information";
+      const filteredFields = section.fields
+        .filter(
+          (field) =>
+            // Keep the entire General Information section, plus any kept question
+            isGeneralInfo || KEPT_QUESTION_NAMES.has(field.name)
+        )
+        .map((field) => ({
+          ...field,
+          label: renumberLabel(field.label),
+        }));
+
+      let newTitle = section.title;
+      if (!isGeneralInfo) {
+        visibleSectionNumber += 1;
+        newTitle = renumberSectionTitle(section.title, visibleSectionNumber);
+      }
+      return { ...section, title: newTitle, fields: filteredFields };
+    });
+};
+
+export const QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] =
+  buildVisibleQuestionnaireSchema(_FULL_QUESTIONNAIRE_SCHEMA);

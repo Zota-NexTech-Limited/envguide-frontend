@@ -4,6 +4,7 @@ import {
   EyeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  CheckOutlined,
 } from "@ant-design/icons";
 import {
   User,
@@ -31,6 +32,8 @@ interface QuestionnairePreviewModalProps {
   open: boolean;
   onClose: () => void;
   formData: Record<string, any>;
+  onSubmit?: () => void | Promise<void>;
+  isSubmitting?: boolean;
 }
 
 // Section config for icons and colors
@@ -87,6 +90,8 @@ const QuestionnairePreviewModal: React.FC<QuestionnairePreviewModalProps> = ({
   open,
   onClose,
   formData,
+  onSubmit,
+  isSubmitting = false,
 }) => {
   const [dropdownMaps, setDropdownMaps] = useState<
     Record<string, Record<string, string>>
@@ -451,14 +456,21 @@ const QuestionnairePreviewModal: React.FC<QuestionnairePreviewModalProps> = ({
       open={open}
       onCancel={onClose}
       footer={
-        <div className="flex justify-end">
-          <Button
-            type="primary"
-            onClick={onClose}
-            className="!bg-green-600 hover:!bg-green-700 !border-green-600"
-          >
+        <div className="flex justify-end gap-2">
+          <Button onClick={onClose} disabled={isSubmitting}>
             Close Preview
           </Button>
+          {onSubmit && (
+            <Button
+              type="primary"
+              icon={<CheckOutlined />}
+              loading={isSubmitting}
+              onClick={() => onSubmit()}
+              className="!bg-green-600 hover:!bg-green-700 !border-green-600"
+            >
+              Submit Questionnaire
+            </Button>
+          )}
         </div>
       }
       width={1000}

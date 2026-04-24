@@ -1103,18 +1103,30 @@ const SupplierQuestionnaire: React.FC = () => {
   // Keyboard shortcuts - using refs to avoid dependency issues
   const handleNextRef = useRef(handleNext);
   const handleSubmitRef = useRef(handleSubmit);
+  const openPreviewRef = useRef(() => {
+    const values = form.getFieldsValue();
+    const updatedData = deepMerge(formData, values, false, true);
+    setFormData(updatedData);
+    setIsPreviewOpen(true);
+  });
 
   useEffect(() => {
     handleNextRef.current = handleNext;
     handleSubmitRef.current = handleSubmit;
+    openPreviewRef.current = () => {
+      const values = form.getFieldsValue();
+      const updatedData = deepMerge(formData, values, false, true);
+      setFormData(updatedData);
+      setIsPreviewOpen(true);
+    };
   });
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + Enter to submit
+      // Ctrl/Cmd + Enter: on last step opens preview (submit happens inside preview), otherwise goes to next step
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         if (currentStep === QUESTIONNAIRE_SCHEMA.length - 1) {
-          handleSubmitRef.current();
+          openPreviewRef.current();
         } else {
           handleNextRef.current();
         }
@@ -1703,6 +1715,7 @@ const SupplierQuestionnaire: React.FC = () => {
                   ) : (
                     <>
                       <Button
+                        type="primary"
                         onClick={() => {
                           // Merge current form values before showing preview
                           const values = form.getFieldsValue();
@@ -1712,18 +1725,9 @@ const SupplierQuestionnaire: React.FC = () => {
                         }}
                         icon={<EyeOutlined />}
                         size="large"
-                      >
-                        Preview
-                      </Button>
-                      <Button
-                        type="primary"
-                        onClick={handleSubmit}
-                        loading={isSaving}
-                        icon={<CheckOutlined />}
-                        size="large"
                         className="bg-green-600 hover:bg-green-700"
                       >
-                        Submit Questionnaire
+                        Preview &amp; Submit
                       </Button>
                       <Tooltip title="Press Ctrl+Enter">
                         <span className="text-xs text-gray-400 self-center hidden sm:inline">
@@ -1756,6 +1760,11 @@ const SupplierQuestionnaire: React.FC = () => {
         open={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
         formData={formData}
+        onSubmit={async () => {
+          await handleSubmit();
+          setIsPreviewOpen(false);
+        }}
+        isSubmitting={isSaving}
       />
     </div>
   );

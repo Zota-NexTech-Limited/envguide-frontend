@@ -110,6 +110,13 @@ const PCFRequestView: React.FC = () => {
     string | null
   >(null);
   const [dqrList, setDqrList] = useState<any[]>([]);
+  const [resendingSupId, setResendingSupId] = useState<string | null>(null);
+  const [resendModal, setResendModal] = useState<{
+    open: boolean;
+    sup_id: string;
+    supplierName: string;
+    supplierEmail: string;
+  } | null>(null);
   // DQR stages now come from pcf_data_dqr_rating_stage in getById response
 
   // Questionnaire response modal state
@@ -191,6 +198,38 @@ const PCFRequestView: React.FC = () => {
   const getSgiqIdBySupplier = (sup_id: string): string | null => {
     const dqrItem = dqrList.find((item) => item.sup_id === sup_id);
     return dqrItem?.sgiq_id || null;
+  };
+
+  // Resend the supplier-questionnaire email to a single pending supplier
+  const handleResendSupplierEmail = (
+    sup_id: string,
+    supplierName: string,
+    supplierEmail: string,
+  ) => {
+    if (!id) {
+      message.error("Missing PCF ID — cannot resend");
+      return;
+    }
+    setResendModal({ open: true, sup_id, supplierName, supplierEmail });
+  };
+
+  const confirmResendSupplierEmail = async () => {
+    if (!id || !resendModal) return;
+    const { sup_id } = resendModal;
+    setResendingSupId(sup_id);
+    try {
+      const result = await taskService.resendSupplierEmail(id, sup_id);
+      if (result.success) {
+        message.success(result.message || "Email resent successfully");
+      } else {
+        message.error(result.message || "Failed to resend email");
+      }
+    } catch (err: any) {
+      message.error(err?.message || "Failed to resend email");
+    } finally {
+      setResendingSupId(null);
+      setResendModal(null);
+    }
   };
 
   // Fetch questionnaire responses for a supplier
@@ -1132,6 +1171,23 @@ const PCFRequestView: React.FC = () => {
                           className="!bg-green-600 hover:!bg-green-700 !border-green-600"
                         >
                           View Responses
+                        </Button>
+                      )}
+                      {!stage.is_submitted && stage.supplier?.sup_id && id && (
+                        <Button
+                          size="small"
+                          icon={<Send size={14} />}
+                          loading={resendingSupId === stage.supplier.sup_id}
+                          disabled={!stage.supplier?.supplier_email}
+                          onClick={() =>
+                            handleResendSupplierEmail(
+                              stage.supplier.sup_id,
+                              stage.supplier.supplier_name || "this supplier",
+                              stage.supplier?.supplier_email || ""
+                            )
+                          }
+                        >
+                          Resend Email
                         </Button>
                       )}
                       <Tag color={stage.is_submitted ? "success" : "default"}>
@@ -2589,6 +2645,30 @@ const PCFRequestView: React.FC = () => {
           </div>
         </div>
       </Card>
+
+      {/* Resend Supplier Email Modal */}
+      <Modal
+        title="Resend questionnaire email?"
+        open={!!resendModal?.open}
+        onOk={confirmResendSupplierEmail}
+        onCancel={() => setResendModal(null)}
+        confirmLoading={!!resendingSupId}
+        okText="Resend"
+        cancelText="Cancel"
+        okButtonProps={{
+          className: "!bg-green-600 hover:!bg-green-700 !border-green-600",
+        }}
+      >
+        <p className="mb-2">
+          Send the supplier questionnaire link to{" "}
+          <strong>{resendModal?.supplierName}</strong>?
+        </p>
+        {resendModal?.supplierEmail && (
+          <p className="text-xs text-gray-500">
+            Email: <span className="font-mono">{resendModal.supplierEmail}</span>
+          </p>
+        )}
+      </Modal>
 
       {/* Reject Modal */}
       <Modal

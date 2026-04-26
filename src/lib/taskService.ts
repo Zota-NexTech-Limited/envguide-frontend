@@ -69,6 +69,26 @@ class TaskService {
     };
   }
 
+  async resendSupplierEmail(
+    bom_pcf_id: string,
+    supplier_id: string
+  ): Promise<{ success: boolean; message: string; data?: { email: string } }> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/task-management/resend-supplier-email`,
+        {
+          method: "POST",
+          headers: this.getHeaders(),
+          body: JSON.stringify({ bom_pcf_id, supplier_id }),
+        }
+      );
+      return await response.json();
+    } catch (error) {
+      console.error("Resend supplier email error:", error);
+      return { success: false, message: "Network error occurred" };
+    }
+  }
+
   /**
    * Get list of tasks
    */

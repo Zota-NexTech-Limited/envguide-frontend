@@ -243,7 +243,7 @@ const QuestionnairePreviewModal: React.FC<QuestionnairePreviewModalProps> = ({
             return dropdownMaps[col.apiDropdown][String(val)] || String(val);
           }
           if (typeof val === "number") {
-            return val.toLocaleString();
+            return val.toLocaleString(undefined, { maximumFractionDigits: 20 });
           }
           return String(val);
         },
@@ -324,7 +324,7 @@ const QuestionnairePreviewModal: React.FC<QuestionnairePreviewModalProps> = ({
       return resolveDropdownValue(value, field);
     }
     if (typeof value === "number") {
-      return value.toLocaleString();
+      return value.toLocaleString(undefined, { maximumFractionDigits: 20 });
     }
     return String(value);
   };

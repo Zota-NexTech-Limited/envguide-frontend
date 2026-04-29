@@ -743,6 +743,64 @@ class PCFService {
       };
     }
   }
+
+  /**
+   * Download PCF Report PDF for a completed PCF request.
+   * Streams the PDF from the backend and triggers a browser download.
+   */
+  async downloadPcfReport(
+    pcfRequestId: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(
+        `${API_BASE_URL}/api/report/pcf-pdf/${encodeURIComponent(pcfRequestId)}`,
+        {
+          method: "GET",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      );
+
+      if (!response.ok) {
+        let message = `Failed to download report (status ${response.status})`;
+        try {
+          const errBody = await response.json();
+          if (errBody?.message) message = errBody.message;
+        } catch {
+          // non-JSON error body — keep generic message
+        }
+        return { success: false, message };
+      }
+
+      // Filename from Content-Disposition header (backend sets this)
+      const contentDisposition =
+        response.headers.get("Content-Disposition") || "";
+      const match = contentDisposition.match(/filename="([^"]+)"/);
+      const fallback = `EnviGuide_PCF_Report_${new Date()
+        .toISOString()
+        .split("T")[0]
+        .replace(/-/g, "")}.pdf`;
+      const filename = match?.[1] || fallback;
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error downloading PCF report:", error);
+      return {
+        success: false,
+        message: "Failed to download PCF report. Please try again.",
+      };
+    }
+  }
 }
 
 export const pcfService = new PCFService();

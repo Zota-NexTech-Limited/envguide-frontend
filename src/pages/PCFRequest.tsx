@@ -24,13 +24,16 @@ import {
   Microchip,
   Search,
   Pencil,
+  Download,
 } from "lucide-react";
+import { Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useNavigate } from "react-router-dom";
 import pcfService from "../lib/pcfService";
 import type { PCFBOMItem } from "../lib/pcfService";
 import dayjs from "dayjs";
 import { usePermissions } from "../contexts/PermissionContext";
+import { useAuth } from "../contexts/AuthContext";
 
 interface PCFRequestItem {
   id: string;
@@ -53,6 +56,14 @@ const PCFRequest: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const navigate = useNavigate();
   const { canCreate } = usePermissions();
+  const { user } = useAuth();
+  // Report download is a super-admin-only capability — clients only see their
+  // own report when an admin emails it to them, not a self-serve download.
+  const isSuperAdmin =
+    user?.role?.toLowerCase() === "superadmin" ||
+    user?.role?.toLowerCase() === "super admin" ||
+    user?.role?.toLowerCase() === "enviguide" ||
+    user?.role?.toLowerCase() === "admin";
   const [pageSize, setPageSize] = useState(10);
   const [pcfRequests, setPcfRequests] = useState<PCFRequestItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,6 +77,25 @@ const PCFRequest: React.FC = () => {
   const [dateRange, setDateRange] = useState<
     [dayjs.Dayjs | null, dayjs.Dayjs | null] | null
   >(null);
+
+  // Tracks which PCF row is currently downloading so we can show a spinner
+  // and disable other actions on that row.
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownloadReport = async (id: string, requestNumber: string) => {
+    if (downloadingId) return;
+    setDownloadingId(id);
+    try {
+      const result = await pcfService.downloadPcfReport(id);
+      if (result.success) {
+        message.success(`Report downloaded for ${requestNumber}`);
+      } else {
+        message.error(result.message || "Failed to download report");
+      }
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   // API Stats
   const [apiStats, setApiStats] = useState<{
@@ -302,6 +332,43 @@ const PCFRequest: React.FC = () => {
     return <Tag color={color}>{status || "Unknown"}</Tag>;
   };
 
+  const reportColumn = {
+    title: "Report",
+    key: "report",
+    width: 110,
+    render: (_: any, record: PCFRequestItem) => {
+      const isCompleted = record.status?.toLowerCase() === "completed";
+      const isLoading = downloadingId === record.id;
+      const button = (
+        <Button
+          type="text"
+          disabled={!isCompleted || isLoading}
+          loading={isLoading}
+          onClick={() =>
+            handleDownloadReport(record.id, record.requestNumber)
+          }
+          icon={
+            !isLoading ? (
+              <Download
+                size={16}
+                className="flex items-center justify-center mt-[5px]"
+              />
+            ) : undefined
+          }
+        >
+          Download
+        </Button>
+      );
+      return isCompleted ? (
+        button
+      ) : (
+        <Tooltip title="Available only for completed PCF requests">
+          <span>{button}</span>
+        </Tooltip>
+      );
+    },
+  };
+
   const columns: ColumnsType<PCFRequestItem> = [
     {
       title: "PCF Request Number",
@@ -340,6 +407,7 @@ const PCFRequest: React.FC = () => {
       key: "submittedOn",
       width: 200,
     },
+    ...(isSuperAdmin ? [reportColumn] : []),
     {
       title: "Actions",
       key: "actions",

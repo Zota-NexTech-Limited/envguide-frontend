@@ -876,11 +876,73 @@ const SupplierQuestionnaire: React.FC = () => {
     }
   };
 
+  // Walks the form payload and back-fills bom_id / material_number on sub-table
+  // rows whenever they have been dropped but the row still has identifying info
+  // (mpn / material_number / component_name). Source of truth is the user's
+  // products_manufactured list (Q5), which always has correct bom_ids.
+  const backfillBomLinksInPlace = (data: any) => {
+    const products = data?.product_details?.products_manufactured;
+    if (!Array.isArray(products) || products.length === 0) return;
+
+    const byMaterial = new Map<string, { bom_id: string; material_number: string; component_name: string }>();
+    const byComponent = new Map<string, { bom_id: string; material_number: string; component_name: string }>();
+    products.forEach((p: any) => {
+      if (!p) return;
+      const entry = {
+        bom_id: p.bom_id || "",
+        material_number: p.material_number || p.mpn || "",
+        component_name: p.product_name || "",
+      };
+      if (entry.material_number) byMaterial.set(String(entry.material_number).trim(), entry);
+      if (entry.component_name)  byComponent.set(String(entry.component_name).trim(), entry);
+    });
+
+    const enrichRow = (row: any) => {
+      if (!row) return row;
+      if (row.bom_id) return row;
+      const mat = row.material_number || row.mpn;
+      const comp = row.component_name || row.product_name;
+      const match =
+        (mat && byMaterial.get(String(mat).trim())) ||
+        (comp && byComponent.get(String(comp).trim()));
+      if (match) {
+        if (!row.bom_id && match.bom_id) row.bom_id = match.bom_id;
+        if (!row.material_number && match.material_number) row.material_number = match.material_number;
+        if (!row.component_name && match.component_name) row.component_name = match.component_name;
+      }
+      return row;
+    };
+
+    const enrichArrayAt = (path: string[]) => {
+      let node = data;
+      for (const key of path.slice(0, -1)) {
+        node = node?.[key];
+        if (!node) return;
+      }
+      const arr = node?.[path[path.length - 1]];
+      if (Array.isArray(arr)) arr.forEach(enrichRow);
+    };
+
+    enrichArrayAt(["scope_3", "packaging", "materials_used"]);
+    enrichArrayAt(["scope_3", "packaging", "weight_per_unit"]);
+    enrichArrayAt(["scope_3", "packaging", "size"]);
+    enrichArrayAt(["scope_3", "materials", "raw_materials_used"]);
+    enrichArrayAt(["scope_3", "materials", "recycled_materials_used"]);
+    enrichArrayAt(["scope_3", "waste_disposal", "types_and_weight"]);
+    enrichArrayAt(["scope_3", "transport", "transport_modes"]);
+    enrichArrayAt(["scope_3", "by_products"]);
+  };
+
   const handleSubmit = async () => {
     try {
       console.log("Submitting questionnaire with formData:", formData);
       const values = await form.validateFields();
       const finalData = deepMerge(formData, values, false, true);
+
+      // Back-fill bom_id / material_number on any sub-table rows that lost them
+      // (Ant Design hidden Form.Item registration sometimes drops these for rows
+      // beyond the first). Source of truth is products_manufactured (Q5).
+      backfillBomLinksInPlace(finalData);
 
       setIsSaving(true);
       setFormErrors({});

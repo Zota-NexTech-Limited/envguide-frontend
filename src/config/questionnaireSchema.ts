@@ -2305,16 +2305,19 @@ const KEPT_QUESTION_NAMES = new Set<string>([
   // Section 4 (Scope 2) — Q22
   "scope_2.purchased_energy",
 
-  // Section 5 (Scope 3) — Q52, Q60, Q61, Q68, Q74
+  // Section 5 (Scope 3) — Q52, Q60 (now includes Q61 weight+unit), Q68, Q74.
+  // Q61 (scope_3.packaging.weight_per_unit) was merged into Q60, so it's no
+  // longer kept here as a separate question.
   "scope_3.materials.raw_materials",
   "scope_3.packaging.materials_used",
-  "scope_3.packaging.weight_per_unit",
   "scope_3.waste_disposal.types_and_weight",
   "scope_3.logistics.transport_modes",
 ]);
 
 // Renumber the leading "<n>." in each kept question's label so suppliers see
 // a clean 1, 2, 3… sequence instead of jumping numbers.
+// After Q61 was merged into Q60, Q68 and Q74 shift up one slot so the supplier
+// sees 8 → 9 → 10 with no gap where Q61 used to be.
 const LABEL_NUMBER_REMAP: Record<string, string> = {
   "1.": "1.",   // Q1  -> 1
   "4.": "2.",   // Q4  -> 2
@@ -2325,10 +2328,9 @@ const LABEL_NUMBER_REMAP: Record<string, string> = {
   "15.2": "5.2",
   "22.": "6.",  // Q22 -> 6
   "52.": "7.",  // Q52 -> 7
-  "60.": "8.",  // Q60 -> 8
-  "61.": "9.",  // Q61 -> 9
-  "68.": "10.", // Q68 -> 10
-  "74.": "11.", // Q74 -> 11
+  "60.": "8.",  // Q60 -> 8 (now includes weight & unit, formerly Q61)
+  "68.": "9.",  // Q68 -> 9 (was 10 before Q61 was merged into Q60)
+  "74.": "10.", // Q74 -> 10 (was 11 before Q61 was merged into Q60)
 };
 
 const renumberLabel = (label?: string): string | undefined => {

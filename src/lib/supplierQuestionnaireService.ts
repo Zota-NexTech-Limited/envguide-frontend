@@ -1316,7 +1316,11 @@ class SupplierQuestionnaireService {
                       packagin_type: item.packaging_type,
                       packaging_size: item.packing_size,
                       unit: item.unit,
-                      treatment_type: item.treatment_type
+                      treatment_type: item.treatment_type,
+                      // Q9 (packaging weight) merged into Q8 — each packaging
+                      // row carries its own weight so calculator can compute
+                      // Σ(weight × EF) across N packaging types per BOM.
+                      packagin_weight: item.packagin_weight,
                   })),
               weight_of_packaging_per_unit_product_questions: this.ensureArray(data.scope_3?.packaging?.weight_per_unit)
                   .filter(item => item.component_name && (item.weight !== undefined && item.weight !== null && item.weight !== ''))

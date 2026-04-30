@@ -1715,7 +1715,7 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
       {
         name: "scope_3.packaging.materials_used",
         label:
-          "60. What type of packaging materials are used for delivering the product?",
+          "60. What type and weight of packaging materials are used for delivering the product?",
         type: "table",
         addButtonLabel: "Add Row",
         required: true,
@@ -1748,44 +1748,18 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             placeholder: "Size",
           },
           {
-            name: "unit",
-            label: "Unit of Measure",
-            type: "select",
-            apiDropdown: "packingUnit",
-            placeholder: "Select unit",
-          },
-          {
             name: "treatment_type",
             label: "Treatment Type",
             type: "select",
             apiDropdown: "packagingTreatmentType",
             placeholder: "Select treatment",
           },
-        ],
-      },
-      {
-        name: "scope_3.packaging.weight_per_unit",
-        label: "61. Approximate weight of packaging per unit product?",
-        type: "table",
-        addButtonLabel: "Add Row",
-        required: true,
-        autoPopulateFromProducts: true,
-        columns: [
+          // Merged from former Q61 — each packaging row is now self-contained
+          // (type + treatment + weight + unit on one row) so the calculator
+          // can compute Σ(weight × EF) across N packaging types per BOM.
+          // Field name matches DB column `packagin_weight` (existing spelling).
           {
-            name: "mpn",
-            label: "MPN",
-            type: "select",
-            apiDropdown: "bomMaterials",
-            placeholder: "Select MPN",
-          },
-          {
-            name: "component_name",
-            label: "Component Name",
-            type: "text",
-            placeholder: "Auto-filled from MPN",
-          },
-          {
-            name: "weight",
+            name: "packagin_weight",
             label: "Packaging weight per product",
             type: "number",
             placeholder: "0.00",
@@ -1799,6 +1773,16 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
           },
         ],
       },
+      // Q61 (scope_3.packaging.weight_per_unit) merged into Q60 above —
+      // packaging weight + unit moved onto the same row as packaging type so
+      // each packaging material is self-contained. Old data in
+      // weight_of_packaging_per_unit_product_questions kept untouched.
+      // {
+      //   name: "scope_3.packaging.weight_per_unit",
+      //   label: "61. Approximate weight of packaging per unit product?",
+      //   type: "table",
+      //   ...
+      // },
       {
         name: "scope_3.packaging.size",
         label: "62. What is the size of packing? (Optional)",

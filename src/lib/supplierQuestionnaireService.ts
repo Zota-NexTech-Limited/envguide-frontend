@@ -1017,16 +1017,22 @@ class SupplierQuestionnaireService {
                       quantity: item.quantity
                   })),
               any_co_product_have_economic_value: this.convertToBoolean(data.product_details?.any_co_product_have_economic_value || false),
+              // Q15.2 co-products — co_product_name and price_per_product are
+                  // now optional. weight and quantity dropped from form (never
+                  // read by PCF calc). price_per_product still drives the
+                  // economic_ratio computation when supplier provides it.
               co_product_component_economic_value_questions: this.ensureArray(data.product_details?.co_products)
-                  .filter(item => item.product_name && item.co_product_name)
+                  .filter(item => item.product_name)
                   .map(item => ({
                       ...(item.bom_id && { bom_id: item.bom_id }),
                       ...((item.material_number || item.mpn) && { material_number: item.material_number || item.mpn }),
                       product_name: item.product_name,
-                      co_product_name: item.co_product_name,
-                      weight: item.weight,
-                      price_per_product: item.price_per_product,
-                      quantity: item.quantity
+                      ...(item.co_product_name && { co_product_name: item.co_product_name }),
+                      ...(item.price_per_product !== undefined &&
+                          item.price_per_product !== null &&
+                          item.price_per_product !== '' && {
+                          price_per_product: item.price_per_product,
+                      }),
                   })),
           },
           scope_one_direct_emissions_questions: {
@@ -1307,14 +1313,15 @@ class SupplierQuestionnaireService {
                       material_type: item.material_type,
                       percentage: item.recycled_composition
                   })),
+              // Q60 packaging — component_name and packing_size columns removed
+              // from the form (component_name resolved from bom on backend via
+              // bom_id; packing_size never read by calculator).
               type_of_pack_mat_used_for_delivering_questions: this.ensureArray(data.scope_3?.packaging?.materials_used)
-                  .filter(item => item.component_name && item.packaging_type)
+                  .filter(item => (item.material_number || item.mpn || item.bom_id) && item.packaging_type)
                   .map(item => ({
                       ...(item.bom_id && { bom_id: item.bom_id }),
-                      ...(item.material_number && { material_number: item.material_number }),
-                      component_name: item.component_name,
+                      ...((item.material_number || item.mpn) && { material_number: item.material_number || item.mpn }),
                       packagin_type: item.packaging_type,
-                      packaging_size: item.packing_size,
                       unit: item.unit,
                       treatment_type: item.treatment_type,
                       // Q9 (packaging weight) merged into Q8 — each packaging
@@ -1420,7 +1427,8 @@ class SupplierQuestionnaireService {
                           ...((ref?.bom_id ?? item.bom_id) && { bom_id: ref?.bom_id ?? item.bom_id }),
                           ...(((ref?.material_number || item.material_number)) && { material_number: (ref?.material_number || item.material_number) }),
                           ...(item.mpn && { mpn: item.mpn }),
-                          ...(item.component_name && { component_name: item.component_name }),
+                          // component_name column removed from Q74 form;
+                          // backend resolves it from bom via bom_id when needed.
                           mode_of_transport: item.mode,
                           weight_transported: item.weight || '',
                           source_point: item.source,

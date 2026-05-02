@@ -455,6 +455,12 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
           field: "product_details.any_co_product_have_economic_value",
           value: "Yes",
         },
+        // weight + quantity columns removed — they are stored in DB but
+        // never read by the PCF calculator or any report. co_product_name
+        // and price_per_product made optional so suppliers can skip them
+        // when not applicable. price_per_product is still used to compute
+        // bom.economic_ratio when provided; if omitted, calc falls back to
+        // physical mass balance (ER = 0).
         columns: [
           {
             name: "material_number",
@@ -474,26 +480,12 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             label: "Co-product Name",
             type: "text",
             placeholder: "Enter co-product name",
-            required: true,
-          },
-          {
-            name: "weight",
-            label: "Weight",
-            type: "number",
-            placeholder: "0.00",
           },
           {
             name: "price_per_product",
             label: "Price per Product (₹)",
             type: "number",
             placeholder: "0.00",
-            required: true,
-          },
-          {
-            name: "quantity",
-            label: "Quantity/Volume (Pcs)",
-            type: "number",
-            placeholder: "0",
           },
         ],
       },
@@ -1720,6 +1712,9 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
         addButtonLabel: "Add Row",
         required: true,
         autoPopulateFromProducts: true,
+        // component_name and packing_size columns removed — component_name is
+        // already encoded in the MPN dropdown selection, and packing_size is
+        // stored in DB but never read by the PCF calculator or any report.
         columns: [
           {
             name: "mpn",
@@ -1729,23 +1724,11 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             placeholder: "Select MPN",
           },
           {
-            name: "component_name",
-            label: "Component Name",
-            type: "text",
-            placeholder: "Auto-filled from MPN",
-          },
-          {
             name: "packaging_type",
             label: "Packing Type",
             type: "select",
             apiDropdown: "packingType",
             placeholder: "Select type",
-          },
-          {
-            name: "packing_size",
-            label: "Packing Size",
-            type: "text",
-            placeholder: "Size",
           },
           {
             name: "treatment_type",
@@ -2082,6 +2065,8 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
         addButtonLabel: "Add Row",
         required: true,
         autoPopulateFromProducts: true,
+        // component_name column removed — already encoded in the MPN dropdown
+        // selection. Stored in DB but never read by PCF calculator.
         columns: [
           {
             name: "mpn",
@@ -2090,12 +2075,6 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             apiDropdown: "bomMaterials",
             placeholder: "Select MPN",
             required: true,
-          },
-          {
-            name: "component_name",
-            label: "Component Name",
-            type: "text",
-            placeholder: "Auto-filled from MPN",
           },
           {
             name: "mode",

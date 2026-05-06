@@ -21,6 +21,7 @@ import {
   Link as LinkIcon,
   Copy,
   ExternalLink,
+  UserPlus,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import type { BackendUser, Role } from "../../types";
@@ -937,7 +938,7 @@ const UsersPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-12">
           <div className="text-center">
             <LoadingSpinner size="lg" />
-            <p className="mt-4 text-gray-500">Loading manufacturers...</p>
+            <p className="mt-4 text-gray-500">Loading clients...</p>
           </div>
         </div>
       );
@@ -952,7 +953,7 @@ const UsersPage: React.FC = () => {
               className="flex items-center gap-2 text-gray-600 hover:text-green-600 transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
-              <span>Back to Manufacturers</span>
+              <span>Back to Clients</span>
             </button>
           </div>
 
@@ -1054,7 +1055,7 @@ const UsersPage: React.FC = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search manufacturers..."
+                placeholder="Search clients..."
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-colors"
                 value={manufacturerSearch}
                 onChange={(e) => setManufacturerSearch(e.target.value)}
@@ -1065,7 +1066,7 @@ const UsersPage: React.FC = () => {
               className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-colors whitespace-nowrap"
             >
               <Plus className="h-4 w-4" />
-              <span>Add Manufacturer</span>
+              <span>Add Client</span>
             </Link>
           </div>
         </div>
@@ -1086,7 +1087,7 @@ const UsersPage: React.FC = () => {
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(`${window.location.origin}/manufacturer-onboarding`);
-                  message.success("Manufacturer onboarding link copied to clipboard");
+                  message.success("Client onboarding link copied to clipboard");
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
               >
@@ -1158,6 +1159,34 @@ const UsersPage: React.FC = () => {
                             <Edit className="h-5 w-5" />
                           </Link>
                         </Tooltip>
+                        <Tooltip title="Create Login">
+                          <button
+                            onClick={() =>
+                              navigate("/settings/users/create", {
+                                state: {
+                                  prefill: {
+                                    user_name:
+                                      manufacturer.contact_person_name ||
+                                      manufacturer.name ||
+                                      "",
+                                    user_email:
+                                      manufacturer.contact_person_email ||
+                                      manufacturer.email ||
+                                      "",
+                                    user_phone_number:
+                                      manufacturer.contact_person_phone ||
+                                      manufacturer.phone_number ||
+                                      "",
+                                    user_role: "client",
+                                  },
+                                },
+                              })
+                            }
+                            className="text-gray-500 hover:text-purple-600 p-2 rounded-lg hover:bg-purple-50 transition-colors"
+                          >
+                            <UserPlus className="h-5 w-5" />
+                          </button>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>
@@ -1168,7 +1197,7 @@ const UsersPage: React.FC = () => {
             <div className="p-6">
               <div className="text-center text-gray-500">
                 <Factory className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>No manufacturers found.</p>
+                <p>No clients found.</p>
               </div>
             </div>
           )}
@@ -1478,7 +1507,7 @@ const UsersPage: React.FC = () => {
       label: (
         <span className="flex items-center gap-2">
           <Factory className="h-4 w-4" />
-          Manufacturer
+          Client
         </span>
       ),
       children: renderManufacturerTab(),
@@ -1507,7 +1536,7 @@ const UsersPage: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Manage Users</h1>
-                <p className="text-gray-500">Manage EnviGuide team, manufacturers, and suppliers</p>
+                <p className="text-gray-500">Manage EnviGuide team, clients, and suppliers</p>
               </div>
             </div>
             <div className="flex items-center gap-3">

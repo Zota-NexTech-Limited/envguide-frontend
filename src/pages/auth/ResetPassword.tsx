@@ -17,6 +17,7 @@ const ResetPassword: React.FC = () => {
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isSetupMode = searchParams.get("setup") === "1";
 
   useEffect(() => {
     // Get token from URL parameters
@@ -25,10 +26,12 @@ const ResetPassword: React.FC = () => {
       setToken(tokenFromUrl);
     } else {
       setError(
-        "Invalid or missing reset token. Please request a new password reset."
+        isSetupMode
+          ? "Invalid or missing setup token. Please ask your admin for a new setup link."
+          : "Invalid or missing reset token. Please request a new password reset."
       );
     }
-  }, [searchParams]);
+  }, [searchParams, isSetupMode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,12 +65,21 @@ const ResetPassword: React.FC = () => {
       const result = await authService.resetPassword(token, password);
 
       if (result.success) {
-        setSuccess("Password reset successfully! Redirecting to login...");
+        setSuccess(
+          isSetupMode
+            ? "Password set successfully! Redirecting to login..."
+            : "Password reset successfully! Redirecting to login..."
+        );
         setTimeout(() => {
           navigate("/login", { replace: true });
         }, 2000);
       } else {
-        setError(result.message || "Password reset failed. Please try again.");
+        setError(
+          result.message ||
+            (isSetupMode
+              ? "Could not set password. Please try again."
+              : "Password reset failed. Please try again.")
+        );
       }
     } catch (error) {
       setError("An unexpected error occurred");
@@ -98,10 +110,12 @@ const ResetPassword: React.FC = () => {
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                Invalid Reset Link
+                {isSetupMode ? "Invalid Setup Link" : "Invalid Reset Link"}
               </h2>
               <p className="text-gray-600">
-                The password reset link is invalid or has expired
+                {isSetupMode
+                  ? "This account setup link is invalid or has expired"
+                  : "The password reset link is invalid or has expired"}
               </p>
             </div>
 
@@ -110,21 +124,24 @@ const ResetPassword: React.FC = () => {
                 <AlertCircle className="h-5 w-5 text-red-400" />
                 <div className="ml-3">
                   <p className="text-sm text-red-800">
-                    Invalid or missing reset token. Please request a new
-                    password reset.
+                    {isSetupMode
+                      ? "Invalid or missing setup token. Please ask your admin to send a new setup link."
+                      : "Invalid or missing reset token. Please request a new password reset."}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="text-center">
-              <button
-                onClick={() => navigate("/forgot-password")}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Request New Reset Link
-              </button>
-            </div>
+            {!isSetupMode && (
+              <div className="text-center">
+                <button
+                  onClick={() => navigate("/forgot-password")}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Request New Reset Link
+                </button>
+              </div>
+            )}
 
             <div className="mt-8 text-center">
               <button
@@ -162,9 +179,13 @@ const ResetPassword: React.FC = () => {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Reset Password
+              {isSetupMode ? "Set Up Your Password" : "Reset Password"}
             </h2>
-            <p className="text-gray-600">Enter your new password below</p>
+            <p className="text-gray-600">
+              {isSetupMode
+                ? "Welcome to EnviGuide! Choose a password to finish setting up your account."
+                : "Enter your new password below"}
+            </p>
           </div>
 
           {error && (
@@ -269,6 +290,8 @@ const ResetPassword: React.FC = () => {
             >
               {isLoading ? (
                 <LoadingSpinner size="sm" className="border-white" />
+              ) : isSetupMode ? (
+                "Set Password"
               ) : (
                 "Reset Password"
               )}

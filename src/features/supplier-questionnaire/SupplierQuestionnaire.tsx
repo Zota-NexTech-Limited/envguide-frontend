@@ -677,13 +677,27 @@ const SupplierQuestionnaire: React.FC = () => {
         return true;
       };
 
+      const isCellFilled = (v: any): boolean => {
+        if (v === undefined || v === null || v === "") return false;
+        if (Array.isArray(v) && v.length === 0) return false;
+        if (typeof v === "object" && !Array.isArray(v)) {
+          return Object.values(v).some(isCellFilled);
+        }
+        return true;
+      };
+
       const isFieldAnswered = (field: any): boolean => {
         const fieldValue = getNestedValue(mergedValues, field.name);
 
         // Check if field has a value
         if (field.type === "table") {
-          // For tables, check if there's at least one row
-          return Array.isArray(fieldValue) && fieldValue.length > 0;
+          // A default empty row is created by the form, so length > 0 is not enough.
+          // Count the table as answered only if at least one row has a real value.
+          if (!Array.isArray(fieldValue) || fieldValue.length === 0) return false;
+          return fieldValue.some(
+            (row: any) =>
+              row && typeof row === "object" && Object.values(row).some(isCellFilled)
+          );
         } else if (field.type === "checkbox" && field.options) {
           // For multi-select checkboxes, check if at least one is selected
           return Array.isArray(fieldValue) && fieldValue.length > 0;
@@ -701,11 +715,21 @@ const SupplierQuestionnaire: React.FC = () => {
         }
       };
 
+      // Only count "main" questions — those with a single integer prefix in the
+      // label (e.g. "1.", "10."). Excludes General Information acknowledgements
+      // (no number prefix) and sub-questions like "5.1" / "5.2".
+      const isMainQuestion = (field: any): boolean =>
+        typeof field.label === "string" && /^\d+\.\s/.test(field.label);
+
       // Iterate through all sections and fields
       QUESTIONNAIRE_SCHEMA.forEach((section) => {
         section.fields.forEach((field) => {
           // Skip info fields (they're not questions)
           if (field.type === "info") {
+            return;
+          }
+
+          if (!isMainQuestion(field)) {
             return;
           }
 

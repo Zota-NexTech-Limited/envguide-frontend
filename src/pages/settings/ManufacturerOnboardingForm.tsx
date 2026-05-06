@@ -46,12 +46,12 @@ const ManufacturerOnboardingForm: React.FC = () => {
           key_oem_clients: result.data.key_oem_clients?.join(", ") || "",
         });
       } else {
-        message.error("Failed to load manufacturer data");
+        message.error("Failed to load client data");
         navigate("/settings/users");
       }
     } catch (error) {
       console.error("Error loading manufacturer:", error);
-      message.error("Error loading manufacturer data");
+      message.error("Error loading client data");
     } finally {
       setInitialLoading(false);
     }
@@ -79,10 +79,10 @@ const ManufacturerOnboardingForm: React.FC = () => {
       }
 
       if (result.success) {
-        message.success(result.message || (isEditMode ? "Manufacturer updated successfully" : "Manufacturer created successfully"));
+        message.success(result.message || (isEditMode ? "Client updated successfully" : "Client created successfully"));
         navigate("/settings/users");
       } else {
-        message.error(result.message || "Failed to save manufacturer");
+        message.error(result.message || "Failed to save client");
       }
     } catch (error) {
       console.error("Error saving manufacturer:", error);
@@ -118,10 +118,10 @@ const ManufacturerOnboardingForm: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {isEditMode ? "Edit Manufacturer" : "New Manufacturer Onboarding"}
+                  {isEditMode ? "Edit Client" : "New Client Onboarding"}
                 </h1>
                 <p className="text-gray-500">
-                  {isEditMode ? "Update manufacturer details" : "Register a new manufacturer"}
+                  {isEditMode ? "Update client details" : "Register a new client"}
                 </p>
               </div>
             </div>
@@ -319,7 +319,7 @@ const ManufacturerOnboardingForm: React.FC = () => {
                 icon={<Save size={16} />}
                 className="shadow-lg shadow-green-600/20"
               >
-                {isEditMode ? "Update Manufacturer" : "Create Manufacturer"}
+                {isEditMode ? "Update Client" : "Create Client"}
               </Button>
             </div>
           </Form>

@@ -25,14 +25,10 @@ const UsersEdit: React.FC = () => {
   const [roles, setRoles] = useState<
     Array<{ role_id: string; role_name: string }>
   >([]);
-  const [departments, setDepartments] = useState<
-    Array<{ department_id: string; department_name: string }>
-  >([]);
   const [formData, setFormData] = useState({
     user_name: "",
     user_email: "",
     user_role: "",
-    user_department: "",
     user_phone_number: "",
   });
 
@@ -40,7 +36,6 @@ const UsersEdit: React.FC = () => {
     if (userId) {
       loadUser();
       loadRoles();
-      loadDepartments();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
@@ -61,7 +56,6 @@ const UsersEdit: React.FC = () => {
             user_name: userData.user_name || "",
             user_email: userData.user_email || "",
             user_role: userData.user_role || "",
-            user_department: userData.user_department || "",
             user_phone_number: userData.user_phone_number || "",
           });
         }
@@ -101,32 +95,6 @@ const UsersEdit: React.FC = () => {
     } catch (error) {
       console.error("Error loading roles:", error);
       message.error("Failed to load roles");
-    }
-  };
-
-  const loadDepartments = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `        ${getApiBaseUrl()}/api/department/get`,
-        {
-          headers: {
-            ...(token ? { Authorization: token } : {}),
-          },
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        if (data.status && data.data && data.data.rows) {
-          setDepartments(data.data.rows);
-        } else if (data.status && data.data) {
-          // Fallback for legacy format
-          setDepartments(data.data);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading departments:", error);
-      message.error("Failed to load departments");
     }
   };
 
@@ -278,25 +246,6 @@ const UsersEdit: React.FC = () => {
                 {roles.map((role) => (
                   <option key={role.role_id} value={role.role_name}>
                     {role.role_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Department
-              </label>
-              <select
-                name="user_department"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
-                value={formData.user_department}
-                onChange={handleInputChange}
-              >
-                <option value="">Select a department</option>
-                {departments.map((dept) => (
-                  <option key={dept.department_id} value={dept.department_name}>
-                    {dept.department_name}
                   </option>
                 ))}
               </select>

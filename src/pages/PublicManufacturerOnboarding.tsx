@@ -57,7 +57,7 @@ const PublicManufacturerOnboarding: React.FC = () => {
             icon={<CheckCircle className="w-16 h-16 text-green-500 mx-auto" />}
             status="success"
             title="Registration Submitted!"
-            subTitle="Thank you for registering as a manufacturer. Our team will review your application and get back to you shortly."
+            subTitle="Thank you for registering as a client. Our team will review your application and get back to you shortly."
             extra={[
               <Button
                 type="primary"
@@ -85,10 +85,10 @@ const PublicManufacturerOnboarding: React.FC = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                Manufacturer Registration
+                Client Registration
               </h1>
               <p className="text-gray-500">
-                Register your company as a manufacturer partner
+                Register your company as a client partner
               </p>
             </div>
           </div>

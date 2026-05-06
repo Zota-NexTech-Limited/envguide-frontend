@@ -345,12 +345,6 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             placeholder: "Select MPN",
           },
           {
-            name: "component_name",
-            label: "Component/Product Name",
-            type: "text",
-            placeholder: "Auto-filled from MPN",
-          },
-          {
             name: "location",
             label: "Location",
             type: "select",
@@ -398,12 +392,6 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             type: "select",
             apiDropdown: "bomMaterials",
             placeholder: "Select MPN",
-          },
-          {
-            name: "product_name",
-            label: "Product/ Component Name",
-            type: "text",
-            placeholder: "Auto-filled from MPN",
           },
           {
             name: "production_period",
@@ -470,12 +458,6 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             type: "select",
             apiDropdown: "bomMaterials",
             placeholder: "Select MPN",
-          },
-          {
-            name: "product_name",
-            label: "Name of Component",
-            type: "text",
-            placeholder: "Auto-filled from MPN",
           },
           {
             name: "co_product_name",

@@ -1914,6 +1914,54 @@ class SupplierQuestionnaireService {
   }
 
   /**
+   * Returns the BOM components assigned to this supplier on this PCF request.
+   * The supplier questionnaire uses this to populate every MPN dropdown from
+   * the immutable client-uploaded BOM, so deletions/re-adds inside the form
+   * never wipe the available options.
+   */
+  async getBomComponentsForSupplier(
+    bom_pcf_id: string,
+    sup_id: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: Array<{ bom_id: string; material_number: string; component_name: string }>;
+  }> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/pcf-bom/components-for-supplier?bom_pcf_id=${encodeURIComponent(bom_pcf_id)}&sup_id=${encodeURIComponent(sup_id)}`,
+        {
+          method: "GET",
+          headers: this.getHeaders(),
+        }
+      );
+
+      const result: ApiResponse = await response.json();
+
+      if (result.status || result.success) {
+        const rows = Array.isArray(result.data) ? result.data : [];
+        return {
+          success: true,
+          message: result.message || "Success",
+          data: rows,
+        };
+      }
+      return {
+        success: false,
+        message: result.message || "Failed to fetch BOM components",
+        data: [],
+      };
+    } catch (error) {
+      console.error("getBomComponentsForSupplier error:", error);
+      return {
+        success: false,
+        message: "Network error occurred",
+        data: [],
+      };
+    }
+  }
+
+  /**
    * Get PCF BOM list for auto-population
    */
   async getPCFBOMListToAutoPopulate(

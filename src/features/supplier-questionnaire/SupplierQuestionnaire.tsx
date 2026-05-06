@@ -122,6 +122,30 @@ const SupplierQuestionnaire: React.FC = () => {
   const [onboardingForm] = Form.useForm();
   const [isSubmittingOnboarding, setIsSubmittingOnboarding] = useState(false);
 
+  // BOM components assigned to this supplier — sourced from the immutable
+  // client-uploaded BOM. Used as the option list for every MPN dropdown so
+  // suppliers cannot lose options by deleting/re-adding rows.
+  const [bomComponents, setBomComponents] = useState<
+    Array<{ bom_id: string; material_number: string; component_name: string }>
+  >([]);
+
+  useEffect(() => {
+    if (!sup_id || !bom_pcf_id || isClientMode) return;
+    let cancelled = false;
+    (async () => {
+      const result = await supplierQuestionnaireService.getBomComponentsForSupplier(
+        bom_pcf_id,
+        sup_id
+      );
+      if (!cancelled && result.success) {
+        setBomComponents(result.data);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sup_id, bom_pcf_id, isClientMode]);
+
   // Check supplier onboarding status first (only for supplier mode with sup_id)
   useEffect(() => {
     const checkOnboardingStatus = async () => {
@@ -1723,6 +1747,7 @@ const SupplierQuestionnaire: React.FC = () => {
                 section={currentSection}
                 initialValues={formData}
                 form={form}
+                bomComponents={bomComponents}
                 onFinish={() => {}}
                 onValuesChange={(changedValues, allValues) => {
                   // Update formData when values change to trigger progress recalculation

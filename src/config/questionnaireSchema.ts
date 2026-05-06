@@ -338,16 +338,17 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
         required: true,
         columns: [
           {
-            name: "mpn",
+            name: "material_number",
             label: "MPN",
-            type: "text",
-            placeholder: "Enter MPN",
+            type: "select",
+            apiDropdown: "bomMaterials",
+            placeholder: "Select MPN",
           },
           {
             name: "component_name",
             label: "Component/Product Name",
             type: "text",
-            placeholder: "Enter name",
+            placeholder: "Auto-filled from MPN",
           },
           {
             name: "location",
@@ -392,16 +393,17 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
         required: true,
         columns: [
           {
-            name: "mpn",
+            name: "material_number",
             label: "Material Number (MPN)",
-            type: "text",
-            placeholder: "Enter MPN",
+            type: "select",
+            apiDropdown: "bomMaterials",
+            placeholder: "Select MPN",
           },
           {
             name: "product_name",
             label: "Product/ Component Name",
             type: "text",
-            placeholder: "Enter name",
+            placeholder: "Auto-filled from MPN",
           },
           {
             name: "production_period",

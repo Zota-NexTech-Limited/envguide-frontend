@@ -101,6 +101,14 @@ interface DynamicQuestionnaireFormProps {
   autoPopulatedFields?: Set<string>;
   formErrors?: Record<string, string[]>;
   isClientMode?: boolean; // Client mode uses Product Code/Name instead of MPN/Component Name
+  // BOM components assigned to this supplier on this PCF request. When provided,
+  // the bomMaterials dropdown sources its options from this list (immutable BOM)
+  // instead of from the supplier's products_manufactured input.
+  bomComponents?: Array<{
+    bom_id: string;
+    material_number: string;
+    component_name: string;
+  }>;
 }
 
 // Type for storing dropdown data
@@ -120,7 +128,8 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
   onValuesChange,
   autoPopulatedFields = new Set(),
   formErrors = {},
-  isClientMode = false
+  isClientMode = false,
+  bomComponents = []
 }) => {
   const [charCounts, setCharCounts] = useState<Record<string, number>>({});
 
@@ -1336,18 +1345,19 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         );
                       }
 
-                      // Handle BOM Materials dropdown (derived from products_manufactured)
+                      // Handle BOM Materials dropdown — sourced from the
+                      // immutable client-uploaded BOM, NOT from
+                      // products_manufactured. This way deletes/re-adds in
+                      // the form never wipe the available options.
                       if (col.apiDropdown === 'bomMaterials') {
-                        // Get products_manufactured data from form
-                        const productsManufacturedRaw = form.getFieldValue(['product_details', 'products_manufactured']);
-                        // Filter out undefined/null items to prevent errors when accessing properties
-                        const productsManufactured = Array.isArray(productsManufacturedRaw) ? productsManufacturedRaw.filter(Boolean) : [];
-                        const bomMaterialOptions: DropdownItem[] = productsManufactured.map((item: any) => ({
-                          id: item.material_number || item.mpn || '',
-                          name: `${item.material_number || item.mpn || ''} - ${item.product_name || ''}`,
-                          bom_id: item.bom_id || '',
-                          product_name: item.product_name || '',
-                        })).filter((opt: DropdownItem) => opt.id);
+                        const bomMaterialOptions: DropdownItem[] = (bomComponents || [])
+                          .map((item) => ({
+                            id: item.material_number || '',
+                            name: `${item.material_number || ''} - ${item.component_name || ''}`,
+                            bom_id: item.bom_id || '',
+                            product_name: item.component_name || '',
+                          }))
+                          .filter((opt: DropdownItem) => opt.id);
 
                         return (
                           <>

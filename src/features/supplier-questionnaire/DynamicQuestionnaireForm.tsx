@@ -1815,7 +1815,8 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         rowKey="key"
                         size="small"
                         bordered
-                        className="mb-4 [&_.ant-table-content_table]:!table-fixed [&_.ant-table-content_table]:!w-auto"
+                        tableLayout="fixed"
+                        className="mb-4 [&_.ant-table]:!w-fit"
                         scroll={{ x: 'max-content' }}
                         rowClassName={(_, index) =>
                           index % 2 === 0 ? 'bg-white' : 'bg-gray-50'

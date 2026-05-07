@@ -1190,16 +1190,17 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                     width: (() => {
                       // BOM MPN dropdown shows "MPN - Component Name" — needs ~240px.
                       if (col.apiDropdown === 'bomMaterials') return 240;
-                      // Static-option selects with very short labels (e.g.
-                      // India/Europe/Global, Monthly/Annual, Yes/No) shouldn't
-                      // get a generous default width — pick a tight one based
-                      // on the longest option label.
+                      // Static-option selects: pick a width based on the
+                      // longest option label so short lists like
+                      // India/Europe/Global don't get a fat default 160 cell.
                       if (col.type === 'select' && Array.isArray(col.options) && col.options.length) {
                         const longest = col.options.reduce((max: number, opt: any) => {
                           const label = typeof opt === 'string' ? opt : (opt?.label ?? '');
                           return Math.max(max, String(label).length);
                         }, 0);
-                        if (longest <= 10) return 130;
+                        // ~9px per char + 50px for padding + arrow + caret.
+                        // Floor at 100, cap at 200.
+                        return Math.min(200, Math.max(100, longest * 9 + 50));
                       }
                       if (col.type === 'number') return 130;
                       if (col.type === 'select') return 160;
@@ -1726,7 +1727,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                           {col.type === 'select' ? (
                             <Select
                               placeholder={col.placeholder}
-                              style={{ minWidth: 120, width: '100%' }}
+                              style={{ width: '100%' }}
                               mode={col.mode}
                               showSearch={col.options && col.options.length > 5}
                               filterOption={(input, option) =>

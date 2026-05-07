@@ -617,22 +617,12 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
       style: { width: '100%' }
     };
 
-    const isAutoPopulated = autoPopulatedFields.has(field.name);
     const fieldErrors = formErrors[field.name] || [];
 
     let inputComponent;
     switch (field.type) {
       case 'text':
-        inputComponent = (
-          <Input 
-            {...commonProps}
-            suffix={isAutoPopulated && (
-              <Tooltip title="Auto-populated from BOM data">
-                <InfoCircleOutlined className="text-green-500" />
-              </Tooltip>
-            )}
-          />
-        );
+        inputComponent = <Input {...commonProps} />;
         break;
       case 'textarea':
         inputComponent = (
@@ -991,11 +981,6 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                 <QuestionCircleOutlined className="text-gray-400 text-xs" />
               </Tooltip>
             )}
-            {isAutoPopulated && (
-              <Tag color="green" icon={<InfoCircleOutlined />} className="text-xs">
-                Auto-filled
-              </Tag>
-            )}
           </div>
         }
         rules={[
@@ -1039,13 +1024,8 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
           }] : [])
         ].filter(Boolean)}
         className={`mb-2 transition-all duration-200 ${fieldErrors.length > 0 ? 'animate-pulse' : ''}`}
-        validateStatus={fieldErrors.length > 0 ? 'error' : isAutoPopulated ? 'success' : undefined}
+        validateStatus={fieldErrors.length > 0 ? 'error' : undefined}
         help={fieldErrors.length > 0 ? fieldErrors[0] : undefined}
-        extra={isAutoPopulated && (
-          <div className="text-xs text-green-600 mt-1">
-            This field was automatically populated from your BOM data. You can modify it if needed.
-          </div>
-        )}
       >
         {inputComponent}
       </Form.Item>
@@ -1053,25 +1033,16 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
   };
 
   const renderTableField = (field: QuestionnaireField) => {
-    const isAutoPopulated = autoPopulatedFields.has(field.name);
-    
     return (
-      <div 
-        key={field.name} 
-        className={`mb-3 border rounded-lg bg-gray-50 transition-all duration-200 ${
-          isAutoPopulated ? 'border-green-200 bg-green-50' : 'border-gray-200'
-        }`}
+      <div
+        key={field.name}
+        className="mb-3 border rounded-lg bg-gray-50 transition-all duration-200 border-gray-200"
       >
         <div className="p-4 border-b border-gray-200 bg-white rounded-t-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h4 className="text-sm font-medium text-gray-900">{field.label}</h4>
               {field.required && <span className="text-red-500">*</span>}
-              {isAutoPopulated && (
-                <Tag color="green" icon={<InfoCircleOutlined />} className="text-xs">
-                  Auto-filled
-                </Tag>
-              )}
             </div>
             {field.placeholder && (
               <Tooltip title={field.placeholder}>
@@ -1079,11 +1050,6 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
               </Tooltip>
             )}
           </div>
-          {/* {isAutoPopulated && (
-            <div className="text-xs text-green-600 mt-2">
-              This table was automatically populated from your BOM data. You can modify or add more entries.
-            </div>
-          )} */}
         </div>
         
         <div className="p-4">
@@ -1154,9 +1120,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
             {(fields, { add, remove }, { errors }) => {
               const fieldColumns = Array.isArray(field.columns) ? field.columns : [];
               const columns = [
-                ...(fieldColumns.map((col, colIndex) => {
-                  const isAutoPopulatedCol = isAutoPopulated && colIndex < 2; // First 2 columns typically auto-populated
-
+                ...(fieldColumns.map((col) => {
                   // Check if this column has a dependent dropdown
                   const hasDependentDropdown = col.apiDropdown && col.dependsOnField;
 
@@ -1767,10 +1731,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                               style={{ width: '100%' }}
                             />
                           ) : (
-                            <Input
-                              placeholder={col.placeholder}
-                              className={isAutoPopulatedCol ? 'bg-green-50' : ''}
-                            />
+                            <Input placeholder={col.placeholder} />
                           )}
                         </Form.Item>
                       );

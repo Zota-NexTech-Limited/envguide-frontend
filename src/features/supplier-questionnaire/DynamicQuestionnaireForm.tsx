@@ -1119,8 +1119,15 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
           >
             {(fields, { add, remove }, { errors }) => {
               const fieldColumns = Array.isArray(field.columns) ? field.columns : [];
+              // One column per table absorbs any leftover row width so the
+              // table fills the container with no awkward whitespace after
+              // Action. Prefer a text input (it grows naturally), otherwise
+              // fall back to the last data column.
+              const firstTextColIdx = fieldColumns.findIndex((c) => c.type === 'text');
+              const flexColIdx = firstTextColIdx >= 0 ? firstTextColIdx : fieldColumns.length - 1;
               const columns = [
-                ...(fieldColumns.map((col) => {
+                ...(fieldColumns.map((col, colIndex) => {
+                  const isFlexCol = colIndex === flexColIdx;
                   // Check if this column has a dependent dropdown
                   const hasDependentDropdown = col.apiDropdown && col.dependsOnField;
 
@@ -1151,25 +1158,31 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                     ),
                     dataIndex: col.name,
                     key: col.name,
-                    width: (() => {
-                      // BOM MPN dropdown shows "MPN - Component Name" — needs ~240px.
-                      if (col.apiDropdown === 'bomMaterials') return 240;
-                      // Static-option selects: pick a width based on the
-                      // longest option label so short lists like
-                      // India/Europe/Global don't get a fat default 160 cell.
-                      if (col.type === 'select' && Array.isArray(col.options) && col.options.length) {
-                        const longest = col.options.reduce((max: number, opt: any) => {
-                          const label = typeof opt === 'string' ? opt : (opt?.label ?? '');
-                          return Math.max(max, String(label).length);
-                        }, 0);
-                        // ~9px per char + 50px for padding + arrow + caret.
-                        // Floor at 100, cap at 200.
-                        return Math.min(200, Math.max(100, longest * 9 + 50));
-                      }
-                      if (col.type === 'number') return 130;
-                      if (col.type === 'select') return 160;
-                      return 150;
-                    })(),
+                    // The flex column has no declared width — with
+                    // tableLayout="fixed" CSS gives all leftover row width to
+                    // columns without an explicit width, so this column
+                    // absorbs the gap that used to sit after Action.
+                    ...(isFlexCol ? {} : {
+                      width: (() => {
+                        // BOM MPN dropdown shows "MPN - Component Name" — needs ~240px.
+                        if (col.apiDropdown === 'bomMaterials') return 240;
+                        // Static-option selects: pick a width based on the
+                        // longest option label so short lists like
+                        // India/Europe/Global don't get a fat default 160 cell.
+                        if (col.type === 'select' && Array.isArray(col.options) && col.options.length) {
+                          const longest = col.options.reduce((max: number, opt: any) => {
+                            const label = typeof opt === 'string' ? opt : (opt?.label ?? '');
+                            return Math.max(max, String(label).length);
+                          }, 0);
+                          // ~9px per char + 50px for padding + arrow + caret.
+                          // Floor at 100, cap at 200.
+                          return Math.min(200, Math.max(100, longest * 9 + 50));
+                        }
+                        if (col.type === 'number') return 130;
+                        if (col.type === 'select') return 160;
+                        return 150;
+                      })(),
+                    }),
                     render: (_: any, fieldRecord: any) => {
                       const fieldPath = field.name.split('.');
 
@@ -1778,7 +1791,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         size="small"
                         bordered
                         tableLayout="fixed"
-                        className="mb-4 [&_.ant-table]:!w-fit"
+                        className="mb-4"
                         scroll={{ x: 'max-content' }}
                         rowClassName={(_, index) =>
                           index % 2 === 0 ? 'bg-white' : 'bg-gray-50'

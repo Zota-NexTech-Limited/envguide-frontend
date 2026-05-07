@@ -1187,14 +1187,24 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                     ),
                     dataIndex: col.name,
                     key: col.name,
-                    width:
-                      col.apiDropdown === 'bomMaterials'
-                        ? 260
-                        : col.type === 'number'
-                          ? 130
-                          : col.type === 'select'
-                            ? 160
-                            : 150,
+                    width: (() => {
+                      // BOM MPN dropdown shows "MPN - Component Name" — needs ~240px.
+                      if (col.apiDropdown === 'bomMaterials') return 240;
+                      // Static-option selects with very short labels (e.g.
+                      // India/Europe/Global, Monthly/Annual, Yes/No) shouldn't
+                      // get a generous default width — pick a tight one based
+                      // on the longest option label.
+                      if (col.type === 'select' && Array.isArray(col.options) && col.options.length) {
+                        const longest = col.options.reduce((max: number, opt: any) => {
+                          const label = typeof opt === 'string' ? opt : (opt?.label ?? '');
+                          return Math.max(max, String(label).length);
+                        }, 0);
+                        if (longest <= 10) return 130;
+                      }
+                      if (col.type === 'number') return 130;
+                      if (col.type === 'select') return 160;
+                      return 150;
+                    })(),
                     render: (_: any, fieldRecord: any) => {
                       const fieldPath = field.name.split('.');
 
@@ -1805,9 +1815,9 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         rowKey="key"
                         size="small"
                         bordered
-                        className="mb-4"
+                        className="mb-4 [&_.ant-table-content_table]:!table-fixed [&_.ant-table-content_table]:!w-auto"
                         scroll={{ x: 'max-content' }}
-                        rowClassName={(_, index) => 
+                        rowClassName={(_, index) =>
                           index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                         }
                       />

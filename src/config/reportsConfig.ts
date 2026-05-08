@@ -42,7 +42,6 @@ export const reportsConfig: ReportConfig[] = [
 
             { header: "Weight (gms) /unit", key: "weight_gms" },
             { header: "Total Weight (gms)", key: "total_weight_gms" },
-            { header: "Component Category", key: "component_category", filterKey: "component_category" },
             { header: "Transport Mode", key: "transportation_details.mode_of_transport", filterKey: "mode_of_transport" },
             { header: "Economic Ratio", key: "economic_ratio" },
             { header: "Allocation Methodology", key: "production_emission_calculation.allocation_methodology" },

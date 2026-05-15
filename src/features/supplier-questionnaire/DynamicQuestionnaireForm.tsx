@@ -6,6 +6,8 @@ import { QUESTIONNAIRE_OPTIONS } from '../../config/questionnaireConfig';
 import { PlusOutlined, DeleteOutlined, UploadOutlined, QuestionCircleOutlined, CheckCircleOutlined, InfoCircleOutlined, LoadingOutlined, FileOutlined } from '@ant-design/icons';
 import type { QuestionnaireSection, QuestionnaireField, ApiDropdownType } from '../../config/questionnaireSchema';
 import questionnaireDropdownService, { type DropdownItem } from '../../lib/questionnaireDropdownService';
+import { listCategorizedEfRows, type EfGroup } from '../../lib/categorizedEmissionFactorService';
+import type { EmissionFactorRow } from '../../pages/settings/CategorizedEmissionFactorsTable';
 import supplierQuestionnaireService from '../../lib/supplierQuestionnaireService';
 import LocationAutocomplete from '../../components/LocationAutocomplete';
 import type { LocationValue } from '../../components/LocationAutocomplete';
@@ -143,6 +145,11 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
 
   // Counter to force re-render when distance is calculated (since distance lives in module-level _transportCoords)
   const [distanceTick, setDistanceTick] = useState(0);
+
+  // Categorized EF rows keyed by ef_group. Backs Layer 1..4 cascade dropdowns
+  // sourced from the ECOInvent EF pages.
+  const [efRowsByGroup, setEfRowsByGroup] = useState<Record<string, EmissionFactorRow[]>>({});
+  const [efLoadedGroups, setEfLoadedGroups] = useState<Set<string>>(new Set());
 
   // ---- Haversine + correction factor — pure frontend, synchronous, instant ----
   const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -320,6 +327,44 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
       }
     });
   }, [section, form, autoPopulateTables]);
+
+  // Load categorized EF rows for any ef_group referenced by columns in the
+  // current section (cached across section switches so we don't refetch on
+  // every step). Failures fall back to an empty list so the cascade still
+  // renders with the "no data" placeholder.
+  useEffect(() => {
+    if (!section) return;
+    const needed = new Set<EfGroup>();
+    const collect = (fields: QuestionnaireField[]) => {
+      fields.forEach((f) => {
+        if (f.efSource) needed.add(f.efSource as EfGroup);
+        if (f.columns) {
+          f.columns.forEach((c) => {
+            if (c.efSource) needed.add(c.efSource as EfGroup);
+          });
+        }
+      });
+    };
+    collect(section.fields);
+
+    needed.forEach((group) => {
+      if (efLoadedGroups.has(group)) return;
+      listCategorizedEfRows(group)
+        .then((rows) => {
+          setEfRowsByGroup((prev) => ({ ...prev, [group]: rows }));
+        })
+        .catch(() => {
+          setEfRowsByGroup((prev) => ({ ...prev, [group]: prev[group] ?? [] }));
+        })
+        .finally(() => {
+          setEfLoadedGroups((prev) => {
+            const next = new Set(prev);
+            next.add(group);
+            return next;
+          });
+        });
+    });
+  }, [section, efLoadedGroups]);
 
   // Fetch API dropdown data when section changes
   useEffect(() => {
@@ -1185,6 +1230,121 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                     }),
                     render: (_: any, fieldRecord: any) => {
                       const fieldPath = field.name.split('.');
+
+                      // Handle Emission Factors cascade dropdown (Layer 1..4 sourced from
+                      // the categorized EF API, keyed by col.efSource). Each layer is
+                      // filtered by the earlier layers selected on the same row;
+                      // changing an earlier layer clears all deeper ones.
+                      if (col.efSource && col.efLayer) {
+                        // distanceTick reference forces this render to re-evaluate
+                        // after onChange writes to form (Form.List doesn't always
+                        // re-render the dependent cells on its own).
+                        void distanceTick;
+                        const layerKeys: ("layer1" | "layer2" | "layer3" | "layer4")[] = [
+                          "layer1",
+                          "layer2",
+                          "layer3",
+                          "layer4",
+                        ];
+                        const myLayerKey = layerKeys[col.efLayer - 1];
+
+                        const allRows: EmissionFactorRow[] = efRowsByGroup[col.efSource] || [];
+                        const isLoading = !efLoadedGroups.has(col.efSource);
+
+                        const rowValues = form.getFieldValue([...fieldPath, fieldRecord.name]) || {};
+                        // Filter EF rows by all earlier layer selections in this row
+                        const filtered = allRows.filter((r) => {
+                          for (let i = 0; i < col.efLayer! - 1; i++) {
+                            const k = layerKeys[i];
+                            const selected = rowValues[k];
+                            if (selected && r[k] !== selected) return false;
+                          }
+                          return true;
+                        });
+
+                        // Unique non-empty Layer values from filtered set
+                        const seen = new Set<string>();
+                        const options: string[] = [];
+                        for (const r of filtered) {
+                          const v = r[myLayerKey];
+                          if (v && !seen.has(v)) {
+                            seen.add(v);
+                            options.push(v);
+                          }
+                        }
+                        options.sort((a, b) => a.localeCompare(b));
+
+                        // Parent is the previous layer (if any). Layer 1 has no parent.
+                        const parentLayerKey = col.efLayer > 1 ? layerKeys[col.efLayer - 2] : null;
+                        const parentValue = parentLayerKey ? rowValues[parentLayerKey] : "ready";
+                        const hasNoData = !isLoading && allRows.length === 0;
+                        const efSourceLabel = String(col.efSource).charAt(0).toUpperCase() + String(col.efSource).slice(1);
+
+                        let placeholder = col.placeholder || `Select Layer ${col.efLayer}`;
+                        if (isLoading) {
+                          placeholder = "Loading…";
+                        } else if (hasNoData) {
+                          placeholder = `No ${efSourceLabel} EF data — import on the EF page`;
+                        } else if (!parentValue) {
+                          placeholder = `Select Layer ${col.efLayer - 1} first`;
+                        }
+
+                        return (
+                          <Form.Item
+                            name={[fieldRecord.name, col.name]}
+                            rules={[
+                              {
+                                required: col.required,
+                                message: col.required
+                                  ? `Please fill in "${col.label}" for this row. This field is required.`
+                                  : undefined,
+                              },
+                            ].filter(Boolean)}
+                            className="mb-0"
+                          >
+                            <Select
+                              placeholder={placeholder}
+                              style={{ minWidth: 140, width: '100%' }}
+                              disabled={isLoading || hasNoData || !parentValue}
+                              loading={isLoading}
+                              allowClear
+                              showSearch={options.length > 5}
+                              filterOption={(input, option) =>
+                                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+                              }
+                              onChange={() => {
+                                // Cascade rule: changing a layer invalidates every
+                                // deeper layer in this row. We replace the WHOLE
+                                // Form.List array (not just the touched fields)
+                                // because Ant Design's setFieldValue / setFields
+                                // doesn't always propagate cleared values to nested
+                                // Form.Item children inside Form.List. Defer with
+                                // setTimeout(0) so the Select's own value commits
+                                // first, then we wipe deeper layers in the next tick.
+                                setTimeout(() => {
+                                  const idx = fieldRecord.name as number;
+                                  const items: any[] = form.getFieldValue(fieldPath) || [];
+                                  if (!items[idx]) return;
+                                  const updatedItem = { ...items[idx] };
+                                  for (let i = col.efLayer!; i < layerKeys.length; i++) {
+                                    updatedItem[layerKeys[i]] = undefined;
+                                  }
+                                  // ef_code becomes stale when any layer changes.
+                                  updatedItem.ef_code = undefined;
+                                  const newItems = [...items];
+                                  newItems[idx] = updatedItem;
+                                  form.setFieldValue(fieldPath, newItems);
+                                  setDistanceTick((t) => t + 1);
+                                }, 0);
+                              }}
+                            >
+                              {options.map((v) => (
+                                <Select.Option key={v} value={v}>{v}</Select.Option>
+                              ))}
+                            </Select>
+                          </Form.Item>
+                        );
+                      }
 
                       // Handle dependent dropdown (e.g., sub_fuel_type depends on fuel_type)
                       if (hasDependentDropdown) {

@@ -243,11 +243,9 @@ const ReportView: React.FC = () => {
                 const remainingPath = segments.slice(i).join('.');
                 const results = current.map(item => resolvePath(item, remainingPath));
 
-                // Flatten, filter out empty values, and get unique results
                 const flattened = results.flat().filter(r => r !== undefined && r !== null && r !== "");
-                const uniqueResults = [...new Set(flattened)];
 
-                return uniqueResults.length > 0 ? uniqueResults : "-";
+                return flattened.length > 0 ? flattened : "-";
             }
 
             current = current[segment];

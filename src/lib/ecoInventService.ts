@@ -690,3 +690,185 @@ export async function getFuelTypeSubTypeDropdown(): Promise<{ id: string; name: 
     return [];
   }
 }
+
+// ============================================================
+// NEW: 4-layer (Categorized) EF schema helpers
+// Used by CategorizedEmissionFactorsTable.tsx (new setup UI).
+// Maps frontend camelCase <-> backend snake_case.
+// Row shape: { id, scope, layer1-4, region, year, efValue, unit,
+// dataSource, category, dbId } where dbId is the row's <x>ef_id PK.
+// ============================================================
+
+export type LayeredEFEntity =
+  | "materials-emission-factor"
+  | "electricity-emission-factor"
+  | "fuel-emission-factor"
+  | "packaging-emission-factor"
+  | "vehicle-type-emission-factor"
+  | "waste-material-type-emission-factor";
+
+export interface LayeredEFRow {
+  id: string;           // ef_code from Excel (e.g. EF_001937) — the business identifier
+  dbId?: string;        // internal PK (mef_id / eef_id / etc.) — for update/delete
+  scope: string;
+  layer1: string;
+  layer2: string;
+  layer3: string;
+  layer4: string;
+  region: string;
+  year: number;
+  efValue: number;
+  unit: string;
+  dataSource: string;
+  category?: string;    // frontend-only, not sent to backend
+}
+
+// Routing helper for the 6 layered EF endpoints.
+function layeredEndpoint(
+  entity: LayeredEFEntity,
+  action: "list/search" | "add" | "update" | "delete" | "bulk/add" | "drop-down-list"
+): string {
+  // Note: backend route prefix matches existing one-per-EF-type pattern.
+  return `${API_BASE_URL}/api/ecoinvent-emission-factor-data-setup/${entity}/${action}`;
+}
+
+// API row -> frontend row (snake_case -> camelCase)
+function fromApi(entity: LayeredEFEntity, item: any): LayeredEFRow {
+  const config = entityConfigs[entity];
+  return {
+    id: item.ef_code || "",
+    dbId: item[config.idField] || item.id || "",
+    scope: item.scope || "",
+    layer1: item.layer1 || "",
+    layer2: item.layer2 || "",
+    layer3: item.layer3 || "",
+    layer4: item.layer4 || "",
+    region: item.region || "",
+    year: typeof item.year === "number" ? item.year : parseInt(item.year, 10) || new Date().getFullYear(),
+    efValue: typeof item.ef_value === "number" ? item.ef_value : parseFloat(item.ef_value) || 0,
+    unit: item.unit || "",
+    dataSource: item.data_source || "",
+  };
+}
+
+// Frontend row -> API payload (camelCase -> snake_case). Strips `category` and `dbId`.
+function toApi(row: LayeredEFRow): Record<string, unknown> {
+  return {
+    ef_code: row.id,
+    scope: row.scope || null,
+    layer1: row.layer1 || null,
+    layer2: row.layer2 || null,
+    layer3: row.layer3 || null,
+    layer4: row.layer4,
+    region: row.region,
+    year: row.year,
+    ef_value: row.efValue,
+    unit: row.unit || null,
+    data_source: row.dataSource || null,
+  };
+}
+
+export async function listLayeredEF(
+  entity: LayeredEFEntity,
+  params?: { searchValue?: string; region?: string; year?: string | number }
+): Promise<LayeredEFRow[]> {
+  const url = new URL(layeredEndpoint(entity, "list/search"));
+  if (params?.searchValue) url.searchParams.set("searchValue", params.searchValue);
+  if (params?.region) url.searchParams.set("region", params.region);
+  if (params?.year !== undefined) url.searchParams.set("year", String(params.year));
+  const res = await fetch(url.toString(), { method: "GET", headers: getAuthHeaders() });
+  const data = await res.json();
+  const list: any[] = Array.isArray(data?.data?.list)
+    ? data.data.list
+    : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data)
+        ? data
+        : [];
+  return list.map((it) => fromApi(entity, it));
+}
+
+export async function addLayeredEF(
+  entity: LayeredEFEntity,
+  row: LayeredEFRow
+): Promise<{ success: boolean; message?: string; row?: LayeredEFRow }> {
+  try {
+    const res = await fetch(layeredEndpoint(entity, "add"), {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(toApi(row)),
+    });
+    const data = await res.json();
+    const success = !!(data?.success ?? data?.status);
+    return {
+      success,
+      message: data?.message,
+      row: success && data?.data ? fromApi(entity, data.data) : undefined,
+    };
+  } catch {
+    return { success: false, message: "Network error while adding row" };
+  }
+}
+
+export async function updateLayeredEF(
+  entity: LayeredEFEntity,
+  row: LayeredEFRow
+): Promise<{ success: boolean; message?: string }> {
+  if (!row.dbId) return { success: false, message: "Missing internal id (dbId)" };
+  try {
+    const config = entityConfigs[entity];
+    const payload = [{ ...toApi(row), [config.idField]: row.dbId }];
+    const res = await fetch(layeredEndpoint(entity, "update"), {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    const success = !!(data?.success ?? data?.status);
+    return { success, message: data?.message };
+  } catch {
+    return { success: false, message: "Network error while updating row" };
+  }
+}
+
+export async function deleteLayeredEF(
+  entity: LayeredEFEntity,
+  dbId: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const config = entityConfigs[entity];
+    const res = await fetch(layeredEndpoint(entity, "delete"), {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ [config.idField]: dbId }),
+    });
+    const data = await res.json();
+    const success = !!(data?.success ?? data?.status);
+    return { success, message: data?.message };
+  } catch {
+    return { success: false, message: "Network error while deleting row" };
+  }
+}
+
+export async function bulkAddLayeredEF(
+  entity: LayeredEFEntity,
+  rows: LayeredEFRow[]
+): Promise<{ success: boolean; message?: string; addedCount?: number }> {
+  try {
+    const payload = rows.map(toApi);
+    const res = await fetch(layeredEndpoint(entity, "bulk/add"), {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    const success = !!(data?.success ?? data?.status);
+    return {
+      success,
+      message: data?.message,
+      addedCount: Array.isArray(data?.data) ? data.data.length : undefined,
+    };
+  } catch {
+    return { success: false, message: "Network error during bulk import" };
+  }
+}

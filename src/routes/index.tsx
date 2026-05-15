@@ -43,6 +43,64 @@ const DataSetup = lazy(() => import("../pages/settings/DataSetup"));
 const DataSetupTabs = lazy(() => import("../pages/settings/DataSetupTabs"));
 const MasterDataSetupTabs = lazy(() => import("../pages/settings/MasterDataSetupTabs"));
 const EcoInventSetupTabs = lazy(() => import("../pages/settings/EcoInventSetupTabs"));
+const CategorizedEmissionFactorsTable = lazy(
+  () => import("../pages/settings/CategorizedEmissionFactorsTable")
+);
+import type { CategorizedEmissionFactorsTableProps } from "../pages/settings/CategorizedEmissionFactorsTable";
+import type { LayeredEFEntity } from "../lib/ecoInventService";
+
+// The 6 EF setup pages that use the new 4-layer (Categorized) table.
+const CATEGORIZED_EF_PAGE_KEYS: Record<string, LayeredEFEntity> = {
+  "materials-ef": "materials-emission-factor",
+  "electricity-ef": "electricity-emission-factor",
+  "fuel-ef": "fuel-emission-factor",
+  "packaging-ef": "packaging-emission-factor",
+  "vehicle-ef": "vehicle-type-emission-factor",
+  "waste-ef": "waste-material-type-emission-factor",
+};
+
+// Per-page defaults for the Add/Edit modal (unit, scope, category).
+const CATEGORIZED_EF_OVERRIDES: Record<
+  string,
+  Partial<CategorizedEmissionFactorsTableProps>
+> = {
+  "materials-ef": {
+    regions: ["EU", "INDIA", "GLOBAL"],
+    defaultScope: "Scope 3",
+    defaultUnit: "KgCo2e/per kg",
+    defaultCategory: "Material",
+  },
+  "electricity-ef": {
+    regions: ["EU", "INDIA", "GLOBAL"],
+    defaultScope: "Scope 2",
+    defaultUnit: "KgCo2e/per kWh",
+    defaultCategory: "Electricity",
+  },
+  "fuel-ef": {
+    regions: ["EU", "INDIA", "GLOBAL"],
+    defaultScope: "Scope 1",
+    defaultUnit: "KgCo2e/per Liter",
+    defaultCategory: "Fuel",
+  },
+  "packaging-ef": {
+    regions: ["EU", "INDIA", "GLOBAL"],
+    defaultScope: "Scope 3",
+    defaultUnit: "KgCo2e/per kg",
+    defaultCategory: "Packaging",
+  },
+  "vehicle-ef": {
+    regions: ["EU", "INDIA", "GLOBAL"],
+    defaultScope: "Scope 1",
+    defaultUnit: "kg CO2e/km",
+    defaultCategory: "Transportation",
+  },
+  "waste-ef": {
+    regions: ["EU", "INDIA", "GLOBAL"],
+    defaultScope: "Scope 3",
+    defaultUnit: "KgCo2e/per kg",
+    defaultCategory: "Waste_Treatment_Disposal",
+  },
+};
 
 // Public pages
 const PublicManufacturerOnboarding = lazy(() => import("../pages/PublicManufacturerOnboarding"));
@@ -493,22 +551,42 @@ export const router = createBrowserRouter([
           </PermissionRoute>
         ),
       })),
-      // ECOInvent Emission Factor pages (uses /api/ecoinvent-emission-factor-data-setup)
-      ...ecoInventSetupGroups.map((group) => ({
-        path: `settings/ecoinvent-setup/${group.key}/:tab?`,
-        element: (
-          <PermissionRoute permissionKey="eco invent emission factors">
-            <S>
-              <EcoInventSetupTabs
-                title={group.title}
-                description={group.description}
-                tabs={group.tabs}
-                defaultTab={group.tabs[0]?.key || ""}
-              />
-            </S>
-          </PermissionRoute>
-        ),
-      })),
+      // ECOInvent Emission Factor pages — new 4-layer setup UI, wired to /api/ecoinvent-emission-factor-data-setup/<entity>
+      ...ecoInventSetupGroups
+        .filter((group) => group.key in CATEGORIZED_EF_PAGE_KEYS)
+        .map((group) => ({
+          path: `settings/ecoinvent-setup/${group.key}/:tab?`,
+          element: (
+            <PermissionRoute permissionKey="eco invent emission factors">
+              <S>
+                <CategorizedEmissionFactorsTable
+                  title={group.title}
+                  description={group.description}
+                  entity={CATEGORIZED_EF_PAGE_KEYS[group.key]}
+                  {...(CATEGORIZED_EF_OVERRIDES[group.key] ?? {})}
+                />
+              </S>
+            </PermissionRoute>
+          ),
+        })),
+      // Any remaining ECOInvent groups (none today) keep the legacy backend-driven tabs flow
+      ...ecoInventSetupGroups
+        .filter((group) => !(group.key in CATEGORIZED_EF_PAGE_KEYS))
+        .map((group) => ({
+          path: `settings/ecoinvent-setup/${group.key}/:tab?`,
+          element: (
+            <PermissionRoute permissionKey="eco invent emission factors">
+              <S>
+                <EcoInventSetupTabs
+                  title={group.title}
+                  description={group.description}
+                  tabs={group.tabs}
+                  defaultTab={group.tabs[0]?.key || ""}
+                />
+              </S>
+            </PermissionRoute>
+          ),
+        })),
       {
         path: "data-quality-rating",
         element: (

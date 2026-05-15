@@ -80,6 +80,14 @@ export interface QuestionnaireField {
   apiDropdown?: ApiDropdownType;
   // For cascading/dependent dropdowns - the field name this depends on
   dependsOnField?: string;
+  // For dropdowns sourced from a backend-backed Emission Factors page.
+  // efSource is the ef_group name (e.g. "electricity", "fuel", "packaging"),
+  // and efLayer is which Layer (1..4) of the EmissionFactorRow to expose.
+  // Options are filtered by all earlier layers selected on the same row, so
+  // L1 -> L2 -> L3 -> L4 acts as a cascade tied to the data imported on the
+  // matching ECOInvent EF page.
+  efSource?: "electricity" | "fuel" | "packaging" | "vehicle" | "waste" | "materials";
+  efLayer?: 1 | 2 | 3 | 4;
   // Auto-populate table rows from products_manufactured (Q15)
   autoPopulateFromProducts?: boolean;
   // For file uploads - allow multiple files
@@ -652,19 +660,36 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
         required: true,
         columns: [
           {
-            name: "energy_source",
-            label: "Energy Source Purchased/acquired",
+            name: "layer1",
+            label: "Layer 1",
             type: "select",
-            apiDropdown: "energySource",
-            placeholder: "Select source",
+            efSource: "electricity",
+            efLayer: 1,
+            placeholder: "Select Layer 1",
           },
           {
-            name: "energy_type",
-            label: "Energy_Type",
+            name: "layer2",
+            label: "Layer 2",
             type: "select",
-            apiDropdown: "energyTypeBySource",
-            dependsOnField: "energy_source",
-            placeholder: "Select type",
+            efSource: "electricity",
+            efLayer: 2,
+            placeholder: "Select Layer 2",
+          },
+          {
+            name: "layer3",
+            label: "Layer 3",
+            type: "select",
+            efSource: "electricity",
+            efLayer: 3,
+            placeholder: "Select Layer 3",
+          },
+          {
+            name: "layer4",
+            label: "Layer 4",
+            type: "select",
+            efSource: "electricity",
+            efLayer: 4,
+            placeholder: "Select Layer 4",
           },
           {
             name: "quantity",
@@ -1522,7 +1547,7 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
       {
         name: "scope_3.materials.raw_materials",
         label:
-          "52. Please select or write all the raw materials used in your component manufacturing? If you don't know the detailed compositions please select Enviguide support to connect",
+          "52. Please select or write all the raw materials used in your component manufacturing? If you don't know the detailed compositions please select Enviraan support to connect",
         type: "table",
         addButtonLabel: "Add Row",
         required: true,
@@ -1536,11 +1561,36 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             placeholder: "Select MPN",
           },
           {
-            name: "material",
-            label: "Material",
+            name: "layer1",
+            label: "Layer 1",
             type: "select",
-            apiDropdown: "materialType",
-            placeholder: "Material selected above will be default",
+            efSource: "materials",
+            efLayer: 1,
+            placeholder: "Select Layer 1",
+          },
+          {
+            name: "layer2",
+            label: "Layer 2",
+            type: "select",
+            efSource: "materials",
+            efLayer: 2,
+            placeholder: "Select Layer 2",
+          },
+          {
+            name: "layer3",
+            label: "Layer 3",
+            type: "select",
+            efSource: "materials",
+            efLayer: 3,
+            placeholder: "Select Layer 3",
+          },
+          {
+            name: "layer4",
+            label: "Layer 4",
+            type: "select",
+            efSource: "materials",
+            efLayer: 4,
+            placeholder: "Select Layer 4",
           },
           {
             name: "composition_percent",
@@ -1554,7 +1604,7 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
       {
         name: "scope_3.materials.raw_materials_contact_support",
         label:
-          "52.1 Would you like EnviGuide support to help identify material compositions?",
+          "52.1 Would you like Enviraan support to help identify material compositions?",
         type: "radio",
         options: ["Yes", "No"],
         required: false,
@@ -1708,18 +1758,36 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             placeholder: "Select MPN",
           },
           {
-            name: "packaging_type",
-            label: "Packing Type",
+            name: "layer1",
+            label: "Layer 1",
             type: "select",
-            apiDropdown: "packingType",
-            placeholder: "Select type",
+            efSource: "packaging",
+            efLayer: 1,
+            placeholder: "Select Layer 1",
           },
           {
-            name: "treatment_type",
-            label: "Treatment Type",
+            name: "layer2",
+            label: "Layer 2",
             type: "select",
-            apiDropdown: "packagingTreatmentType",
-            placeholder: "Select treatment",
+            efSource: "packaging",
+            efLayer: 2,
+            placeholder: "Select Layer 2",
+          },
+          {
+            name: "layer3",
+            label: "Layer 3",
+            type: "select",
+            efSource: "packaging",
+            efLayer: 3,
+            placeholder: "Select Layer 3",
+          },
+          {
+            name: "layer4",
+            label: "Layer 4",
+            type: "select",
+            efSource: "packaging",
+            efLayer: 4,
+            placeholder: "Select Layer 4",
           },
           // Merged from former Q61 — each packaging row is now self-contained
           // (type + treatment + weight + unit on one row) so the calculator
@@ -1881,11 +1949,36 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             required: true,
           },
           {
-            name: "waste_type",
-            label: "Waste Type",
+            name: "layer1",
+            label: "Layer 1",
             type: "select",
-            apiDropdown: "wasteType",
-            placeholder: "Select type",
+            efSource: "waste",
+            efLayer: 1,
+            placeholder: "Select Layer 1",
+          },
+          {
+            name: "layer2",
+            label: "Layer 2",
+            type: "select",
+            efSource: "waste",
+            efLayer: 2,
+            placeholder: "Select Layer 2",
+          },
+          {
+            name: "layer3",
+            label: "Layer 3",
+            type: "select",
+            efSource: "waste",
+            efLayer: 3,
+            placeholder: "Select Layer 3",
+          },
+          {
+            name: "layer4",
+            label: "Layer 4",
+            type: "select",
+            efSource: "waste",
+            efLayer: 4,
+            placeholder: "Select Layer 4",
           },
           {
             name: "weight",
@@ -1899,13 +1992,6 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             type: "select",
             apiDropdown: "solidFuelUnit",
             placeholder: "Select unit",
-          },
-          {
-            name: "treatment_type",
-            label: "Treatment type",
-            type: "select",
-            apiDropdown: "wasteTreatmentType",
-            placeholder: "Select treatment",
           },
         ],
       },
@@ -2061,11 +2147,36 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             required: true,
           },
           {
-            name: "mode",
-            label: "Mode of Transport",
+            name: "layer1",
+            label: "Layer 1",
             type: "select",
-            apiDropdown: "transportMode",
-            placeholder: "Select mode",
+            efSource: "vehicle",
+            efLayer: 1,
+            placeholder: "Select Layer 1",
+          },
+          {
+            name: "layer2",
+            label: "Layer 2",
+            type: "select",
+            efSource: "vehicle",
+            efLayer: 2,
+            placeholder: "Select Layer 2",
+          },
+          {
+            name: "layer3",
+            label: "Layer 3",
+            type: "select",
+            efSource: "vehicle",
+            efLayer: 3,
+            placeholder: "Select Layer 3",
+          },
+          {
+            name: "layer4",
+            label: "Layer 4",
+            type: "select",
+            efSource: "vehicle",
+            efLayer: 4,
+            placeholder: "Select Layer 4",
           },
           {
             name: "weight",
@@ -2095,9 +2206,9 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
         ],
       },
       {
-        name: "scope_3.logistics.enviguide_support",
+        name: "scope_3.logistics.enviraan_support",
         label:
-          "74.1 Would you like EnviGuide support to help calculate transport emissions?",
+          "74.1 Would you like Enviraan support to help calculate transport emissions?",
         type: "radio",
         options: ["Yes", "No"],
         required: false,

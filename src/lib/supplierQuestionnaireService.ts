@@ -1077,12 +1077,17 @@ class SupplierQuestionnaireService {
           },
           scope_two_indirect_emissions_questions: {
               scope_two_indirect_emissions_from_purchased_energy_questions: this.ensureArray(data.scope_2?.purchased_energy)
-                  .filter(item => item.energy_source && item.energy_type && (item.quantity !== undefined && item.quantity !== null && item.quantity !== ''))
+                  .filter(item => item.layer1 && (item.quantity !== undefined && item.quantity !== null && item.quantity !== ''))
                   .map(item => ({
-                      energy_source: item.energy_source,
-                      energy_type: item.energy_type,
+                      ...(item.energy_source && { energy_source: item.energy_source }),
+                      ...(item.energy_type && { energy_type: item.energy_type }),
                       quantity: item.quantity,
-                      unit: item.unit
+                      unit: item.unit,
+                      layer1: item.layer1,
+                      ...(item.layer2 && { layer2: item.layer2 }),
+                      ...(item.layer3 && { layer3: item.layer3 }),
+                      ...(item.layer4 && { layer4: item.layer4 }),
+                      ...(item.ef_code && { ef_code: item.ef_code })
                   })),
               do_you_acquired_standardized_re_certificates: this.convertToBoolean(data.scope_2?.standardized_re_certificates || false),
               scope_two_indirect_emissions_certificates_questions: this.ensureArray(data.scope_2?.certificates)
@@ -1269,10 +1274,10 @@ class SupplierQuestionnaireService {
           scope_three_other_indirect_emissions_questions: {
               raw_materials_used_in_component_manufacturing_questions: (() => {
                   const rawItems = this.ensureArray(data.scope_3?.materials?.raw_materials)
-                      .filter(item => item.material && item.composition_percent !== undefined && item.composition_percent !== null);
+                      .filter(item => item.layer1 && item.composition_percent !== undefined && item.composition_percent !== null && item.composition_percent !== '');
                   console.log("=== Q52 RAW MATERIALS DEBUG (before mapping) ===");
                   rawItems.forEach((item: any, idx: number) => {
-                      console.log(`  Row ${idx + 1}: bom_id=${item.bom_id}, mpn=${item.mpn || item.material_number}, material=${item.material}, %=${item.composition_percent}`);
+                      console.log(`  Row ${idx + 1}: bom_id=${item.bom_id}, mpn=${item.mpn || item.material_number}, layer1=${item.layer1}, layer4=${item.layer4}, %=${item.composition_percent}`);
                   });
                   console.log("=== END Q52 RAW MATERIALS DEBUG ===");
                   return rawItems
@@ -1284,8 +1289,14 @@ class SupplierQuestionnaireService {
                       .map(({ item, ref }) => ({
                           ...((ref?.bom_id ?? item.bom_id) && { bom_id: ref?.bom_id ?? item.bom_id }),
                           ...((ref?.material_number || item.material_number) && { material_number: (ref?.material_number || item.material_number) }),
-                          material_name: item.material,
-                          percentage: item.composition_percent
+                          ...(item.material && { material_name: item.material }),
+                          percentage: item.composition_percent,
+                          composition_percent: item.composition_percent,
+                          layer1: item.layer1,
+                          ...(item.layer2 && { layer2: item.layer2 }),
+                          ...(item.layer3 && { layer3: item.layer3 }),
+                          ...(item.layer4 && { layer4: item.layer4 }),
+                          ...(item.ef_code && { ef_code: item.ef_code })
                       }));
               })(),
               raw_materials_contact_enviguide_support: this.convertToBoolean(data.scope_3?.materials?.raw_materials_contact_support || false),
@@ -1316,19 +1327,28 @@ class SupplierQuestionnaireService {
               // Q60 packaging — component_name and packing_size columns removed
               // from the form (component_name resolved from bom on backend via
               // bom_id; packing_size never read by calculator).
-              type_of_pack_mat_used_for_delivering_questions: this.ensureArray(data.scope_3?.packaging?.materials_used)
-                  .filter(item => (item.material_number || item.mpn || item.bom_id) && item.packaging_type)
-                  .map(item => ({
+              type_of_pack_mat_used_for_delivering_questions: (() => {
+                  const pkgItems = this.ensureArray(data.scope_3?.packaging?.materials_used)
+                      .filter(item => (item.material_number || item.mpn || item.bom_id) && item.layer1);
+                  console.log("=== Q60 PACKAGING DEBUG (before mapping) ===");
+                  pkgItems.forEach((item: any, idx: number) => {
+                      console.log(`  Row ${idx + 1}: bom_id=${item.bom_id}, mpn=${item.mpn || item.material_number}, layer1=${item.layer1}, layer4=${item.layer4}, weight=${item.packagin_weight}`);
+                  });
+                  console.log("=== END Q60 PACKAGING DEBUG ===");
+                  return pkgItems.map(item => ({
                       ...(item.bom_id && { bom_id: item.bom_id }),
                       ...((item.material_number || item.mpn) && { material_number: item.material_number || item.mpn }),
-                      packagin_type: item.packaging_type,
+                      ...(item.packaging_type && { packagin_type: item.packaging_type }),
                       unit: item.unit,
-                      treatment_type: item.treatment_type,
-                      // Q9 (packaging weight) merged into Q8 — each packaging
-                      // row carries its own weight so calculator can compute
-                      // Σ(weight × EF) across N packaging types per BOM.
+                      ...(item.treatment_type && { treatment_type: item.treatment_type }),
                       packagin_weight: item.packagin_weight,
-                  })),
+                      layer1: item.layer1,
+                      ...(item.layer2 && { layer2: item.layer2 }),
+                      ...(item.layer3 && { layer3: item.layer3 }),
+                      ...(item.layer4 && { layer4: item.layer4 }),
+                      ...(item.ef_code && { ef_code: item.ef_code })
+                  }));
+              })(),
               weight_of_packaging_per_unit_product_questions: this.ensureArray(data.scope_3?.packaging?.weight_per_unit)
                   .filter(item => item.component_name && (item.weight !== undefined && item.weight !== null && item.weight !== ''))
                   .map(item => ({
@@ -1352,10 +1372,10 @@ class SupplierQuestionnaireService {
                   })),
               weight_of_pro_packaging_waste_questions: (() => {
                   const wasteItems = this.ensureArray(data.scope_3?.waste_disposal?.types_and_weight)
-                      .filter(item => item.waste_type && (item.weight !== undefined && item.weight !== null && item.weight !== ''));
+                      .filter(item => item.layer1 && (item.weight !== undefined && item.weight !== null && item.weight !== ''));
                   console.log("=== Q68 WASTE DEBUG (before mapping) ===");
                   wasteItems.forEach((item: any, idx: number) => {
-                      console.log(`  Row ${idx + 1}: bom_id=${item.bom_id}, mpn=${item.mpn || item.material_number}, waste_type=${item.waste_type}, weight=${item.weight}, treatment=${item.treatment_type}`);
+                      console.log(`  Row ${idx + 1}: bom_id=${item.bom_id}, mpn=${item.mpn || item.material_number}, layer1=${item.layer1}, layer4=${item.layer4}, weight=${item.weight}`);
                   });
                   console.log("=== END Q68 WASTE DEBUG ===");
                   return wasteItems
@@ -1368,10 +1388,16 @@ class SupplierQuestionnaireService {
                           ...((ref?.bom_id ?? item.bom_id) && { bom_id: ref?.bom_id ?? item.bom_id }),
                           ...((ref?.material_number || item.material_number) && { material_number: (ref?.material_number || item.material_number) }),
                           ...(item.component_name && { component_name: item.component_name }),
-                          waste_type: item.waste_type,
+                          ...(item.waste_type && { waste_type: item.waste_type }),
                           waste_weight: item.weight,
+                          weight: item.weight,
                           unit: item.unit,
-                          treatment_type: item.treatment_type
+                          ...(item.treatment_type && { treatment_type: item.treatment_type }),
+                          layer1: item.layer1,
+                          ...(item.layer2 && { layer2: item.layer2 }),
+                          ...(item.layer3 && { layer3: item.layer3 }),
+                          ...(item.layer4 && { layer4: item.layer4 }),
+                          ...(item.ef_code && { ef_code: item.ef_code })
                       }));
               })(),
               internal_or_external_waste_material_per_recycling: String(data.scope_3?.waste_disposal?.recycled_percent ?? ''),
@@ -1411,10 +1437,10 @@ class SupplierQuestionnaireService {
               mode_of_transport_used_for_transportation: this.convertToBoolean((data.scope_3?.logistics?.transport_modes?.length || 0) > 0),
               mode_of_transport_used_for_transportation_questions: (() => {
                   const transportItems = this.ensureArray(data.scope_3?.logistics?.transport_modes)
-                      .filter(item => item.mode && item.source && item.destination && (item.distance !== undefined && item.distance !== null && item.distance !== ''));
+                      .filter(item => item.layer1 && item.source && item.destination && (item.distance !== undefined && item.distance !== null && item.distance !== ''));
                   console.log("=== Q74 TRANSPORT DEBUG (before mapping) ===");
                   transportItems.forEach((item: any, idx: number) => {
-                      console.log(`  Row ${idx + 1}: bom_id=${item.bom_id}, mpn=${item.mpn || item.material_number}, mode=${item.mode}, source=${item.source}, dest=${item.destination}, distance=${item.distance}`);
+                      console.log(`  Row ${idx + 1}: bom_id=${item.bom_id}, mpn=${item.mpn || item.material_number}, layer1=${item.layer1}, layer4=${item.layer4}, source=${item.source}, dest=${item.destination}, distance=${item.distance}`);
                   });
                   console.log("=== END Q74 TRANSPORT DEBUG ===");
                   return transportItems
@@ -1429,7 +1455,7 @@ class SupplierQuestionnaireService {
                           ...(item.mpn && { mpn: item.mpn }),
                           // component_name column removed from Q74 form;
                           // backend resolves it from bom via bom_id when needed.
-                          mode_of_transport: item.mode,
+                          ...(item.mode && { mode_of_transport: item.mode }),
                           weight_transported: item.weight || '',
                           source_point: item.source,
                           ...(item.source_lat != null && { source_lat: item.source_lat }),
@@ -1437,7 +1463,12 @@ class SupplierQuestionnaireService {
                           drop_point: item.destination,
                           ...(item.destination_lat != null && { drop_lat: item.destination_lat }),
                           ...(item.destination_lng != null && { drop_lng: item.destination_lng }),
-                          distance: item.distance
+                          distance: item.distance,
+                          layer1: item.layer1,
+                          ...(item.layer2 && { layer2: item.layer2 }),
+                          ...(item.layer3 && { layer3: item.layer3 }),
+                          ...(item.layer4 && { layer4: item.layer4 }),
+                          ...(item.ef_code && { ef_code: item.ef_code })
                       }));
               })(),
               mode_of_transport_enviguide_support: this.convertToBoolean(data.scope_3?.logistics?.enviguide_support || false),

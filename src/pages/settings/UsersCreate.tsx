@@ -158,7 +158,7 @@ const UsersCreate: React.FC = () => {
                 Create New User
               </h1>
               <p className="text-gray-500">
-                Add a new user account to the EnviGuide system
+                Add a new user account to the Enviraan system
               </p>
             </div>
           </div>

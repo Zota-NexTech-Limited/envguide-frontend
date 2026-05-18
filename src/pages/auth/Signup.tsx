@@ -150,7 +150,7 @@ const Signup: React.FC = () => {
           <Logo className="mb-8" variant="dark" />
           <div className="text-center text-white max-w-md">
             <h1 className="text-3xl font-bold mb-4 leading-tight">
-              Join EnviGuide
+              Join Enviraan
               <span className="block text-green-400">Management Suite</span>
             </h1>
             <p className="text-slate-400 text-lg leading-relaxed">

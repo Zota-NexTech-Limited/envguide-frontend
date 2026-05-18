@@ -96,7 +96,7 @@ const ResetPassword: React.FC = () => {
           <Logo className="mb-8" variant="dark" />
           <div className="text-center text-white">
             <h1 className="text-2xl font-bold mb-4">
-              Welcome to EnviGuide Management Suite
+              Welcome to Enviraan Management Suite
             </h1>
             <p className="text-slate-300 text-lg">
               Manage your work, track progress, and collaborate with your team
@@ -165,7 +165,7 @@ const ResetPassword: React.FC = () => {
         <Logo className="mb-8" variant="dark" />
         <div className="text-center text-white">
           <h1 className="text-2xl font-bold mb-4">
-            Welcome to EnviGuide Management Suite
+            Welcome to Enviraan Management Suite
           </h1>
           <p className="text-slate-300 text-lg">
             Manage your work, track progress, and collaborate with your team
@@ -183,7 +183,7 @@ const ResetPassword: React.FC = () => {
             </h2>
             <p className="text-gray-600">
               {isSetupMode
-                ? "Welcome to EnviGuide! Choose a password to finish setting up your account."
+                ? "Welcome to Enviraan! Choose a password to finish setting up your account."
                 : "Enter your new password below"}
             </p>
           </div>

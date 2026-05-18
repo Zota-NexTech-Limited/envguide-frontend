@@ -147,7 +147,7 @@ const Welcome: React.FC = () => {
                 {getGreeting()}, {firstName}!
               </h1>
               <p className="text-slate-600 text-lg">
-                Welcome to EnviGuide - Your Environmental Management Suite
+                Welcome to Enviraan - Your Environmental Management Suite
               </p>
             </div>
           </div>

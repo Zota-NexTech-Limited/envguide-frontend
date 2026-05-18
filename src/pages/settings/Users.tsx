@@ -1483,7 +1483,7 @@ const UsersPage: React.FC = () => {
       label: (
         <span className="flex items-center gap-2">
           <Building2 className="h-4 w-4" />
-          EnviGuide Team
+          Enviraan Team
         </span>
       ),
       children: renderEnviGuideTab(),
@@ -1522,7 +1522,7 @@ const UsersPage: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Manage Users</h1>
-                <p className="text-gray-500">Manage EnviGuide team, clients, and suppliers</p>
+                <p className="text-gray-500">Manage Enviraan team, clients, and suppliers</p>
               </div>
             </div>
             <div className="flex items-center gap-3">

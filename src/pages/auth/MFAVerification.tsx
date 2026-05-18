@@ -200,7 +200,7 @@ const MFAVerification: React.FC = () => {
         <Logo className="mb-8" variant="dark" />
         <div className="text-center text-white">
           <h1 className="text-2xl font-bold mb-4">
-            Welcome to EnviGuide Management Suite
+            Welcome to Enviraan Management Suite
           </h1>
           <p className="text-slate-300 text-lg">
             Manage your work, track progress, and collaborate with your team

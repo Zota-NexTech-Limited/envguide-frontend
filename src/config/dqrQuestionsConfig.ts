@@ -269,7 +269,7 @@ export const DQR_QUESTIONS_CONFIG: Record<string, DQRQuestionConfig> = {
     key: 'q53',
     label: 'Treatment Support Information',
     category: DQR_CATEGORIES.SCOPE_3,
-    description: 'Support treatment information from EnviGuide',
+    description: 'Support treatment information from Enviraan',
     dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],
   },
   q54: {
@@ -316,7 +316,7 @@ export const DQR_QUESTIONS_CONFIG: Record<string, DQRQuestionConfig> = {
   },
   q64: {
     key: 'q64',
-    label: 'EnviGuide Support (Packaging)',
+    label: 'Enviraan Support (Packaging)',
     category: DQR_CATEGORIES.PACKAGING,
     description: 'Support information for packaging',
     dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],
@@ -337,7 +337,7 @@ export const DQR_QUESTIONS_CONFIG: Record<string, DQRQuestionConfig> = {
   },
   q69: {
     key: 'q69',
-    label: 'EnviGuide Support (Waste)',
+    label: 'Enviraan Support (Waste)',
     category: DQR_CATEGORIES.SCOPE_3,
     description: 'Support information for waste disposal',
     dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],
@@ -372,14 +372,14 @@ export const DQR_QUESTIONS_CONFIG: Record<string, DQRQuestionConfig> = {
   },
   q79: {
     key: 'q79',
-    label: 'EnviGuide Support (Transport)',
+    label: 'Enviraan Support (Transport)',
     category: DQR_CATEGORIES.TRANSPORT,
     description: 'Support information for transport',
     dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],
   },
   q80: {
     key: 'q80',
-    label: 'EnviGuide Support (End)',
+    label: 'Enviraan Support (End)',
     category: DQR_CATEGORIES.OTHER,
     description: 'Final support information',
     dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],

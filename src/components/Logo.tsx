@@ -27,7 +27,7 @@ const Logo: React.FC<LogoProps> = ({
     <div className={`flex items-center space-x-3 ${className}`}>
       <img
         src={variant === "dark" ? "/logo-dark.png" : "/logo.png"}
-        alt="EnviGuide Logo"
+        alt="Enviraan Logo"
         className={`${sizeClasses[size]} object-contain`}
       />
       <span
@@ -35,7 +35,7 @@ const Logo: React.FC<LogoProps> = ({
           variant === "dark" ? "text-white" : "text-gray-900"
         }`}
       >
-        EnviGuide
+        Enviraan
       </span>
     </div>
   );

@@ -325,28 +325,24 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           {!isMinimized && (
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg shadow-green-600/20">
-                <img
-                  src="/logo-dark.png"
-                  alt="EnviGuide Logo"
-                  className="w-7 h-7 object-contain"
-                />
-              </div>
+              <img
+                src="/logo-dark.png"
+                alt="Enviraan Logo"
+                className="w-10 h-10 object-contain"
+              />
               <div>
-                <h1 className="text-lg font-bold text-white tracking-tight">EnviGuide</h1>
+                <h1 className="text-lg font-bold text-white tracking-tight">Enviraan</h1>
                 <p className="text-slate-400 text-xs">Management Suite</p>
               </div>
             </div>
           )}
 
           {isMinimized && (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg shadow-green-600/20">
-              <img
-                src="/logo-dark.png"
-                alt="EnviGuide Logo"
-                className="w-7 h-7 object-contain"
-              />
-            </div>
+            <img
+              src="/logo-dark.png"
+              alt="Enviraan Logo"
+              className="w-10 h-10 object-contain"
+            />
           )}
 
           {/* Close button for mobile */}

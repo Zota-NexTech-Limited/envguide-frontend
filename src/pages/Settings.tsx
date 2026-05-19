@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { usePermissions } from "../contexts/PermissionContext";
+
+const SCROLL_STORAGE_KEY = "settings-scroll-position";
 import {
   Settings as SettingsIcon,
   Users,
@@ -255,6 +257,28 @@ const Settings: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, hasModuleAccess, permissionsLoading]);
 
+  // Restore scroll position after returning to /settings from a sub-page
+  useEffect(() => {
+    if (permissionsLoading) return;
+    const saved = sessionStorage.getItem(SCROLL_STORAGE_KEY);
+    if (saved === null) return;
+    sessionStorage.removeItem(SCROLL_STORAGE_KEY);
+    const scrollY = parseInt(saved, 10);
+    if (Number.isNaN(scrollY)) return;
+    requestAnimationFrame(() => {
+      const main = document.querySelector("main");
+      if (main) main.scrollTop = scrollY;
+      else window.scrollTo(0, scrollY);
+    });
+  }, [permissionsLoading]);
+
+  const handleCardNavigate = (path: string) => {
+    const main = document.querySelector("main");
+    const scrollTop = main ? main.scrollTop : window.scrollY;
+    sessionStorage.setItem(SCROLL_STORAGE_KEY, String(scrollTop));
+    navigate(path);
+  };
+
   // Color config - all green
   const colors = {
     gradient: "from-green-500 to-green-600",
@@ -343,7 +367,7 @@ const Settings: React.FC = () => {
                       <div
                         key={item.name}
                         className={`bg-white rounded-xl p-6 cursor-pointer transition-all duration-300 border-2 border-transparent relative overflow-hidden group hover:translate-y-[-4px] hover:shadow-xl hover:shadow-green-500/10 ${colors.border}`}
-                        onClick={() => navigate(item.path)}
+                        onClick={() => handleCardNavigate(item.path)}
                       >
                         {/* Top border gradient on hover */}
                         <div

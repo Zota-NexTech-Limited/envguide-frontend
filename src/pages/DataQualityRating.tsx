@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import LoadingSpinner from "../components/LoadingSpinner";
 import supplierQuestionnaireService from "../lib/supplierQuestionnaireService";
 import authService from "../lib/authService";
 import { usePermissions } from "../contexts/PermissionContext";
@@ -126,6 +127,64 @@ interface DQIState {
   C?: { classification?: string };
   PDS?: { type?: string };
 }
+
+type PillColor = "blue" | "green" | "orange" | "emerald";
+
+const PILL_COLORS: Record<PillColor, { active: string; hover: string }> = {
+  blue: {
+    active: "bg-blue-500 border-blue-500 text-white shadow-sm",
+    hover: "hover:border-blue-400 hover:text-blue-700",
+  },
+  green: {
+    active: "bg-green-500 border-green-500 text-white shadow-sm",
+    hover: "hover:border-green-400 hover:text-green-700",
+  },
+  orange: {
+    active: "bg-orange-500 border-orange-500 text-white shadow-sm",
+    hover: "hover:border-orange-400 hover:text-orange-700",
+  },
+  emerald: {
+    active: "bg-emerald-500 border-emerald-500 text-white shadow-sm",
+    hover: "hover:border-emerald-400 hover:text-emerald-700",
+  },
+};
+
+interface PillGroupProps {
+  options: readonly string[];
+  value: string;
+  onChange: (val: string) => void;
+  color: PillColor;
+}
+
+const PillGroup: React.FC<PillGroupProps> = ({
+  options,
+  value,
+  onChange,
+  color,
+}) => {
+  const c = PILL_COLORS[color];
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((opt) => {
+        const selected = value === opt;
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(opt)}
+            className={`px-3.5 py-1.5 text-sm font-medium rounded-lg border-2 transition-all ${
+              selected
+                ? c.active
+                : `bg-white border-gray-200 text-gray-700 ${c.hover}`
+            }`}
+          >
+            {opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 const DataQualityRating = () => {
   const [searchParams] = useSearchParams();
@@ -563,8 +622,8 @@ const DataQualityRating = () => {
     const rawDataEntries = formatRawDataPreview();
 
     return (
-      <div className="space-y-5">
-        <div className="bg-gradient-to-br from-green-600 via-green-500 to-emerald-600 text-white p-6 rounded-b-xl -mx-6 -mt-6 mb-6 shadow-lg sticky top-0 z-10">
+      <div>
+        <div className="bg-gradient-to-br from-green-600 via-green-500 to-emerald-600 text-white p-5 rounded-b-xl -mx-6 mb-4 shadow-lg sticky top-0 z-10">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <h3 className="text-xl font-bold mb-2">{mainTitle}</h3>
@@ -589,11 +648,11 @@ const DataQualityRating = () => {
 
           {/* Show raw data summary */}
           {rawDataEntries && rawDataEntries.length > 0 && (
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 text-sm">
-              <div className="text-xs opacity-90 mb-1">Data Details</div>
-              <div className="space-y-1 text-sm">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/20 text-sm">
+              <div className="text-[11px] uppercase tracking-wide opacity-80 mb-1">Data Details</div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-1 text-sm">
                 {rawDataEntries.map(([key, val]) => (
-                  <div key={key}>
+                  <div key={key} className="min-w-0 truncate">
                     <span className="opacity-75">{key.replace(/_/g, ' ')}:</span>{' '}
                     <span className="font-medium">{String(val)}</span>
                   </div>
@@ -603,68 +662,59 @@ const DataQualityRating = () => {
           )}
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Technological Representativeness (TeR) */}
         {dataPoint.dqiRequired.includes("TeR") && (
-          <div className="bg-gradient-to-br from-white to-blue-50 border-2 border-blue-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow mt-12">
-            <h4 className="text-lg font-semibold text-gray-900 mb-5 flex items-center">
-              <span className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg flex items-center justify-center mr-2 shadow-lg">
-                <Settings size={18} />
+          <div className="bg-gradient-to-br from-white to-blue-50 border-2 border-blue-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+            <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
+              <span className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg flex items-center justify-center mr-2 shadow">
+                <Settings size={16} />
               </span>
               <div>
-                <div className="font-bold">Technological Representativeness</div>
+                <div className="font-bold leading-tight">Technological Representativeness</div>
                 <div className="text-xs text-gray-500 font-normal">TeR</div>
               </div>
             </h4>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2.5">
-                  Level-1 Classification <span className="text-red-500">*</span>
-                </label>
-                <select
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Level 1 <span className="text-red-500">*</span>
+                </div>
+                <PillGroup
+                  options={["Applicable", "Derived", "Not Applicable"]}
                   value={dqiData[dataPoint.id]?.TeR?.level1 || ""}
-                  onChange={(e) =>
-                    handleDQIChange(dataPoint.id, dataPoint.questionKey, "TeR", "level1", e.target.value)
+                  onChange={(val) =>
+                    handleDQIChange(dataPoint.id, dataPoint.questionKey, "TeR", "level1", val)
                   }
-                  className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-700 font-medium"
-                >
-                  <option value="">Select classification</option>
-                  <option value="Applicable">Applicable</option>
-                  <option value="Derived">Derived</option>
-                  <option value="Not Applicable">Not Applicable</option>
-                </select>
+                  color="blue"
+                />
               </div>
 
               {dqiData[dataPoint.id]?.TeR?.level1 === "Applicable" && (
                 <div className="animate-in slide-in-from-top-3 duration-300">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2.5">
-                    Level-2 Classification <span className="text-red-500">*</span>
-                  </label>
-                  <select
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    Level 2 — Technology Type <span className="text-red-500">*</span>
+                  </div>
+                  <PillGroup
+                    options={DQR_CONFIG.TER_LEVEL2_OPTIONS}
                     value={dqiData[dataPoint.id]?.TeR?.level2 || ""}
-                    onChange={(e) =>
-                      handleDQIChange(dataPoint.id, dataPoint.questionKey, "TeR", "level2", e.target.value)
+                    onChange={(val) =>
+                      handleDQIChange(dataPoint.id, dataPoint.questionKey, "TeR", "level2", val)
                     }
-                    className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-700 font-medium"
-                  >
-                    <option value="">Select technology type</option>
-                    {DQR_CONFIG.TER_LEVEL2_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
+                    color="blue"
+                  />
 
                   {dqiData[dataPoint.id]?.TeR?.level2 && (
                     <div
-                      className={`mt-4 p-4 rounded-xl border-2 font-bold text-center shadow-sm ${getDQRColor(
+                      className={`mt-3 px-4 py-2 rounded-lg border-2 font-bold inline-flex items-center gap-3 shadow-sm ${getDQRColor(
                         getDQRValue("TeR", dqiData[dataPoint.id]?.TeR?.level2 || "")
                       )}`}
                     >
-                      <div className="text-sm text-gray-600 mb-1">DQR Rating</div>
-                      <div className="text-2xl">
+                      <span className="text-xs text-gray-600 font-medium">DQR Rating</span>
+                      <span className="text-lg">
                         {getDQRValue("TeR", dqiData[dataPoint.id]?.TeR?.level2 || "")}
-                      </div>
+                      </span>
                     </div>
                   )}
                 </div>
@@ -675,68 +725,56 @@ const DataQualityRating = () => {
 
         {/* Temporal Representativeness (TiR) */}
         {dataPoint.dqiRequired.includes("TiR") && (
-          <div className="bg-gradient-to-br from-white to-green-50 border-2 border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <h4 className="text-lg font-semibold text-gray-900 mb-5 flex items-center">
-              <span className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg flex items-center justify-center mr-2 shadow-lg">
-                <Clock size={18} />
+          <div className="bg-gradient-to-br from-white to-green-50 border-2 border-green-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+            <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
+              <span className="w-9 h-9 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg flex items-center justify-center mr-2 shadow">
+                <Clock size={16} />
               </span>
               <div>
-                <div className="font-bold">Temporal Representativeness</div>
+                <div className="font-bold leading-tight">Temporal Representativeness</div>
                 <div className="text-xs text-gray-500 font-normal">TiR</div>
               </div>
             </h4>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2.5">
-                  Level-1 Classification <span className="text-red-500">*</span>
-                </label>
-                <select
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Level 1 <span className="text-red-500">*</span>
+                </div>
+                <PillGroup
+                  options={DQR_CONFIG.TIR_LEVEL1_OPTIONS}
                   value={dqiData[dataPoint.id]?.TiR?.level1 || ""}
-                  onChange={(e) =>
-                    handleDQIChange(dataPoint.id, dataPoint.questionKey, "TiR", "level1", e.target.value)
+                  onChange={(val) =>
+                    handleDQIChange(dataPoint.id, dataPoint.questionKey, "TiR", "level1", val)
                   }
-                  className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-700 font-medium"
-                >
-                  <option value="">Select classification</option>
-                  {DQR_CONFIG.TIR_LEVEL1_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                  color="green"
+                />
               </div>
 
               {dqiData[dataPoint.id]?.TiR?.level1 === "Applicable" && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2.5">
-                    Level-2 Classification <span className="text-red-500">*</span>
-                  </label>
-                  <select
+                <div className="animate-in slide-in-from-top-3 duration-300">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    Level 2 — Data Period <span className="text-red-500">*</span>
+                  </div>
+                  <PillGroup
+                    options={DQR_CONFIG.TIR_LEVEL2_OPTIONS}
                     value={dqiData[dataPoint.id]?.TiR?.level2 || ""}
-                    onChange={(e) =>
-                      handleDQIChange(dataPoint.id, dataPoint.questionKey, "TiR", "level2", e.target.value)
+                    onChange={(val) =>
+                      handleDQIChange(dataPoint.id, dataPoint.questionKey, "TiR", "level2", val)
                     }
-                    className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-700 font-medium"
-                  >
-                    <option value="">Select data period</option>
-                    {DQR_CONFIG.TIR_LEVEL2_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
+                    color="green"
+                  />
 
                   {dqiData[dataPoint.id]?.TiR?.level2 && (
                     <div
-                      className={`mt-4 p-4 rounded-xl border-2 font-bold text-center shadow-sm ${getDQRColor(
+                      className={`mt-3 px-4 py-2 rounded-lg border-2 font-bold inline-flex items-center gap-3 shadow-sm ${getDQRColor(
                         getDQRValue("TiR", dqiData[dataPoint.id]?.TiR?.level2 || "")
                       )}`}
                     >
-                      <div className="text-sm text-gray-600 mb-1">DQR Rating</div>
-                      <div className="text-2xl">
+                      <span className="text-xs text-gray-600 font-medium">DQR Rating</span>
+                      <span className="text-lg">
                         {getDQRValue("TiR", dqiData[dataPoint.id]?.TiR?.level2 || "")}
-                      </div>
+                      </span>
                     </div>
                   )}
                 </div>
@@ -747,66 +785,56 @@ const DataQualityRating = () => {
 
         {/* Geographical Representativeness (GR) */}
         {dataPoint.dqiRequired.includes("GR") && (
-          <div className="bg-gradient-to-br from-white to-green-50 border-2 border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <h4 className="text-lg font-semibold text-gray-900 mb-5 flex items-center">
-              <span className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg flex items-center justify-center mr-2 shadow-lg">
-                <Globe size={18} />
+          <div className="bg-gradient-to-br from-white to-green-50 border-2 border-green-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+            <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
+              <span className="w-9 h-9 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg flex items-center justify-center mr-2 shadow">
+                <Globe size={16} />
               </span>
               <div>
-                <div className="font-bold">Geographical Representativeness</div>
+                <div className="font-bold leading-tight">Geographical Representativeness</div>
                 <div className="text-xs text-gray-500 font-normal">GR</div>
               </div>
             </h4>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2.5">
-                  Level-1 Classification <span className="text-red-500">*</span>
-                </label>
-                <select
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Level 1 <span className="text-red-500">*</span>
+                </div>
+                <PillGroup
+                  options={["Applicable", "Derived", "Not Applicable"]}
                   value={dqiData[dataPoint.id]?.GR?.level1 || ""}
-                  onChange={(e) =>
-                    handleDQIChange(dataPoint.id, dataPoint.questionKey, "GR", "level1", e.target.value)
+                  onChange={(val) =>
+                    handleDQIChange(dataPoint.id, dataPoint.questionKey, "GR", "level1", val)
                   }
-                  className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-700 font-medium"
-                >
-                  <option value="">Select classification</option>
-                  <option value="Applicable">Applicable</option>
-                  <option value="Derived">Derived</option>
-                  <option value="Not Applicable">Not Applicable</option>
-                </select>
+                  color="green"
+                />
               </div>
 
               {dqiData[dataPoint.id]?.GR?.level1 === "Applicable" && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2.5">
-                    Level-2 Classification <span className="text-red-500">*</span>
-                  </label>
-                  <select
+                <div className="animate-in slide-in-from-top-3 duration-300">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    Level 2 — Geographical Scope <span className="text-red-500">*</span>
+                  </div>
+                  <PillGroup
+                    options={DQR_CONFIG.GR_LEVEL2_OPTIONS}
                     value={dqiData[dataPoint.id]?.GR?.level2 || ""}
-                    onChange={(e) =>
-                      handleDQIChange(dataPoint.id, dataPoint.questionKey, "GR", "level2", e.target.value)
+                    onChange={(val) =>
+                      handleDQIChange(dataPoint.id, dataPoint.questionKey, "GR", "level2", val)
                     }
-                    className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-700 font-medium"
-                  >
-                    <option value="">Select geographical scope</option>
-                    {DQR_CONFIG.GR_LEVEL2_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
+                    color="green"
+                  />
 
                   {dqiData[dataPoint.id]?.GR?.level2 && (
                     <div
-                      className={`mt-4 p-4 rounded-xl border-2 font-bold text-center shadow-sm ${getDQRColor(
+                      className={`mt-3 px-4 py-2 rounded-lg border-2 font-bold inline-flex items-center gap-3 shadow-sm ${getDQRColor(
                         getDQRValue("GR", dqiData[dataPoint.id]?.GR?.level2 || "")
                       )}`}
                     >
-                      <div className="text-sm text-gray-600 mb-1">DQR Rating</div>
-                      <div className="text-2xl">
+                      <span className="text-xs text-gray-600 font-medium">DQR Rating</span>
+                      <span className="text-lg">
                         {getDQRValue("GR", dqiData[dataPoint.id]?.GR?.level2 || "")}
-                      </div>
+                      </span>
                     </div>
                   )}
                 </div>
@@ -817,102 +845,78 @@ const DataQualityRating = () => {
 
         {/* Primary Data Share (PDS) */}
         {dataPoint.dqiRequired.includes("PDS") && (
-          <div className="bg-gradient-to-br from-white to-orange-50 border-2 border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <h4 className="text-lg font-semibold text-gray-900 mb-5 flex items-center">
-              <span className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg flex items-center justify-center mr-2 shadow-lg">
-                <Database size={18} />
+          <div className="bg-gradient-to-br from-white to-orange-50 border-2 border-orange-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+            <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
+              <span className="w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg flex items-center justify-center mr-2 shadow">
+                <Database size={16} />
               </span>
               <div>
-                <div className="font-bold">Primary Data Share</div>
+                <div className="font-bold leading-tight">Primary Data Share</div>
                 <div className="text-xs text-gray-500 font-normal">PDS</div>
               </div>
             </h4>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                 Data Source Type <span className="text-red-500">*</span>
-              </label>
-              <select
+              </div>
+              <PillGroup
+                options={DQR_CONFIG.PDS_OPTIONS}
                 value={dqiData[dataPoint.id]?.PDS?.type || ""}
-                onChange={(e) =>
-                  handleDQIChange(dataPoint.id, dataPoint.questionKey, "PDS", "type", e.target.value)
+                onChange={(val) =>
+                  handleDQIChange(dataPoint.id, dataPoint.questionKey, "PDS", "type", val)
                 }
-                className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-700 font-medium"
-              >
-                <option value="">Select data source</option>
-                {DQR_CONFIG.PDS_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                    {option === "Primary" && " (Direct measurement/supplier data)"}
-                    {option === "Secondary" && " (Database/literature)"}
-                    {option === "Proxy" && " (Estimated/representative data)"}
-                  </option>
-                ))}
-              </select>
-
-              {dqiData[dataPoint.id]?.PDS?.type && (
-                <div
-                  className={`mt-4 p-4 rounded-xl border-2 font-semibold text-center shadow-sm ${
-                    dqiData[dataPoint.id]?.PDS?.type === "Primary"
-                      ? "bg-green-50 border-green-300 text-green-700"
-                      : dqiData[dataPoint.id]?.PDS?.type === "Secondary"
-                      ? "bg-green-50 border-green-300 text-green-700"
-                      : "bg-gray-50 border-gray-300 text-gray-700"
-                  }`}
-                >
-                  <div className="text-sm opacity-80 mb-1">Data Source</div>
-                  <div className="text-lg">{dqiData[dataPoint.id]?.PDS?.type}</div>
-                </div>
-              )}
+                color="orange"
+              />
+              <div className="mt-2 text-xs text-gray-500 leading-relaxed">
+                <span className="font-medium text-gray-600">Primary</span> — direct measurement / supplier data
+                {" · "}
+                <span className="font-medium text-gray-600">Secondary</span> — database / literature
+                {" · "}
+                <span className="font-medium text-gray-600">Proxy</span> — estimated / representative
+              </div>
             </div>
           </div>
         )}
 
         {/* Completeness (C) */}
         {dataPoint.dqiRequired.includes("C") && (
-          <div className="bg-gradient-to-br from-white to-emerald-50 border-2 border-emerald-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <h4 className="text-lg font-semibold text-gray-900 mb-5 flex items-center">
-              <span className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-lg flex items-center justify-center mr-2 shadow-lg">
-                <Target size={18} />
+          <div className="bg-gradient-to-br from-white to-emerald-50 border-2 border-emerald-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+            <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
+              <span className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-lg flex items-center justify-center mr-2 shadow">
+                <Target size={16} />
               </span>
               <div>
-                <div className="font-bold">Completeness</div>
+                <div className="font-bold leading-tight">Completeness</div>
                 <div className="text-xs text-gray-500 font-normal">C</div>
               </div>
             </h4>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                 Data Point Classification <span className="text-red-500">*</span>
-              </label>
-              <select
+              </div>
+              <PillGroup
+                options={DQR_CONFIG.C_OPTIONS}
                 value={dqiData[dataPoint.id]?.C?.classification || ""}
-                onChange={(e) =>
-                  handleDQIChange(dataPoint.id, dataPoint.questionKey, "C", "classification", e.target.value)
+                onChange={(val) =>
+                  handleDQIChange(dataPoint.id, dataPoint.questionKey, "C", "classification", val)
                 }
-                className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-gray-700 font-medium"
-              >
-                <option value="">Select classification</option>
-                {DQR_CONFIG.C_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                color="emerald"
+              />
 
               {dqiData[dataPoint.id]?.C?.classification === "Required" && (
-                <div className="mt-4 p-4 rounded-xl border-2 bg-green-50 border-green-300 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <Target size={20} className="text-green-600" />
-                    <span className="font-semibold text-green-800">
-                      This data point is Required for PCF calculation
-                    </span>
-                  </div>
+                <div className="mt-3 px-3 py-2 rounded-lg border-2 bg-green-50 border-green-300 shadow-sm inline-flex items-center gap-2">
+                  <Target size={16} className="text-green-600" />
+                  <span className="text-sm font-semibold text-green-800">
+                    Required for PCF calculation
+                  </span>
                 </div>
               )}
             </div>
           </div>
         )}
+        </div>
       </div>
     );
   };
@@ -920,11 +924,8 @@ const DataQualityRating = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader size={48} className="animate-spin text-green-500 mx-auto mb-4" />
-          <p className="text-gray-600">Loading DQR data...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="md" label="Loading DQR data..." />
       </div>
     );
   }
@@ -1115,25 +1116,21 @@ const DataQualityRating = () => {
           )}
         </div>
 
-        {/* Right Side Panel - DQI Assessment */}
-        <div
-          className={`fixed top-0 right-0 h-full w-full md:w-[35%] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-50 ${
-            selectedDataPoint ? "translate-x-0" : "translate-x-full"
-          }`}
-        >
-          <div className="h-full flex flex-col">
-            <div className="flex-1 overflow-y-auto p-6 pt-0">
-              <DQIAssessmentPanel dataPoint={selectedDataPoint} />
-            </div>
-          </div>
-        </div>
-
-        {/* Overlay */}
+        {/* Centered Modal - DQI Assessment */}
         {selectedDataPoint && (
           <div
-            className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
+            className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 sm:p-6"
             onClick={() => setSelectedDataPoint(null)}
-          />
+          >
+            <div
+              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex-1 overflow-y-auto px-6 pb-6">
+                <DQIAssessmentPanel dataPoint={selectedDataPoint} />
+              </div>
+            </div>
+          </div>
         )}
 
         {/* DQI Legend */}

@@ -158,6 +158,18 @@
 }
 
 /* ========================================
+   Enviraan Branded Loader
+   ======================================== */
+@keyframes enviraan-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.92); }
+  50%      { transform: translate(-50%, -50%) scale(1); }
+}
+
+.animate-enviraan-pulse {
+  animation: enviraan-pulse 1.4s ease-in-out infinite;
+}
+
+/* ========================================
    Smooth Transitions
    ======================================== */
 * {

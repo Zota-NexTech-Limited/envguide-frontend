@@ -19,6 +19,7 @@ import productService, {
   type LifeCycleStage,
   type ManufacturerUser,
 } from "../lib/productService";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { getCompositionMetalDropdown } from "../lib/masterDataSetupService";
 import { usePermissions } from "../contexts/PermissionContext";
 
@@ -108,7 +109,7 @@ const ProductCreate: React.FC = () => {
 
   return (
     <div className="p-6">
-      <Spin spinning={loading}>
+      <Spin spinning={loading} indicator={<LoadingSpinner size="md" />}>
         <div className="space-y-6">
           {/* Header Section */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">

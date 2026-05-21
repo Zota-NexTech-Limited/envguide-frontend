@@ -1,13 +1,29 @@
-import { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { useState, useEffect, useLayoutEffect } from "react";
+import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { Menu, X } from "lucide-react";
 import { cn } from "../lib/utils";
 
 const Layout: React.FC = () => {
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
+
+  // Reset main scroll on route change so each page starts at the top.
+  // Exception: when returning to /settings with a saved scroll position,
+  // let Settings restore it instead of clobbering with 0.
+  useLayoutEffect(() => {
+    const main = document.querySelector("main");
+    if (!main) return;
+    if (
+      location.pathname === "/settings" &&
+      sessionStorage.getItem("settings-scroll-position") !== null
+    ) {
+      return;
+    }
+    main.scrollTop = 0;
+  }, [location.pathname]);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);

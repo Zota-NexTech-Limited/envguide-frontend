@@ -66,6 +66,7 @@ import {
   BarChart3,
   Eye,
 } from "lucide-react";
+import LoadingSpinner from "../components/LoadingSpinner";
 import pcfService from "../lib/pcfService";
 import authService from "../lib/authService";
 import taskService, { type TaskItem } from "../lib/taskService";
@@ -487,7 +488,7 @@ const PCFRequestView: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <Spin size="large" />
+        <LoadingSpinner size="lg" label="Loading PCF request..." />
       </div>
     );
   }
@@ -902,7 +903,7 @@ const PCFRequestView: React.FC = () => {
             </Title>
           </div>
 
-          <Spin spinning={tasksLoading}>
+          <Spin spinning={tasksLoading} indicator={<LoadingSpinner size="md" />}>
             {tasks.length > 0 ? (
               <div className="space-y-4">
                 {tasks.map((task) => (
@@ -2739,10 +2740,7 @@ const PCFRequestView: React.FC = () => {
       >
         {questionnaireLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <Spin size="large" />
-            <Text className="mt-4 text-gray-500">
-              Loading questionnaire responses...
-            </Text>
+            <LoadingSpinner size="md" label="Loading questionnaire responses..." />
           </div>
         ) : questionnaireData ? (
           <Collapse

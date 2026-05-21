@@ -13,6 +13,7 @@ import {
   Divider,
 } from "antd";
 import { ArrowLeft, Truck, Save } from "lucide-react";
+import LoadingSpinner from "../../components/LoadingSpinner";
 import userManagementService from "../../lib/userManagementService";
 import { getDropdownList } from "../../lib/masterDataSetupService";
 import type { SupplierOnboarding } from "../../types/userManagement";
@@ -99,7 +100,7 @@ const SupplierOnboardingForm: React.FC = () => {
   if (initialLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Spin size="large" />
+        <LoadingSpinner size="lg" label="Loading supplier..." />
       </div>
     );
   }

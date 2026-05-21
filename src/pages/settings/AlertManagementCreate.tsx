@@ -29,6 +29,7 @@ import {
   Save,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
+import LoadingSpinner from "../../components/LoadingSpinner";
 import alertManagementService from "../../lib/alertManagementService";
 import { getApiBaseUrl } from "../../lib/apiBaseUrl";
 import type {
@@ -484,7 +485,7 @@ const AlertManagementCreate: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Spin size="large" />
+        <LoadingSpinner size="lg" label="Loading alert..." />
       </div>
     );
   }

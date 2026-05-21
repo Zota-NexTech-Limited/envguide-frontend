@@ -183,84 +183,106 @@ const DataQualityRatingList: React.FC = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mb-8">
-        <div className="flex justify-between items-center flex-wrap gap-6">
-          {/* Left Section - Title and Description */}
-          <div className="flex-1 min-w-[300px]">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20">
-                <Star className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Data Quality Ratings
-                </h1>
-                <p className="text-gray-500">
-                  Review and assess data quality from supplier submissions
-                </p>
-              </div>
+      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mb-8 relative overflow-hidden">
+        <div className="pointer-events-none absolute -top-16 -right-16 w-64 h-64 bg-gradient-to-br from-green-200/40 to-emerald-200/30 rounded-full blur-3xl" />
+        <div className="relative">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20 flex-shrink-0">
+              <Star className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+                Data Quality Ratings
+              </h1>
+              <p className="text-gray-500 text-sm">
+                Review and assess data quality from supplier submissions
+              </p>
             </div>
           </div>
 
-          {/* Right Section - Summary Cards */}
-          <div className="flex gap-3 flex-wrap">
-            {/* Total Assessments */}
-            <div className="bg-blue-50 rounded-xl p-4 min-w-[140px] border border-blue-100 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-100 w-10 h-10 rounded-xl flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <div className="text-xs text-blue-600 font-medium">Total</div>
-                  <div className="text-xl font-bold text-blue-700">{stats.total}</div>
-                </div>
-              </div>
-            </div>
+          {(() => {
+            const safeTotal = Math.max(stats.total, 1);
+            const completionPct = Math.round((stats.completed / safeTotal) * 100);
+            const TILES = [
+              { key: "pending", label: "Pending", value: stats.pending, Icon: Clock, bar: "bg-amber-500", iconBg: "bg-amber-50", iconText: "text-amber-600" },
+              { key: "completed", label: "Completed", value: stats.completed, Icon: CheckCircle, bar: "bg-green-500", iconBg: "bg-green-50", iconText: "text-green-600" },
+            ];
 
-            {/* Pending */}
-            <div className="bg-amber-50 rounded-xl p-4 min-w-[140px] border border-amber-100 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3">
-                <div className="bg-amber-100 w-10 h-10 rounded-xl flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-amber-600" />
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-5 shadow-lg shadow-slate-900/20">
+                  <div className="pointer-events-none absolute -top-8 -right-8 w-32 h-32 bg-green-500/20 rounded-full blur-2xl" />
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[10px] uppercase tracking-[0.18em] text-slate-400 font-semibold">Total Assessments</span>
+                      <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur flex items-center justify-center">
+                        <BarChart3 className="w-4 h-4 text-green-400" />
+                      </div>
+                    </div>
+                    <div className="text-5xl font-bold tracking-tight mb-4">{stats.total}</div>
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] mb-1.5">
+                        <span className="text-slate-400 font-medium">Completion Rate</span>
+                        <span className="text-green-400 font-bold">{completionPct}%</span>
+                      </div>
+                      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-green-400 to-emerald-300 rounded-full transition-all duration-500" style={{ width: `${completionPct}%` }} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-xs text-amber-600 font-medium">Pending</div>
-                  <div className="text-xl font-bold text-amber-700">{stats.pending}</div>
-                </div>
-              </div>
-            </div>
 
-            {/* Completed */}
-            <div className="bg-green-50 rounded-xl p-4 min-w-[140px] border border-green-100 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3">
-                <div className="bg-green-100 w-10 h-10 rounded-xl flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <div className="text-xs text-green-600 font-medium">Completed</div>
-                  <div className="text-xl font-bold text-green-700">{stats.completed}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {TILES.map((s) => {
+                    const pct = Math.round((s.value / safeTotal) * 100);
+                    return (
+                      <div key={s.key} className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-3.5 transition-all hover:shadow-md">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-7 h-7 rounded-lg ${s.iconBg} flex items-center justify-center flex-shrink-0`}>
+                              <s.Icon className={`w-3.5 h-3.5 ${s.iconText}`} />
+                            </div>
+                            <span className="text-xs font-medium text-gray-600 truncate">{s.label}</span>
+                          </div>
+                          <span className="text-[10px] font-semibold text-gray-400 tabular-nums">{pct}%</span>
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900 tabular-nums leading-none">{s.value}</div>
+                        <div className="mt-2.5 h-1 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full ${s.bar} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
       </div>
 
 
       {/* Filters and Search */}
       <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-100">
-        <div className="relative">
-          <Search
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-            size={20}
-          />
-          <input
-            type="text"
-            placeholder="Search by organization, supplier, or email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-          />
+        {/* Top row: heading */}
+        <div className="flex justify-between items-center mb-4 gap-4">
+          <h2 className="text-lg font-semibold text-gray-900">Assessments</h2>
+        </div>
+
+        {/* Filter row */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 min-w-0">
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              size={18}
+            />
+            <input
+              type="text"
+              placeholder="Search by organization, supplier, or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full h-11 pl-11 pr-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+            />
+          </div>
         </div>
       </div>
 

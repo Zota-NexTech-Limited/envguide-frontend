@@ -31,6 +31,7 @@ import {
   AlertTriangle,
   Layers,
 } from "lucide-react";
+import LoadingSpinner from "../components/LoadingSpinner";
 import componentMasterService, { type ComponentItem } from "../lib/componentMasterService";
 import { documentMasterService } from "../lib/documentMasterService";
 
@@ -768,7 +769,7 @@ const ComponentsMasterView: React.FC = () => {
   if (loading || !componentData) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <Spin size="large" />
+        <LoadingSpinner size="lg" label="Loading component..." />
       </div>
     );
   }

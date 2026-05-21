@@ -15,6 +15,7 @@ import {
   Truck,
   Leaf,
 } from "lucide-react";
+import LoadingSpinner from "../../components/LoadingSpinner";
 import { QUESTIONNAIRE_SCHEMA } from "../../config/questionnaireSchema";
 import type { QuestionnaireField } from "../../config/questionnaireSchema";
 import {
@@ -485,8 +486,7 @@ const QuestionnairePreviewModal: React.FC<QuestionnairePreviewModalProps> = ({
     >
       {loadingDropdowns ? (
         <div className="flex flex-col items-center justify-center py-16">
-          <Spin size="large" />
-          <p className="mt-4 text-gray-500">Loading preview...</p>
+          <LoadingSpinner size="lg" label="Loading preview..." />
         </div>
       ) : (
         <Collapse

@@ -29,6 +29,7 @@ import {
 import { Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useNavigate } from "react-router-dom";
+import LoadingSpinner from "../components/LoadingSpinner";
 import pcfService from "../lib/pcfService";
 import type { PCFBOMItem } from "../lib/pcfService";
 import dayjs from "dayjs";
@@ -62,7 +63,7 @@ const PCFRequest: React.FC = () => {
   const isSuperAdmin =
     user?.role?.toLowerCase() === "superadmin" ||
     user?.role?.toLowerCase() === "super admin" ||
-    user?.role?.toLowerCase() === "enviguide" ||
+    user?.role?.toLowerCase() === "enviraan" ||
     user?.role?.toLowerCase() === "admin";
   const [pageSize, setPageSize] = useState(10);
   const [pcfRequests, setPcfRequests] = useState<PCFRequestItem[]>([]);
@@ -453,198 +454,249 @@ const PCFRequest: React.FC = () => {
     <div className="p-6">
       <div className="space-y-6">
         {/* Header Section */}
-        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-          <div className="flex justify-between items-center flex-wrap gap-6">
-            {/* Left Section - Title and Description */}
-            <div className="flex-1 min-w-[300px]">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20">
-                  <ClipboardList className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    PCF Request Management
-                  </h1>
-                  <p className="text-gray-500">
-                    Streamlined carbon footprint tracking and approval workflow
-                  </p>
-                </div>
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm relative overflow-hidden">
+          {/* Decorative blur */}
+          <div className="pointer-events-none absolute -top-16 -right-16 w-64 h-64 bg-gradient-to-br from-green-200/40 to-emerald-200/30 rounded-full blur-3xl" />
+
+          <div className="relative">
+            {/* Title Row */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20 flex-shrink-0">
+                <ClipboardList className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+                  PCF Request Management
+                </h1>
+                <p className="text-gray-500 text-sm">
+                  Streamlined carbon footprint tracking and approval workflow
+                </p>
               </div>
             </div>
 
-            {/* Right Section - Summary Cards */}
-            <div className="flex gap-3 flex-wrap">
-              {/* Total Card */}
-              <div className="bg-purple-50 rounded-xl p-4 min-w-[120px] border border-purple-100 hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3">
-                  <div className="bg-purple-100 w-10 h-10 rounded-xl flex items-center justify-center">
-                    <ClipboardList className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-purple-600 font-medium">Total</div>
-                    <div className="text-xl font-bold text-purple-700">
-                      {statusCounts.total}
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* KPI Grid: Hero Total + 6 status cards */}
+            {(() => {
+              const total = Math.max(statusCounts.total, 1);
+              const resolutionPct = Math.round(
+                ((statusCounts.completed + statusCounts.approved) / total) * 100
+              );
+              const STATUS_TILES = [
+                {
+                  key: "inProgress",
+                  label: "In Progress",
+                  value: statusCounts.inProgress,
+                  Icon: Clock,
+                  dot: "bg-blue-500",
+                  bar: "bg-blue-500",
+                  iconBg: "bg-blue-50",
+                  iconText: "text-blue-600",
+                },
+                {
+                  key: "completed",
+                  label: "Completed",
+                  value: statusCounts.completed,
+                  Icon: CheckCircle,
+                  dot: "bg-teal-500",
+                  bar: "bg-teal-500",
+                  iconBg: "bg-teal-50",
+                  iconText: "text-teal-600",
+                },
+                {
+                  key: "approved",
+                  label: "Approved",
+                  value: statusCounts.approved,
+                  Icon: CheckCircle,
+                  dot: "bg-green-500",
+                  bar: "bg-green-500",
+                  iconBg: "bg-green-50",
+                  iconText: "text-green-600",
+                },
+                {
+                  key: "pending",
+                  label: "Open",
+                  value: statusCounts.pending,
+                  Icon: Clock,
+                  dot: "bg-orange-500",
+                  bar: "bg-orange-500",
+                  iconBg: "bg-orange-50",
+                  iconText: "text-orange-600",
+                },
+                {
+                  key: "draft",
+                  label: "Draft",
+                  value: statusCounts.draft,
+                  Icon: AlertCircle,
+                  dot: "bg-amber-500",
+                  bar: "bg-amber-500",
+                  iconBg: "bg-amber-50",
+                  iconText: "text-amber-600",
+                },
+                {
+                  key: "rejected",
+                  label: "Rejected",
+                  value: statusCounts.rejected,
+                  Icon: XCircle,
+                  dot: "bg-red-500",
+                  bar: "bg-red-500",
+                  iconBg: "bg-red-50",
+                  iconText: "text-red-600",
+                },
+              ];
 
-              {/* In Progress Card */}
-              <div className="bg-blue-50 rounded-xl p-4 min-w-[120px] border border-blue-100 hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-100 w-10 h-10 rounded-xl flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-blue-600 font-medium">In Progress</div>
-                    <div className="text-xl font-bold text-blue-700">
-                      {statusCounts.inProgress}
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
+                  {/* Hero Total Card */}
+                  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-5 shadow-lg shadow-slate-900/20">
+                    <div className="pointer-events-none absolute -top-8 -right-8 w-32 h-32 bg-green-500/20 rounded-full blur-2xl" />
+                    <div className="relative">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] uppercase tracking-[0.18em] text-slate-400 font-semibold">
+                          Total Requests
+                        </span>
+                        <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur flex items-center justify-center">
+                          <ClipboardList className="w-4 h-4 text-green-400" />
+                        </div>
+                      </div>
+                      <div className="text-5xl font-bold tracking-tight mb-4">
+                        {statusCounts.total}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] mb-1.5">
+                          <span className="text-slate-400 font-medium">
+                            Resolution Rate
+                          </span>
+                          <span className="text-green-400 font-bold">
+                            {resolutionPct}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-green-400 to-emerald-300 rounded-full transition-all duration-500"
+                            style={{ width: `${resolutionPct}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Completed Card */}
-              <div className="bg-teal-50 rounded-xl p-4 min-w-[120px] border border-teal-100 hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3">
-                  <div className="bg-teal-100 w-10 h-10 rounded-xl flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5 text-teal-600" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-teal-600 font-medium">Completed</div>
-                    <div className="text-xl font-bold text-teal-700">
-                      {statusCounts.completed}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Approved Card */}
-              <div className="bg-green-50 rounded-xl p-4 min-w-[120px] border border-green-100 hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3">
-                  <div className="bg-green-100 w-10 h-10 rounded-xl flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-green-600 font-medium">Approved</div>
-                    <div className="text-xl font-bold text-green-700">
-                      {statusCounts.approved}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Rejected Card */}
-              <div className="bg-red-50 rounded-xl p-4 min-w-[120px] border border-red-100 hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3">
-                  <div className="bg-red-100 w-10 h-10 rounded-xl flex items-center justify-center">
-                    <XCircle className="w-5 h-5 text-red-600" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-red-600 font-medium">Rejected</div>
-                    <div className="text-xl font-bold text-red-700">
-                      {statusCounts.rejected}
-                    </div>
+                  {/* Status Tiles Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {STATUS_TILES.map((s) => {
+                      const pct = Math.round((s.value / total) * 100);
+                      return (
+                        <div
+                          key={s.key}
+                          className="group bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-3.5 transition-all hover:shadow-md"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div
+                                className={`w-7 h-7 rounded-lg ${s.iconBg} flex items-center justify-center flex-shrink-0`}
+                              >
+                                <s.Icon className={`w-3.5 h-3.5 ${s.iconText}`} />
+                              </div>
+                              <span className="text-xs font-medium text-gray-600 truncate">
+                                {s.label}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-semibold text-gray-400 tabular-nums">
+                              {pct}%
+                            </span>
+                          </div>
+                          <div className="flex items-end justify-between gap-2">
+                            <div className="text-2xl font-bold text-gray-900 tabular-nums leading-none">
+                              {s.value}
+                            </div>
+                          </div>
+                          <div className="mt-2.5 h-1 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${s.bar} rounded-full transition-all duration-500`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
-
-              {/* Draft Card */}
-              <div className="bg-amber-50 rounded-xl p-4 min-w-[120px] border border-amber-100 hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3">
-                  <div className="bg-amber-100 w-10 h-10 rounded-xl flex items-center justify-center">
-                    <AlertCircle className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-amber-600 font-medium">Draft</div>
-                    <div className="text-xl font-bold text-amber-700">
-                      {statusCounts.draft}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Open Card */}
-              <div className="bg-orange-50 rounded-xl p-4 min-w-[120px] border border-orange-100 hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3">
-                  <div className="bg-orange-100 w-10 h-10 rounded-xl flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-orange-600 font-medium">Open</div>
-                    <div className="text-xl font-bold text-orange-700">
-                      {statusCounts.pending}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         </div>
 
         {/* Requests Section */}
         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-          <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+          {/* Top row: heading + primary action */}
+          <div className="flex justify-between items-center mb-4 gap-4">
             <h2 className="text-lg font-semibold text-gray-900">
               PCF Requests
             </h2>
-            <Space wrap>
-              <Input
-                placeholder="Search code, title, category..."
-                prefix={<Search size={16} className="text-gray-400" />}
+            {canCreate("PCF Request") && (
+              <Button
+                type="primary"
+                icon={<Plus size={16} />}
                 size="large"
-                className="w-[250px]"
-                value={searchTerm}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                onPressEnter={handleSearch}
-                allowClear
-              />
-              <DatePicker.RangePicker
-                size="large"
-                format="DD MMM YYYY"
-                placeholder={["Start Date", "End Date"]}
-                value={dateRange}
-                onChange={handleDateRangeChange}
-                className="w-[260px]"
-                allowClear
-              />
-              <Select
-                className="w-[150px]"
-                size="large"
-                value={statusFilter}
-                onChange={handleStatusFilterChange}
-                options={[
-                  { label: "All Status", value: "all" },
-                  { label: "In Progress", value: "In Progress" },
-                  { label: "Completed", value: "Completed" },
-                  { label: "Open", value: "Open" },
-                  { label: "Draft", value: "Draft" },
-                  { label: "Approved", value: "Approved" },
-                  { label: "Rejected", value: "Rejected" },
-                ]}
-              />
-              {canCreate("PCF Request") && (
-                <Button
-                  type="primary"
-                  icon={<Plus size={16} />}
-                  size="large"
-                  onClick={() => navigate("/pcf-request/new")}
-                  className="shadow-lg shadow-green-600/20"
-                >
-                  New Request
-                </Button>
-              )}
-            </Space>
+                onClick={() => navigate("/pcf-request/new")}
+                style={{ height: 44 }}
+                className="shadow-md shadow-green-600/20 flex-shrink-0"
+              >
+                New Request
+              </Button>
+            )}
           </div>
 
-          <Spin spinning={isLoading}>
+          {/* Filter row */}
+          <div className="flex items-center gap-3 mb-6">
+            <Input
+              placeholder="Search code, title, category..."
+              prefix={<Search size={16} className="text-gray-400" />}
+              size="large"
+              style={{ height: 44 }}
+              className="flex-1 min-w-0"
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onPressEnter={handleSearch}
+              allowClear
+            />
+            <DatePicker.RangePicker
+              size="large"
+              format="DD MMM YYYY"
+              placeholder={["Start Date", "End Date"]}
+              value={dateRange}
+              onChange={handleDateRangeChange}
+              style={{ width: 260, height: 44 }}
+              className="flex-shrink-0"
+              allowClear
+            />
+            <Select
+              placeholder="All Status"
+              style={{ width: 160, height: 44 }}
+              className="flex-shrink-0"
+              size="large"
+              value={statusFilter}
+              onChange={handleStatusFilterChange}
+              options={[
+                { label: "All Status", value: "all" },
+                { label: "In Progress", value: "In Progress" },
+                { label: "Completed", value: "Completed" },
+                { label: "Open", value: "Open" },
+                { label: "Draft", value: "Draft" },
+                { label: "Approved", value: "Approved" },
+                { label: "Rejected", value: "Rejected" },
+              ]}
+            />
+          </div>
+
+          <Spin
+            spinning={isLoading}
+            indicator={<LoadingSpinner size="md" />}
+          >
             <Table
               columns={columns}
               dataSource={pcfRequests}
               pagination={false}
               scroll={{ x: 1200 }}
               rowKey="id"
-              loading={isLoading}
               className="rounded-xl overflow-hidden"
             />
           </Spin>

@@ -63,6 +63,7 @@ import {
   Link2,
   Share2,
 } from "lucide-react";
+import LoadingSpinner from "../components/LoadingSpinner";
 import productService from "../lib/productService";
 import { usePermissions } from "../contexts/PermissionContext";
 import type {
@@ -721,7 +722,7 @@ const ProductView: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
-        <Spin size="large" />
+        <LoadingSpinner size="lg" label="Loading product..." />
       </div>
     );
   }
@@ -886,7 +887,7 @@ const ProductView: React.FC = () => {
                 <div className="p-4 max-h-[320px] overflow-y-auto custom-scrollbar">
                   {linkedPCFsLoading ? (
                     <div className="flex justify-center py-12">
-                      <Spin size="default" />
+                      <LoadingSpinner size="md" />
                     </div>
                   ) : linkedPCFs.length > 0 ? (
                     <div className="space-y-3">
@@ -1251,7 +1252,7 @@ const ProductView: React.FC = () => {
             {/* Components Table */}
             {bomLoading ? (
               <div className="flex justify-center py-16">
-                <Spin size="large" />
+                <LoadingSpinner size="lg" />
               </div>
             ) : (
               <>
@@ -1588,7 +1589,7 @@ const ProductView: React.FC = () => {
                           </div>
                         </div>
                       </Col>
-                      {/* Option 2: Contact Enviguide */}
+                      {/* Option 2: Contact Enviraan */}
                       <Col span={12}>
                         <div className="group relative overflow-hidden bg-gradient-to-br from-slate-50 to-gray-100 border-2 border-slate-200 rounded-2xl p-6 h-full hover:border-slate-300 hover:shadow-lg hover:shadow-slate-100 transition-all cursor-pointer">
                           <div className="absolute top-0 right-0 w-24 h-24 bg-slate-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
@@ -1600,7 +1601,7 @@ const ProductView: React.FC = () => {
                               strong
                               className="block mb-2 text-lg text-gray-800"
                             >
-                              Contact Enviguide Team
+                              Contact Enviraan Team
                             </Text>
                             <Text className="text-sm text-gray-600 block mb-5">
                               Get expert assistance with your emission
@@ -2602,7 +2603,7 @@ const ProductView: React.FC = () => {
             {dataEntryMethod === "contact" && (
               <Card
                 className="shadow-sm rounded-xl"
-                title="Contact Enviguide Team"
+                title="Contact Enviraan Team"
                 extra={
                   <Button
                     type="text"
@@ -3329,7 +3330,7 @@ const ProductView: React.FC = () => {
                           <div>
                             {pcfHistoryLoading ? (
                               <div className="flex justify-center py-12">
-                                <Spin size="default" />
+                                <LoadingSpinner size="md" />
                               </div>
                             ) : (
                               <div className="flex flex-col gap-3 max-h-[280px] overflow-y-auto custom-scrollbar">
@@ -3689,7 +3690,7 @@ const ProductView: React.FC = () => {
                 {/* Secondary Data Table */}
                 {secondaryDataLoading ? (
                   <div className="flex justify-center py-12">
-                    <Spin size="large" />
+                    <LoadingSpinner size="lg" />
                   </div>
                 ) : (
                   <>

@@ -22,9 +22,11 @@ import {
   Smartphone,
   Filter,
   X,
+  ArrowLeft,
 } from "lucide-react";
 import type { ColumnsType } from "antd/es/table";
 import { useNavigate } from "react-router-dom";
+import LoadingSpinner from "../../components/LoadingSpinner";
 import alertManagementService from "../../lib/alertManagementService";
 import type { AlertListItem } from "../../lib/alertManagementService";
 import { usePermissions } from "../../contexts/PermissionContext";
@@ -252,6 +254,13 @@ const AlertManagement: React.FC = () => {
             {/* Left Section - Title and Description */}
             <div className="flex-1 min-w-[300px]">
               <div className="flex items-center gap-4">
+                <button
+                  onClick={() => navigate("/settings")}
+                  className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                  aria-label="Back to Settings"
+                >
+                  <ArrowLeft size={20} className="text-gray-600" />
+                </button>
                 <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20">
                   <Bell className="w-6 h-6 text-white" />
                 </div>
@@ -369,7 +378,7 @@ const AlertManagement: React.FC = () => {
             </div>
           )}
 
-          <Spin spinning={loading}>
+          <Spin spinning={loading} indicator={<LoadingSpinner size="md" />}>
             <Table
               columns={columns}
               dataSource={alerts}

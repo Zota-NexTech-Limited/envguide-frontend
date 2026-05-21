@@ -143,7 +143,15 @@ const DetailedPCFTrend = lazy(() => import("../pages/DetailedPCFTrend"));
 
 // Suspense wrapper for lazy components
 const S = ({ children }: { children: React.ReactNode }) => (
-  <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
+  <Suspense
+    fallback={
+      <div className="min-h-[60vh] w-full flex items-center justify-center">
+        <LoadingSpinner size="md" />
+      </div>
+    }
+  >
+    {children}
+  </Suspense>
 );
 
 export const router = createBrowserRouter([

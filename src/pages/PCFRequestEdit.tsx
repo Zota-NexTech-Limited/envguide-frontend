@@ -6,6 +6,7 @@ import BasicInformationStep from "../features/pcf-create/BasicInformationStep";
 import ProductDetailsStep from "../features/pcf-create/ProductDetailsStep";
 import DocumentationStep from "../features/pcf-create/DocumentationStep";
 import ReviewSubmitStep from "../features/pcf-create/ReviewSubmitStep";
+import LoadingSpinner from "../components/LoadingSpinner";
 import pcfService from "../lib/pcfService";
 import authService from "../lib/authService";
 import dayjs from "dayjs";
@@ -379,7 +380,7 @@ const PCFRequestEdit: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <Spin size="large" tip="Loading PCF data..." />
+        <LoadingSpinner size="lg" label="Loading PCF data..." />
       </div>
     );
   }

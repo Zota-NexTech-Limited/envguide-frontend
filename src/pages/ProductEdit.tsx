@@ -13,6 +13,7 @@ import {
 import { ReloadOutlined } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { Package, ArrowLeft, Save, FileText } from "lucide-react";
+import LoadingSpinner from "../components/LoadingSpinner";
 import productService from "../lib/productService";
 import type {
   ProductCategory,
@@ -134,14 +135,14 @@ const ProductEdit: React.FC = () => {
   if (initialLoading) {
       return (
         <div className="flex justify-center items-center h-screen">
-          <Spin size="large" />
+          <LoadingSpinner size="lg" label="Loading product..." />
         </div>
       );
   }
 
   return (
     <div className="p-6">
-      <Spin spinning={loading}>
+      <Spin spinning={loading} indicator={<LoadingSpinner size="md" />}>
         <div className="space-y-6">
           {/* Header Section */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">

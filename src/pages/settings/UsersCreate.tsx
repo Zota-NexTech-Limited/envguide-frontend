@@ -55,7 +55,10 @@ const UsersCreate: React.FC = () => {
     password_never_expires: false,
   });
 
-  const externalRoleSelected = isExternalRole(form.user_role);
+  // All roles now use the email-setup flow — backend sends a 24h setup link
+  // to every new user, regardless of role. Password fields below are hidden.
+  const externalRoleSelected = true;
+  void isExternalRole;
 
   useEffect(() => {
     let cancelled = false;

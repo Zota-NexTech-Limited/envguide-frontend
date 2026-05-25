@@ -204,8 +204,8 @@ const DataQualityRatingList: React.FC = () => {
             const safeTotal = Math.max(stats.total, 1);
             const completionPct = Math.round((stats.completed / safeTotal) * 100);
             const TILES = [
-              { key: "pending", label: "Pending", value: stats.pending, Icon: Clock, bar: "bg-amber-500", iconBg: "bg-amber-50", iconText: "text-amber-600" },
-              { key: "completed", label: "Completed", value: stats.completed, Icon: CheckCircle, bar: "bg-green-500", iconBg: "bg-green-50", iconText: "text-green-600" },
+              { key: "pending", label: "Pending", value: stats.pending, Icon: Clock, bar: "bg-amber-500", iconBg: "bg-amber-50", iconText: "text-amber-600", description: "Awaiting reviewer assessment" },
+              { key: "completed", label: "Completed", value: stats.completed, Icon: CheckCircle, bar: "bg-green-500", iconBg: "bg-green-50", iconText: "text-green-600", description: "Assessments fully scored and signed off" },
             ];
 
             return (
@@ -236,7 +236,7 @@ const DataQualityRatingList: React.FC = () => {
                   {TILES.map((s) => {
                     const pct = Math.round((s.value / safeTotal) * 100);
                     return (
-                      <div key={s.key} className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-3.5 transition-all hover:shadow-md">
+                      <div key={s.key} className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-3.5 transition-all hover:shadow-md flex flex-col">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2 min-w-0">
                             <div className={`w-7 h-7 rounded-lg ${s.iconBg} flex items-center justify-center flex-shrink-0`}>
@@ -250,6 +250,7 @@ const DataQualityRatingList: React.FC = () => {
                         <div className="mt-2.5 h-1 bg-gray-100 rounded-full overflow-hidden">
                           <div className={`h-full ${s.bar} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
                         </div>
+                        <p className="mt-3 text-[11px] text-gray-500 leading-snug">{s.description}</p>
                       </div>
                     );
                   })}

@@ -138,15 +138,45 @@ const Reports: React.FC = () => {
       <div className="flex-1 overflow-auto p-8">
         <div className="mx-auto space-y-6">
           {/* Banner */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-6 flex items-center gap-6 shadow-sm">
-            <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-100">
-              <BarChart3 className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-              <p className="text-gray-500">
-                Standardised reports for emissions and data quality analysis
-              </p>
+          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm relative overflow-hidden">
+            {/* Decorative blurs */}
+            <div className="pointer-events-none absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-green-200/40 to-emerald-200/30 rounded-full blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-20 w-64 h-64 bg-gradient-to-br from-emerald-200/20 to-green-200/20 rounded-full blur-3xl" />
+
+            <div className="relative p-6 flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/30 flex-shrink-0">
+                  <BarChart3 className="w-6 h-6" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-2xl font-bold text-gray-900 leading-tight">Reports</h1>
+                  <p className="text-gray-500 text-sm">
+                    Standardised reports for emissions and data quality analysis
+                  </p>
+                </div>
+              </div>
+
+              {/* Stat chips */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-50 border border-green-100">
+                  <BarChart3 className="w-3.5 h-3.5 text-green-600" />
+                  <span className="text-xs font-semibold text-green-700 tabular-nums">
+                    {reportsData.length}
+                  </span>
+                  <span className="text-xs text-green-600/80">Reports</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-100">
+                  <Star className={`w-3.5 h-3.5 text-amber-500 ${Object.values(favorites).some(Boolean) ? "fill-amber-400" : ""}`} />
+                  <span className="text-xs font-semibold text-amber-700 tabular-nums">
+                    {Object.values(favorites).filter(Boolean).length}
+                  </span>
+                  <span className="text-xs text-amber-600/80">Favorites</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                  <span className="text-xs font-semibold text-slate-700">{activeTab}</span>
+                </div>
+              </div>
             </div>
           </div>
 

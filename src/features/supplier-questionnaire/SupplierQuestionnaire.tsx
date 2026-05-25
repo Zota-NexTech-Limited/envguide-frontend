@@ -31,6 +31,7 @@ import {
   EyeOutlined,
   DownloadOutlined,
 } from "@ant-design/icons";
+import LoadingSpinner from "../../components/LoadingSpinner";
 import supplierQuestionnaireService from "../../lib/supplierQuestionnaireService";
 import authService from "../../lib/authService";
 import productService from "../../lib/productService";
@@ -1254,7 +1255,10 @@ const SupplierQuestionnaire: React.FC = () => {
   if (isLoading || isCheckingOnboarding) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <Spin size="large" tip={isCheckingOnboarding ? "Checking supplier status..." : "Loading questionnaire..."} />
+        <LoadingSpinner
+          size="lg"
+          label={isCheckingOnboarding ? "Checking supplier status..." : "Loading questionnaire..."}
+        />
       </div>
     );
   }

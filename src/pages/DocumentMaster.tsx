@@ -400,9 +400,9 @@ const DocumentMaster: React.FC = () => {
               const safeTotal = Math.max(stats.total, 1);
               const approvedPct = Math.round((stats.approved / safeTotal) * 100);
               const TILES = [
-                { key: "approved", label: "Approved", value: stats.approved, Icon: CheckCircle, bar: "bg-green-500", iconBg: "bg-green-50", iconText: "text-green-600" },
-                { key: "inProgress", label: "In Progress", value: stats.inProgress, Icon: PlayCircle, bar: "bg-cyan-500", iconBg: "bg-cyan-50", iconText: "text-cyan-600" },
-                { key: "rejected", label: "Rejected", value: stats.rejected, Icon: XCircle, bar: "bg-red-500", iconBg: "bg-red-50", iconText: "text-red-600" },
+                { key: "approved", label: "Approved", value: stats.approved, Icon: CheckCircle, bar: "bg-green-500", iconBg: "bg-green-50", iconText: "text-green-600", description: "Documents accepted and filed", filterValue: "Approved", hoverText: "group-hover:text-green-600" },
+                { key: "inProgress", label: "In Progress", value: stats.inProgress, Icon: PlayCircle, bar: "bg-cyan-500", iconBg: "bg-cyan-50", iconText: "text-cyan-600", description: "Awaiting verification", filterValue: "In Progress", hoverText: "group-hover:text-cyan-600" },
+                { key: "rejected", label: "Rejected", value: stats.rejected, Icon: XCircle, bar: "bg-red-500", iconBg: "bg-red-50", iconText: "text-red-600", description: "Needs to be resubmitted", filterValue: "Rejected", hoverText: "group-hover:text-red-600" },
               ];
 
               return (
@@ -433,7 +433,12 @@ const DocumentMaster: React.FC = () => {
                     {TILES.map((s) => {
                       const pct = Math.round((s.value / safeTotal) * 100);
                       return (
-                        <div key={s.key} className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-3.5 transition-all hover:shadow-md">
+                        <button
+                          key={s.key}
+                          type="button"
+                          onClick={() => setStatusFilter(s.filterValue)}
+                          className="group text-left w-full bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-3.5 transition-all hover:shadow-md flex flex-col"
+                        >
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <div className={`w-7 h-7 rounded-lg ${s.iconBg} flex items-center justify-center flex-shrink-0`}>
@@ -447,7 +452,12 @@ const DocumentMaster: React.FC = () => {
                           <div className="mt-2.5 h-1 bg-gray-100 rounded-full overflow-hidden">
                             <div className={`h-full ${s.bar} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
                           </div>
-                        </div>
+                          <p className="mt-3 text-[11px] text-gray-500 leading-snug">{s.description}</p>
+                          <div className="mt-auto pt-3 flex items-center justify-between text-[11px] font-semibold text-gray-400 group-hover:text-gray-700 transition-colors">
+                            <span>View documents</span>
+                            <span className={`transition-all group-hover:translate-x-0.5 ${s.hoverText}`}>→</span>
+                          </div>
+                        </button>
                       );
                     })}
                   </div>

@@ -337,9 +337,9 @@ const TaskManagement: React.FC = () => {
               const safeTotal = Math.max(total, 1);
               const completionPct = Math.round((statusCounts.completed / safeTotal) * 100);
               const TILES = [
-                { key: "toDo", label: "To-Do", value: statusCounts.toDo, Icon: FileText, bar: "bg-slate-400", iconBg: "bg-slate-100", iconText: "text-slate-600" },
-                { key: "inProgress", label: "In Progress", value: statusCounts.inProgress, Icon: Clock, bar: "bg-blue-500", iconBg: "bg-blue-50", iconText: "text-blue-600" },
-                { key: "completed", label: "Completed", value: statusCounts.completed, Icon: CheckCircle, bar: "bg-green-500", iconBg: "bg-green-50", iconText: "text-green-600" },
+                { key: "toDo", label: "To-Do", value: statusCounts.toDo, Icon: FileText, bar: "bg-slate-400", iconBg: "bg-slate-100", iconText: "text-slate-600", description: "Tasks waiting to be started" },
+                { key: "inProgress", label: "In Progress", value: statusCounts.inProgress, Icon: Clock, bar: "bg-blue-500", iconBg: "bg-blue-50", iconText: "text-blue-600", description: "Tasks actively being worked on" },
+                { key: "completed", label: "Completed", value: statusCounts.completed, Icon: CheckCircle, bar: "bg-green-500", iconBg: "bg-green-50", iconText: "text-green-600", description: "Tasks finished and delivered" },
               ];
 
               return (
@@ -370,7 +370,7 @@ const TaskManagement: React.FC = () => {
                     {TILES.map((s) => {
                       const pct = Math.round((s.value / safeTotal) * 100);
                       return (
-                        <div key={s.key} className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-3.5 transition-all hover:shadow-md">
+                        <div key={s.key} className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-3.5 transition-all hover:shadow-md flex flex-col">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <div className={`w-7 h-7 rounded-lg ${s.iconBg} flex items-center justify-center flex-shrink-0`}>
@@ -384,6 +384,7 @@ const TaskManagement: React.FC = () => {
                           <div className="mt-2.5 h-1 bg-gray-100 rounded-full overflow-hidden">
                             <div className={`h-full ${s.bar} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
                           </div>
+                          <p className="mt-3 text-[11px] text-gray-500 leading-snug">{s.description}</p>
                         </div>
                       );
                     })}

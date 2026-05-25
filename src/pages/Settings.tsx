@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo, useEffect } from "react";
 import { usePermissions } from "../contexts/PermissionContext";
+import { useAuth } from "../contexts/AuthContext";
 
 const SCROLL_STORAGE_KEY = "settings-scroll-position";
 import {
@@ -49,6 +50,7 @@ import {
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const { hasModuleAccess, loading: permissionsLoading } = usePermissions();
 
@@ -299,36 +301,82 @@ const Settings: React.FC = () => {
     );
   }
 
+  // Compute hero stats from accessible groups
+  const categoryCount = filteredGroups.filter((g) => g.items.length > 0).length;
+  const settingsCount = filteredGroups.reduce(
+    (sum, g) => sum + g.items.length,
+    0,
+  );
+  const roleLabel = (user?.role || "Member").replace(/(^\w|\s\w)/g, (m) =>
+    m.toUpperCase(),
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-5">
-      <div className="mx-6 space-y-8">
-        {/* Header */}
-        <div className="bg-white rounded-2xl p-8 shadow-sm relative overflow-hidden border-t-4 border-green-500">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/30">
-              <SettingsIcon className="w-6 h-6 text-white" />
+      <div className="mx-6 space-y-6">
+        {/* Hero Header */}
+        <div className="bg-white rounded-2xl shadow-sm relative overflow-hidden border border-gray-100">
+          {/* Decorative blurs */}
+          <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 bg-gradient-to-br from-green-200/40 to-emerald-200/30 rounded-full blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 w-72 h-72 bg-gradient-to-br from-emerald-200/20 to-green-200/20 rounded-full blur-3xl" />
+
+          <div className="relative p-7">
+            {/* Title + Stats Row */}
+            <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/30 flex-shrink-0">
+                  <SettingsIcon className="w-6 h-6 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-2xl font-bold text-slate-900 leading-tight">
+                    Settings
+                  </h1>
+                  <p className="text-slate-500 text-sm">
+                    Configure your system and manage your application
+                  </p>
+                </div>
+              </div>
+
+              {/* Stat chips */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-50 border border-green-100">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  <span className="text-xs font-semibold text-green-700 tabular-nums">
+                    {categoryCount}
+                  </span>
+                  <span className="text-xs text-green-600/80">Categories</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-100">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  <span className="text-xs font-semibold text-blue-700 tabular-nums">
+                    {settingsCount}
+                  </span>
+                  <span className="text-xs text-blue-600/80">Settings</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                  <span className="text-xs font-semibold text-slate-700 truncate max-w-[120px]">
+                    {roleLabel}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-1">
-                Settings
-              </h1>
-              <p className="text-slate-600 text-[15px]">
-                Configure your system and manage your application
-              </p>
+
+            {/* Integrated Search */}
+            <div className="relative">
+              <Search
+                size={18}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+              <input
+                type="text"
+                className="w-full h-12 pl-12 pr-4 border border-gray-200 rounded-xl bg-white/80 backdrop-blur text-[14px] placeholder:text-slate-400 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/15 transition-all"
+                placeholder="Search settings..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           </div>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg" />
-          <input
-            type="text"
-            className="w-full pl-12 pr-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-[15px] focus:outline-none focus:border-green-500 focus:ring-3 focus:ring-green-500/15 transition-all"
-            placeholder="Search settings..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
         </div>
 
         {/* Settings Sections */}

@@ -37,15 +37,10 @@ import {
   Ruler,
   Scale,
   Thermometer,
-  Recycle,
-  Car,
-  Fuel,
-  Box,
 } from "lucide-react";
 import {
   dataSetupGroups,
   masterDataSetupGroups,
-  ecoInventSetupGroups,
 } from "../config/dataSetupGroups";
 
 const Settings: React.FC = () => {
@@ -66,16 +61,6 @@ const Settings: React.FC = () => {
     manufacturing: Factory,
     geography: Globe,
     organization: Building2,
-  };
-
-  // Icon mapping for ecoinvent groups
-  const ecoInventIconMap: Record<string, any> = {
-    "materials-ef": Layers,
-    "electricity-ef": Zap,
-    "fuel-ef": Fuel,
-    "packaging-ef": Box,
-    "vehicle-ef": Car,
-    "waste-ef": Recycle,
   };
 
   const settingsGroups = [
@@ -177,18 +162,22 @@ const Settings: React.FC = () => {
       })),
     },
     {
-      title: "ECOInvent Emission Factors",
-      description: "Configure emission factors from ECOInvent database",
+      title: "Emission Factors",
+      description: "Unified emission factor master (BAFU 2025)",
       icon: Leaf,
-      permissionKey: "eco invent emission factors",
-      items: ecoInventSetupGroups.map((group) => ({
-        name: group.title,
-        description: group.description,
-        path: `/settings/ecoinvent-setup/${group.key}/${group.tabs[0]?.key || ""}`,
-        icon: ecoInventIconMap[group.key] || Leaf,
-        badge: null,
-        cardType: "default" as const,
-      })),
+      permissionKey: "emission factors",
+      items: [
+        {
+          name: "Emission Factors",
+          description:
+            "Browse and manage the BAFU 2025 emission factor dataset used across PCF calculations.",
+          path: "/settings/emission-factors",
+          icon: Leaf,
+          badge: "NEW",
+          cardType: "default",
+          permissionKey: "emission factors",
+        },
+      ],
     },
     {
       title: "Alert Management",
@@ -440,7 +429,7 @@ const Settings: React.FC = () => {
                               }`}
                             />
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 pr-8">
                             <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
                               {item.name}
                               {item.badge && (

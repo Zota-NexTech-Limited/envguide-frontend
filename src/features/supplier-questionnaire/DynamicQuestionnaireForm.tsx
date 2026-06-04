@@ -6,8 +6,27 @@ import { QUESTIONNAIRE_OPTIONS } from '../../config/questionnaireConfig';
 import { PlusOutlined, DeleteOutlined, UploadOutlined, QuestionCircleOutlined, CheckCircleOutlined, InfoCircleOutlined, LoadingOutlined, FileOutlined } from '@ant-design/icons';
 import type { QuestionnaireSection, QuestionnaireField, ApiDropdownType } from '../../config/questionnaireSchema';
 import questionnaireDropdownService, { type DropdownItem } from '../../lib/questionnaireDropdownService';
-import { listCategorizedEfRows, type EfGroup } from '../../lib/categorizedEmissionFactorService';
-import type { EmissionFactorRow } from '../../pages/settings/CategorizedEmissionFactorsTable';
+// EF cascading dropdowns were wired to the 6 legacy ECOInvent EF tables (now
+// removed). The questionnaire is being rebuilt in Phase 2 against the new
+// BAFU 2025 emission_factors master + AI matching engine, so this file's EF
+// lookups are intentionally stubbed for now. The cascade dropdowns will appear
+// empty until the new EF source is wired in.
+type EfGroup = 'materials' | 'electricity' | 'fuel' | 'packaging' | 'vehicle' | 'waste';
+interface EmissionFactorRow {
+  id: string;
+  ef_code?: string;
+  layer1?: string;
+  layer2?: string;
+  layer3?: string;
+  layer4?: string;
+  region?: string;
+  ef_value?: number;
+  unit?: string;
+  scope?: string;
+}
+async function listCategorizedEfRows(_group: EfGroup): Promise<EmissionFactorRow[]> {
+  return [];
+}
 import supplierQuestionnaireService from '../../lib/supplierQuestionnaireService';
 import LocationAutocomplete from '../../components/LocationAutocomplete';
 import type { LocationValue } from '../../components/LocationAutocomplete';

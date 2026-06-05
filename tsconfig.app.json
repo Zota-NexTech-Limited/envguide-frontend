@@ -9,6 +9,9 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
+    /* Allow the merged Knowledge Base .jsx pages to be imported without type-checking them */
+    "allowJs": true,
+    "checkJs": false,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",

@@ -25,6 +25,7 @@ import {
   Search,
   Pencil,
   Download,
+  Send,
 } from "lucide-react";
 import { Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
@@ -82,6 +83,26 @@ const PCFRequest: React.FC = () => {
   // Tracks which PCF row is currently downloading so we can show a spinner
   // and disable other actions on that row.
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+
+  const handlePublishToQuintari = async (id: string, requestNumber: string) => {
+    if (publishingId) return;
+    setPublishingId(id);
+    try {
+      const result = await pcfService.publishToQuintari(id);
+      if (result.success) {
+        if (result.data?.alreadyPublished) {
+          message.info(`${requestNumber} was already published to Quintari`);
+        } else {
+          message.success(`${requestNumber} published to Quintari`);
+        }
+      } else {
+        message.error(result.message || "Failed to publish to Quintari");
+      }
+    } finally {
+      setPublishingId(null);
+    }
+  };
 
   const handleDownloadReport = async (id: string, requestNumber: string) => {
     if (downloadingId) return;
@@ -412,9 +433,11 @@ const PCFRequest: React.FC = () => {
     {
       title: "Actions",
       key: "actions",
-      width: 150,
+      width: isSuperAdmin ? 280 : 150,
       render: (_, record) => {
         const isDraft = record.status?.toLowerCase() === "draft";
+        const isCompleted = record.status?.toLowerCase() === "completed";
+        const isPublishing = publishingId === record.id;
         return (
           <Space>
             {isDraft ? (
@@ -443,6 +466,28 @@ const PCFRequest: React.FC = () => {
               >
                 View
               </Button>
+            )}
+            {isSuperAdmin && isCompleted && (
+              <Tooltip title="Publish PCF as a Catena-X Digital Twin + PCF v9 Submodel in Quintari">
+                <Button
+                  type="text"
+                  loading={isPublishing}
+                  disabled={!!publishingId && !isPublishing}
+                  onClick={() =>
+                    handlePublishToQuintari(record.id, record.requestNumber)
+                  }
+                  icon={
+                    !isPublishing ? (
+                      <Send
+                        size={16}
+                        className="flex items-center justify-center mt-[5px]"
+                      />
+                    ) : undefined
+                  }
+                >
+                  Publish to Quintari
+                </Button>
+              </Tooltip>
             )}
           </Space>
         );

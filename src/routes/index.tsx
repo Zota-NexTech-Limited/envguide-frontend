@@ -9,6 +9,7 @@ import {
   dataSetupGroups,
   masterDataSetupGroups,
 } from "../config/dataSetupGroups";
+import { knowledgeBaseRoute } from "../knowledge-base/routes";
 
 // Lazy-loaded page components for code splitting
 const DashboardRouter = lazy(() => import("../pages/DashboardRouter"));
@@ -139,6 +140,8 @@ export const router = createBrowserRouter([
     path: "/supplier-onboarding",
     element: <S><PublicSupplierOnboarding /></S>,
   },
+  // Knowledge Base (public — no auth required) — merged from the former standalone app.
+  knowledgeBaseRoute,
   {
     path: "/",
     element: (

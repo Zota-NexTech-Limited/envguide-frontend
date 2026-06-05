@@ -801,6 +801,48 @@ class PCFService {
       };
     }
   }
+
+  /**
+   * Publish a completed PCF to Quintari (creates Digital Twin + PCF v9 Submodel).
+   * Super-admin only — backend enforces the role check.
+   */
+  async publishToQuintari(
+    bomPcfRequestId: string,
+    opts: { force?: boolean } = {},
+  ): Promise<{ success: boolean; message: string; data?: any }> {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(
+        `${API_BASE_URL}/api/quintari/publish/${encodeURIComponent(bomPcfRequestId)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ force: !!opts.force }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.status === false) {
+        return {
+          success: false,
+          message: body?.message || `Publish failed (status ${response.status})`,
+        };
+      }
+      return {
+        success: true,
+        message: body?.message || "Published",
+        data: body?.data,
+      };
+    } catch (error) {
+      console.error("Error publishing to Quintari:", error);
+      return {
+        success: false,
+        message: "Network error while publishing to Quintari",
+      };
+    }
+  }
 }
 
 export const pcfService = new PCFService();

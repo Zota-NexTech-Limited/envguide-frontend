@@ -1,0 +1,1760 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* KB-scoped reset lives in kb.css (zero specificity, no app leak). */
+
+/* ── Image Styles ── */
+.imageContainer {
+    margin: 24px 0;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    text-align: center;
+}
+
+.articleImage {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.imageCaption {
+    margin-top: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    font-family: 'Inter', sans-serif;
+    color: #111827;
+}
+
+/* ── Minimal Top Bar ── */
+.topBar {
+    display: flex;
+    align-items: center;
+    padding: 0 32px;
+    height: 48px;
+    border-bottom: 1px solid #f3f4f6;
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.backBtn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: none;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.backBtn:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+/* ── Page Layout ── */
+.layout {
+    display: flex;
+    flex: 1;
+    max-width: 1140px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 0 32px;
+    gap: 56px;
+    align-items: flex-start;
+    padding-top: 48px;
+    padding-bottom: 64px;
+}
+
+/* ── TOC Sidebar ── */
+.toc {
+    width: 210px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 82px;
+}
+
+.tocLabel {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #9ca3af;
+    margin-bottom: 12px;
+}
+
+.tocNav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 32px;
+}
+
+.tocLink {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 7px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    line-height: 1.4;
+}
+
+.tocLink:hover {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.04);
+}
+
+.tocLinkActive {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.08);
+    font-weight: 700;
+}
+
+/* Help Card in TOC */
+.helpCard {
+    background: #f9fafb;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 18px 16px;
+}
+
+.helpIconWrap {
+    width: 36px;
+    height: 36px;
+    background: rgba(34, 197, 94, 0.10);
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.helpTitle {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 5px;
+}
+
+.helpDesc {
+    font-size: 12px;
+    color: #9ca3af;
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.helpBtn {
+    background: #22c55e;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.18s;
+}
+
+.helpBtn:hover {
+    background: #16a34a;
+}
+
+/* ── Article ── */
+.article {
+    flex: 1;
+    min-width: 0;
+    max-width: 740px;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 28px;
+}
+
+.breadLink {
+    background: none;
+    border: none;
+    font-size: 13px;
+    color: #22c55e;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+    padding: 0;
+    transition: color 0.15s;
+}
+
+.breadLink:hover {
+    color: #16a34a;
+}
+
+.breadCurrent {
+    font-size: 13px;
+    color: #9ca3af;
+}
+
+/* Article Header */
+.articleHeader {
+    margin-bottom: 28px;
+}
+
+.articleTag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+    padding: 3px 12px;
+    border-radius: 20px;
+    display: inline-block;
+    margin-bottom: 14px;
+}
+
+.articleTitle {
+    font-size: 36px;
+    font-weight: 900;
+    color: #111827;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+    margin-bottom: 14px;
+}
+
+.articleSubtitle {
+    font-size: 16px;
+    color: #6b7280;
+    line-height: 1.7;
+    max-width: 640px;
+}
+
+.articleMeta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.metaItem {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    color: #9ca3af;
+}
+
+.metaDot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #d1d5db;
+}
+
+.divider {
+    border: none;
+    border-top: 1px solid #f3f4f6;
+    margin-bottom: 40px;
+}
+
+/* ── Sections ── */
+.section {
+    margin-bottom: 56px;
+}
+
+.sectionTitle {
+    font-size: 22px;
+    font-weight: 800;
+    color: #111827;
+    letter-spacing: -0.015em;
+    margin-bottom: 16px;
+}
+
+.body {
+    font-size: 15px;
+    color: #374151;
+    line-height: 1.8;
+    margin-bottom: 16px;
+}
+
+.bullets {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bullets li {
+    font-size: 15px;
+    color: #374151;
+    line-height: 1.7;
+    padding-left: 22px;
+    position: relative;
+}
+
+.bullets li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+}
+
+/* ── Callouts ── */
+.calloutGreen,
+.calloutBlue {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 24px 0;
+}
+
+.calloutGreen {
+    background: rgba(34, 197, 94, 0.07);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.calloutBlue {
+    background: rgba(59, 130, 246, 0.07);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.calloutIcon {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.calloutTitle {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 6px;
+}
+
+.calloutText {
+    font-size: 13.5px;
+    color: #4b5563;
+    line-height: 1.7;
+}
+
+/* ── Roles Grid ── */
+.rolesGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.roleCard {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: #ffffff;
+    border: 1px solid #f1f5f9;
+    border-radius: 16px;
+    padding: 20px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.roleCard:hover {
+    border-color: #22c55e;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04);
+}
+
+.roleEmoji {
+    font-size: 24px;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    background: #f8fafc;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.roleCard:hover .roleEmoji {
+    background: #f0fdf4;
+}
+
+.roleName {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 6px;
+}
+
+.roleDesc {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.6;
+}
+
+/* ── Modules Grid ── */
+.modulesGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.moduleCard {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    border: 1px solid #f1f5f9;
+    border-radius: 16px;
+    padding: 20px;
+    background: #fff;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.moduleCard:hover {
+    border-color: #e2e8f0;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.04);
+}
+
+.moduleIcon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.moduleCard:hover .moduleIcon {
+    transform: scale(1.05);
+}
+
+.moduleName {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+}
+
+.moduleDesc {
+    font-size: 13.5px;
+    color: #64748b;
+    line-height: 1.6;
+}
+
+/* ── Why Enviguide ── */
+.whyList {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 24px;
+    background: #fff;
+    border: 1px solid #f1f5f9;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.whyItem {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 24px 28px;
+    border-bottom: 1px solid #f8fafc;
+    transition: background 0.2s;
+}
+
+.whyItem:last-child {
+    border-bottom: none;
+}
+
+.whyItem:hover {
+    background: #fafbfc;
+}
+
+.whyNum {
+    font-size: 32px;
+    font-weight: 950;
+    color: #f1f5f9;
+    letter-spacing: -0.05em;
+    flex-shrink: 0;
+    min-width: 52px;
+    line-height: 1;
+}
+
+.whyTitle {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 6px;
+}
+
+.whyBody {
+    font-size: 14px;
+    color: #64748b;
+    line-height: 1.7;
+}
+
+/* ── Data Quality Grid ── */
+.dqGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.dqCard {
+    border: 1px solid #f1f5f9;
+    border-radius: 20px;
+    padding: 24px 16px;
+    background: #ffffff;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.dqCard:hover {
+    border-color: #22c55e;
+    transform: translateY(-4px);
+    box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.08);
+}
+
+.dqEmoji {
+    font-size: 28px;
+    width: 60px;
+    height: 60px;
+    background: #f8fafc;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    transition: background 0.2s;
+}
+
+.dqCard:hover .dqEmoji {
+    background: #f0fdf4;
+}
+
+.dqDimension {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.dqDesc {
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+/* ── Next Steps ── */
+.nextGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.nextCard {
+    background: none;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 20px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.nextCard:hover {
+    border-color: #22c55e;
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.12);
+    transform: translateY(-2px);
+}
+
+.nextTag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 4px;
+}
+
+.nextTitle {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.4;
+}
+
+.nextDesc {
+    font-size: 12.5px;
+    color: #9ca3af;
+    line-height: 1.6;
+    flex: 1;
+}
+
+.nextArrow {
+    font-size: 12.5px;
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+/* ── Guidance Note ── */
+.guidanceNote {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: rgba(59, 130, 246, 0.05);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 36px;
+}
+
+.guidanceIcon {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.guidanceLabel {
+    font-size: 12px;
+    font-weight: 700;
+    color: #3b82f6;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.guidanceText {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.7;
+}
+
+/* ── Article Footer Nav ── */
+.articleFooterNav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 28px;
+    border-top: 1px solid #f3f4f6;
+}
+
+.footerNavBtn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: none;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+
+.footerNavBtn:hover {
+    border-color: #d1d5db;
+    background: #f9fafb;
+}
+
+.footerNavBtnNext {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: #22c55e;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.18s, transform 0.15s;
+}
+
+.footerNavBtnNext:hover {
+    background: #16a34a;
+    transform: translateY(-1px);
+}
+
+/* ── Step Header ── */
+.stepHeader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.stepBadge {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 3px 12px;
+    border-radius: 20px;
+    flex-shrink: 0;
+}
+
+/* ── Flow Steps ── */
+.flowSteps {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 24px 0;
+    background: #f9fafb;
+    border: 1.5px solid #f3f4f6;
+    border-radius: 14px;
+    padding: 20px 24px;
+}
+
+.flowRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.flowStep {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.flowCircle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.flowLabel {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.flowSub {
+    font-size: 11.5px;
+    color: #9ca3af;
+}
+
+.flowArrow {
+    flex-shrink: 0;
+}
+
+/* ── KPI Table ── */
+.kpiTable {
+    border: 1.5px solid #f3f4f6;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 16px;
+}
+
+.kpiRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.15s;
+}
+
+.kpiRow:last-child {
+    border-bottom: none;
+}
+
+.kpiRow:hover {
+    background: #fafafa;
+}
+
+.kpiMetric {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 3px;
+}
+
+.kpiNote {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.kpiRight {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.kpiValue {
+    font-size: 15px;
+    font-weight: 800;
+    color: #111827;
+    letter-spacing: -0.02em;
+}
+
+.kpiBadge {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+}
+
+/* ── Numbered Steps ── */
+.numberedSteps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 20px;
+    border: 1.5px solid #f3f4f6;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.numberedStep {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px 22px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.15s;
+}
+
+.numberedStep:last-child {
+    border-bottom: none;
+}
+
+.numberedStep:hover {
+    background: #fafafa;
+}
+
+.stepCircle {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #22c55e;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.stepTitle {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 4px;
+}
+
+.stepBody {
+    font-size: 13.5px;
+    color: #6b7280;
+    line-height: 1.7;
+}
+
+/* ── Questionnaire Section Grid ── */
+.sectionGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.qSectionCard {
+    border: 1.5px solid #f3f4f6;
+    border-radius: 12px;
+    padding: 18px;
+    background: #fff;
+    transition: border-color 0.2s, transform 0.2s;
+}
+
+.qSectionCard:hover {
+    border-color: #d1fae5;
+    transform: translateY(-2px);
+}
+
+.qSectionNum {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+    padding: 2px 10px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+}
+
+.qSectionTitle {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 5px;
+}
+
+.qSectionDesc {
+    font-size: 12.5px;
+    color: #9ca3af;
+    line-height: 1.6;
+}
+
+/* ── Report Types ── */
+.reportTypes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.reportCard {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    border: 1.5px solid #f3f4f6;
+    border-radius: 12px;
+    padding: 18px 20px;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.reportCard:hover {
+    border-color: #e5e7eb;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.reportEmoji {
+    font-size: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.reportInfo {
+    flex: 1;
+}
+
+.reportTitleRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
+}
+
+.reportTitle {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.reportTag {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+.reportDesc {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.65;
+}
+
+/* ── FAQs ── */
+.faqList {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1.5px solid #f3f4f6;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-top: 16px;
+}
+
+.faqItem {
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.faqItem:last-child {
+    border-bottom: none;
+}
+
+.faqHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 18px 22px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: background 0.15s;
+}
+
+.faqHeader:hover {
+    background: #fafafa;
+}
+
+.faqQ {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+    line-height: 1.5;
+    flex: 1;
+}
+
+.faqChevron {
+    flex-shrink: 0;
+    transition: transform 0.2s;
+    margin-top: 2px;
+}
+
+.faqChevronUp {
+    transform: rotate(180deg);
+}
+
+.faqA {
+    font-size: 13.5px;
+    color: #6b7280;
+    line-height: 1.75;
+    padding: 0 22px 20px;
+}
+
+/* ── Footer ── */
+.footer {
+    background: #111827;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 48px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.footerBrand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.footerBrandName {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.footerLinks {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.footerLinks a {
+    font-size: 12.5px;
+    color: #6b7280;
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+.footerLinks a:hover {
+    color: #d1d5db;
+}
+
+.footerCopy {
+    font-size: 12px;
+    color: #4b5563;
+}
+
+/* ── Sub Sections ── */
+.subSection {
+    margin-bottom: 40px;
+}
+
+.subSectionTitle {
+    font-size: 17px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1.5px solid #f3f4f6;
+}
+
+/* ── Image Placeholder (for screenshots not yet uploaded) ── */
+.imagePlaceholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 160px;
+    background: #f9fafb;
+    border-radius: 10px;
+    border: 2px dashed #e2e8f0;
+    padding: 32px;
+}
+
+.imagePlaceholderText {
+    font-size: 12.5px;
+    color: #9ca3af;
+    text-align: center;
+    max-width: 340px;
+    line-height: 1.6;
+}
+
+/* ── Tab Pills (for visualizing tabs) ── */
+.tabPills {
+    display: flex;
+    gap: 10px;
+    margin: 16px 0 20px;
+    flex-wrap: wrap;
+}
+
+.tabPill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1.5px solid #f3f4f6;
+    border-radius: 12px;
+    padding: 12px 16px;
+    background: #fff;
+    flex: 1;
+    min-width: 140px;
+    transition: border-color 0.2s;
+}
+
+.tabPillActive {
+    border-color: #22c55e;
+    background: #f0fdf4;
+}
+
+.tabPillName {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 2px;
+}
+
+.tabPillDesc {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.tabPillBadge {
+    font-size: 11px;
+    font-weight: 700;
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+/* ── Role Permission Card (Doc #03) ── */
+.rolePermCard {
+    background: #fff;
+    border: 1.5px solid #f3f4f6;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.rolePermHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1.5px solid #f3f4f6;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.rolePermHeaderLeft {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.rolePermNum {
+    font-size: 24px;
+}
+
+.rolePermTitle {
+    font-size: 16px;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 2px;
+}
+
+.rolePermSub {
+    font-size: 12.5px;
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+.rolePermLevelBadge {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 5px 14px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.rolePermBody {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.rolePermGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.rolePermGroupLabel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.rolePermPills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.rolePermPillGreen {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    line-height: 1.3;
+}
+
+.rolePermPillRed {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.06);
+    line-height: 1.3;
+}
+
+.rolePermNote {
+    margin: 0;
+    padding: 12px 24px 18px;
+    font-size: 12.5px;
+    color: #9ca3af;
+    font-style: italic;
+    border-top: 1px solid #f9fafb;
+}
+
+/* ── Roles / Modules Grid ── */
+.rolesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    margin: 16px 0 20px;
+}
+
+.roleCard {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #f9fafb;
+    border: 1.5px solid #f3f4f6;
+    border-radius: 10px;
+}
+
+.roleEmoji {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.roleName {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    line-height: 1.4;
+}
+
+/* ── Flow Summary Box ── */
+.flowSummaryBox {
+    background: #f9fafb;
+    border: 1.5px solid #f3f4f6;
+    border-radius: 14px;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.flowSummaryStep {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid #f3f4f6;
+    position: relative;
+}
+
+.flowSummaryStep:last-child {
+    border-bottom: none;
+}
+
+.flowSummaryNum {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #22c55e;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.flowSummaryText {
+    font-size: 13.5px;
+    color: #374151;
+    line-height: 1.6;
+    padding-top: 3px;
+}
+
+/* ── Flow Steps (context diagram) ── */
+.flowSteps {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 24px 0;
+    padding: 20px;
+    background: #f9fafb;
+    border-radius: 14px;
+    border: 1.5px solid #f3f4f6;
+    flex-wrap: wrap;
+}
+
+.flowStep {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 180px;
+}
+
+.flowCircle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.flowLabel {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 2px;
+}
+
+.flowSub {
+    font-size: 12px;
+    color: #9ca3af;
+    line-height: 1.5;
+}
+
+.flowArrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* ──/* Manual / Technical Guide Styles */
+.manualGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
+    margin: 30px 0;
+}
+
+.manualCard {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    transition: all 0.3s ease;
+}
+
+.manualCard:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.manualHeader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #f3f4f6;
+}
+
+.parameterRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px dashed #f3f4f6;
+}
+
+.parameterRow:last-child {
+    border-bottom: none;
+}
+
+.paramLabel {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.paramValue {
+    font-size: 13px;
+    color: #111827;
+    text-align: right;
+    max-width: 60%;
+}
+
+.valueBadge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: #f3f4f6;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4b5563;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ── Registration Link Box ── */
+.regLinkBox {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 20px 0;
+}
+
+.regLinkLabel {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+}
+
+.regLinkUrl {
+    font-size: 13.5px;
+    font-family: monospace;
+    color: #22c55e;
+    word-break: break-all;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.regLinkNote {
+    font-size: 12px;
+    color: #9ca3af;
+    line-height: 1.6;
+}
+
+/* ── Section Badge Row ── */
+.sectionBadgeRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1.5px solid #f3f4f6;
+}
+
+.sectionBadge {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+    padding: 3px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Two Column Grid (Step 4 side-by-side) ── */
+.twoColGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 20px;
+}
+
+@media (max-width: 700px) {
+    .twoColGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Method Card ── */
+.methodCard {
+    border: 1.5px solid #f3f4f6;
+    border-radius: 14px;
+    padding: 20px;
+    background: #fff;
+}
+
+.methodCardHeader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.methodCardBadge {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.06em;
+}
+
+.methodCardTitle {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+}
+
+/* ── Article Table ── */
+.articleTable {
+    width: 100%;
+    overflow-x: auto;
+    margin: 16px 0 24px;
+    border-radius: 12px;
+    border: 1.5px solid #f3f4f6;
+}
+
+.articleTable table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+
+.articleTable thead tr {
+    background: #f9fafb;
+    border-bottom: 1.5px solid #f3f4f6;
+}
+
+.articleTable th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+.articleTable td {
+    padding: 13px 16px;
+    color: #374151;
+    line-height: 1.6;
+    border-bottom: 1px solid #f9fafb;
+    vertical-align: top;
+}
+
+.articleTable tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.articleTable tbody tr:hover {
+    background: #fafafa;
+}
+
+.tagRequired {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 20px;
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+    white-space: nowrap;
+}
+
+.tagOptional {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 20px;
+    background: #f3f4f6;
+    color: #9ca3af;
+    white-space: nowrap;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+    .layout {
+        flex-direction: column;
+        gap: 32px;
+    }
+
+    .toc {
+        width: 100%;
+        position: static;
+    }
+
+    .tocNav {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .tocLink {
+        border-left: none;
+        border-bottom: 2px solid transparent;
+        padding: 5px 12px;
+    }
+
+    .tocLink:hover {
+        border-left-color: transparent;
+        border-bottom-color: #22c55e;
+        padding-left: 12px;
+    }
+
+    .nextGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .rolesGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .sectionGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .dqGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .articleTitle {
+        font-size: 28px;
+    }
+
+    .navLinks {
+        display: none;
+    }
+
+    .flowSteps {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

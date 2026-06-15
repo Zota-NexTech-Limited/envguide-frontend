@@ -1,0 +1,1056 @@
+/**
+ * Supplier Questionnaire — Version 3.0
+ * Aligned to CX-PCF Rulebook v4 | ISO 14067 | SAMM 9.0.0
+ *
+ * This is the active, supplier-facing questionnaire. It replaces the legacy
+ * 84-question schema (kept in questionnaireSchema.ts as QUESTIONNAIRE_SCHEMA_LEGACY
+ * for reference). The "General Information" section is preserved unchanged from
+ * the legacy schema (same field `name` keys), per requirement.
+ *
+ * SCOPE NOTE (form-first rebuild): this file only defines what the supplier sees
+ * and fills in. Submitting still runs through the legacy frontend mapper
+ * (supplierQuestionnaireService.mapToApiPayload), which is keyed to the old
+ * structure, so the new V3 answers are NOT yet persisted end-to-end. Wiring
+ * submission/persistence (and any backend work) is a separate follow-up task.
+ *
+ * Field types and rendering are driven by DynamicQuestionnaireForm.tsx. Dropdowns
+ * here use static `options` (no backend dropdown APIs) so the form is
+ * self-contained. In-table Yes/No columns use a `select` (renders cleaner inside
+ * a table than a radio group).
+ */
+
+import type { QuestionnaireSection } from "./questionnaireSchema";
+
+// ---------------------------------------------------------------------------
+// Static option lists
+// ---------------------------------------------------------------------------
+
+const YES_NO = ["Yes", "No"];
+
+const COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria",
+  "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan",
+  "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia",
+  "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica",
+  "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt",
+  "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon",
+  "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana",
+  "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel",
+  "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kuwait", "Kyrgyzstan", "Laos",
+  "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", "Malawi",
+  "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova",
+  "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands",
+  "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau",
+  "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania",
+  "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal",
+  "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Korea",
+  "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan",
+  "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu",
+  "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela",
+  "Vietnam", "Yemen", "Zambia", "Zimbabwe",
+];
+
+const REGIONS = [
+  "Africa",
+  "Asia",
+  "Europe",
+  "North America",
+  "South America",
+  "Oceania / Australia",
+  "Middle East",
+  "Global / Rest of World",
+];
+
+const DECLARED_UNITS = [
+  "piece",
+  "kg",
+  "g",
+  "tonne",
+  "litre",
+  "millilitre",
+  "metre",
+  "square metre (m²)",
+  "cubic metre (m³)",
+  "kWh",
+  "MJ",
+  "pair",
+  "set",
+];
+
+const MASS_UNITS = ["kg", "g", "tonne", "lb"];
+const QUANTITY_UNITS = ["kg", "g", "tonne", "lb", "litre", "m³", "piece"];
+const ENERGY_UNITS = ["kWh", "MWh", "MJ", "GJ"];
+const FUEL_UNITS = ["litre", "m³", "kg", "tonne", "kWh", "MJ", "GJ"];
+const GAS_UNITS = ["kg", "g", "tonne"];
+
+const MATERIALS = [
+  "Steel", "Stainless steel", "Aluminium", "Copper", "Brass", "Zinc", "Cast iron",
+  "Nickel", "Tin", "Lead", "Gold", "Silver",
+  "ABS", "Polypropylene (PP)", "Polyethylene (PE)", "PET", "PVC", "Polycarbonate (PC)",
+  "Nylon / Polyamide (PA)", "POM", "Rubber / Elastomer",
+  "Glass", "Ceramic", "Silicon", "Paper / Cardboard", "Wood",
+  "Adhesive", "Paint / Coating", "Composite (CFRP / GFRP)", "Electronic component (PCB)",
+  "Other",
+];
+
+const PROCESSES = [
+  "Casting", "Die casting", "Forging", "Machining (CNC)", "Turning", "Milling",
+  "Stamping / Pressing", "Injection moulding", "Extrusion", "Blow moulding",
+  "Welding", "Soldering", "Assembly", "Surface treatment / Plating", "Anodising",
+  "Painting / Coating", "Heat treatment", "Sintering", "3D printing", "Printing",
+  "Cutting", "Other",
+];
+
+const ELECTRICITY_TYPES = [
+  "Grid electricity",
+  "On-site generated",
+  "Renewable PPA",
+  "Green tariff / green power product",
+  "Diesel generator",
+  "Combined heat & power (CHP)",
+  "Other",
+];
+
+const RENEWABLE_SOURCING = [
+  "On-site generation (EACs generated)",
+  "On-site generation (no EACs)",
+  "PPA / sleeved PPA",
+  "Virtual PPA",
+  "Green tariff / green power product",
+  "Utility-supplied renewable (bundled / unbundled EACs)",
+  "Unbundled EACs",
+  "Unbundled RECs / I-RECs",
+  "Not applicable",
+];
+
+const FUEL_CARRIERS = [
+  "Natural gas", "Diesel", "Petrol / Gasoline", "LPG", "CNG", "LNG",
+  "Heating oil", "Coal", "Coke", "Biomass", "Biogas", "Hydrogen",
+  "District heating", "Steam", "Other",
+];
+
+const PROCESS_GASES = ["CO₂", "CH₄", "N₂O", "HFCs", "PFCs", "SF₆", "NF₃", "Other"];
+
+const FOSSIL_BIOGENIC = ["Fossil", "Biogenic"];
+
+const WASTE_TYPES = [
+  "Scrap metal", "Plastic scrap", "PCB / electronic waste", "Solvents",
+  "Paper / cardboard", "Sludge", "Hazardous waste", "Packaging waste",
+  "General / mixed waste", "Other",
+];
+
+const TREATMENT_TYPES = [
+  "Recycling", "Reuse", "Landfill",
+  "Incineration (with energy recovery)", "Incineration (without energy recovery)",
+  "Composting", "Hazardous waste treatment", "Other",
+];
+
+const PACKAGING_TYPES = [
+  "Cardboard box", "Corrugated board", "Paper", "Wooden pallet", "Wooden crate",
+  "Plastic film (LDPE)", "Stretch / shrink wrap", "Rigid plastic (HDPE / PP)",
+  "EPS / foam", "Bubble wrap", "Metal strapping", "Glass", "Composite / multilayer",
+  "Other",
+];
+
+const TRANSPORT_MODES = [
+  "Road: Truck (heavy)", "Road: Van (light)", "Rail",
+  "Sea: Container ship", "Sea: Bulk / RoRo", "Inland waterway",
+  "Air freight", "Other",
+];
+
+const BIOMASS_FEEDSTOCKS = [
+  "Wood / forestry", "Maize / Corn", "Sugarcane", "Sugar beet", "Wheat",
+  "Soy", "Palm", "Rapeseed", "Cotton", "Bamboo", "Natural rubber",
+  "Other agricultural", "Other forestry",
+];
+
+const DQR_SCALE = ["1", "2", "3", "4", "5"];
+
+const PCF_TYPES = [
+  "1: Retrospective PCF (historical / measured data)",
+  "2: Prospective PCF without forerunner",
+  "3: Prospective PCF of a further-developed product with forerunner",
+  "4: Prospective PCF for a current product, future production date",
+  "5: Progressive PCF (optimistic reduction scenario; for information only)",
+];
+
+const SYSTEM_BOUNDARIES = [
+  "Cradle-to-Gate (default, per Catena-X)",
+  "Cradle-to-Grave",
+];
+
+const PACKAGING_INCLUDE = [
+  "Yes, include packaging",
+  "No, exclude packaging",
+];
+
+const OUTBOUND_TRANSPORT = [
+  "Yes, distribution is within my boundary",
+  "No, the customer arranges it",
+];
+
+const BIOBASED_PRESENT = [
+  "Yes, contains bio-based feedstock",
+  "No",
+];
+
+const VOLUME_TYPES = [
+  "Certified volume",
+  "Total production volume",
+  "1st-party verified volume",
+  "2nd-party verified volume",
+  "3rd-party verified volume",
+  "Total product volume",
+];
+
+// ---------------------------------------------------------------------------
+// Schema
+// ---------------------------------------------------------------------------
+
+export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
+  // =========================================================================
+  // General Information — preserved unchanged from the legacy schema.
+  // (Same field `name` keys so existing acknowledgement mapping still works.)
+  // =========================================================================
+  {
+    id: "general_information",
+    title: "General Information",
+    fields: [
+      {
+        name: "gdpr_notice",
+        type: "info",
+        content:
+          "All information provided is confidential and used only for Corporate and product level sustainability assessment.",
+        label: "Display Message as per GDPR",
+        className: "bg-blue-50 border-l-4 border-blue-400 p-4 text-blue-700",
+      },
+      {
+        name: "re_technologies_info",
+        type: "info",
+        label:
+          "Please read following eligible technologies to be considered as renewable electricity (RE) and acknowledge them.",
+        content:
+          "1. Wind\n2. Hydro\n3. Solar power\n4. Geothermal\n5. Solid, liquid, and gaseous forms of Biomass from the fuels (woody waste, land fill gas, wastewater methane, animal & other organic waste, energy crops)\n6. Ocean-based energy resources captured through tidal and wave technologies.\n\nExcluded technologies:\n1. Electricity from nuclear power is not regarded as renewable electricity.\n2. Electricity from waste combustion is not regarded as renewable electricity.",
+        className: "bg-white p-6 rounded-lg border border-gray-200 mb-4",
+      },
+      {
+        name: "general_information.re_technologies_acknowledgement",
+        label:
+          "I acknowledge that I have read and understood the Eligible technologies consider as renewable electricity (RE) mentioned above.",
+        type: "checkbox",
+        required: true,
+      },
+      {
+        name: "re_procurement_info",
+        type: "info",
+        label:
+          "Please read following Procurement mechanisms and acknowledge them.",
+        content:
+          "Electricity will be regarded as renewable electricity if provided using one of the mechanisms stated below and respecting the requirements regarding double counting. Please select which ones apply to your processes. If none apply in the country carbon emissions occur, at the end an alternative locally accepted at the time of production type of proof:\n\nAcronyms used:\nPPA: Power Purchase Agreements\nEAC: Energy Attribute Certificates\niREC or I-REC: International Green Energy Certificates\nGOO: Guarantee of Origin\n\n1. Onsite generation: EACs generated\n2. Onsite generation: No EACs generated\n3. Off-Site generation: PPA / sleeved PPA (Proof of delivery necessary)\n4. Off-Site generation: Virtual PPA (Proof via EAC necessary)\n5. Off-Site generation: Green Power Tariff / Green Power Product\n6. Power supplied by an electricity provider where the provider takes over the responsibility to provide the electricity either directly from renewable sources (e.g. through PPAs) or procures and deletes unbundled EACs for the supplied electricity.\n7. Unbundled EACs\n8. Unbundled REC's / I-REC's",
+        className: "bg-white p-6 rounded-lg border border-gray-200 mb-4",
+      },
+      {
+        name: "general_information.re_procurement_acknowledgement",
+        label:
+          "I acknowledge that I have read and understood the procurement mechanisms mentioned above.",
+        type: "checkbox",
+        required: true,
+      },
+      {
+        name: "double_counting_info",
+        type: "info",
+        label: "DOUBLE COUNTING",
+        content:
+          'Please acknowledge that the mechanism you use does not fall under Double Counting. Examples of prohibited double uses include, but are not limited to:\n1. When the same EAC is sold by one party to more than one party, or any case where another party has a conflicting contract for the EACs or the renewable electricity;\n2. When the same EAC is claimed by more than one party, including any expressed or implied environmental claims made pursuant to electricity coming from a renewable energy resource, environmental labelling or disclosure requirements. This includes representing the energy from which EACs are derived as renewable in calculating another entity\'s product or portfolio resource mix for the purposes of marketing or disclosure;\n3. When the same EAC is used by an electricity provider or utility to meet an environmental mandate, such as an RPS, and is also used to satisfy customer sales or\n4. Use of one or more attributes of the renewable energy or EAC by another party. This includes when an EAC is simultaneously sold to represent "renewable electricity" to one party, and one or more Attributes associated with the same MWh of generation (such as CO2 reduction) are also sold, to another party.',
+        className: "bg-white p-6 rounded-lg border border-gray-200 mb-4",
+      },
+      {
+        name: "general_information.double_counting_acknowledgement",
+        label: "I acknowledge my mechanisms do not fall under double counting",
+        type: "checkbox",
+        required: true,
+      },
+    ],
+  },
+
+  // =========================================================================
+  // Section A — About Company and the product (Q1–Q4)
+  // =========================================================================
+  {
+    id: "section_a_company_product",
+    title: "Section A: Company & Product",
+    fields: [
+      {
+        name: "company.legal_name",
+        label: "1. What is your company's full legal name?",
+        type: "text",
+        required: true,
+        placeholder: "Enter the registered company name",
+      },
+      {
+        name: "company.company_id",
+        label: "Company registration ID (BPN / DUNS / VAT / CIN)",
+        type: "text",
+        required: true,
+        placeholder: "e.g. BPNL000000000000 / DUNS / VAT / CIN",
+      },
+      {
+        name: "product.name",
+        label: "2. Which product does this carbon footprint apply to? (Product name)",
+        type: "text",
+        required: true,
+        placeholder: "Enter the product name",
+      },
+      {
+        name: "product.product_id",
+        label: "Product ID / MPN / article number",
+        type: "text",
+        required: true,
+        placeholder: "Enter the MPN or article number",
+      },
+      {
+        name: "product.description",
+        label: "Product description (optional)",
+        type: "textarea",
+        required: false,
+        placeholder: "Short description of the product",
+      },
+      {
+        name: "product.classification",
+        label: "Product classification (GTIN / UNSPSC / CAS / HS) (optional)",
+        type: "text",
+        required: false,
+        placeholder: "e.g. GTIN / UNSPSC / CAS / HS code",
+      },
+      {
+        name: "product.declared_unit",
+        label: "3. In which unit is the carbon footprint declared? (Declared unit)",
+        type: "select",
+        options: DECLARED_UNITS,
+        required: true,
+        placeholder: "Select the declared unit",
+      },
+      {
+        name: "product.declared_unit_quantity",
+        label: "Declared quantity / amount (e.g. 1)",
+        type: "number",
+        required: true,
+        placeholder: "e.g. 1",
+      },
+      {
+        name: "product.manufacturing_sites",
+        label: "4. At which site(s) is the product manufactured?",
+        type: "table",
+        addButtonLabel: "Add Site",
+        required: true,
+        placeholder: "One row per manufacturing site.",
+        columns: [
+          { name: "site_name", label: "Site Name", type: "text", placeholder: "Site name" },
+          { name: "site_address", label: "Site Address", type: "text", placeholder: "Address" },
+          { name: "region", label: "Region", type: "select", options: REGIONS, required: true, placeholder: "Select region" },
+          { name: "country", label: "Country", type: "select", options: COUNTRIES, required: true, placeholder: "Select country" },
+          { name: "subdivision", label: "Subdivision", type: "text", required: true, placeholder: "State / province" },
+          { name: "notes", label: "Notes", type: "text", placeholder: "Optional notes" },
+        ],
+      },
+    ],
+  },
+
+  // =========================================================================
+  // Section B — Scope and reporting period (Q5–Q7)
+  // =========================================================================
+  {
+    id: "section_b_scope_period",
+    title: "Section B: Scope & Reporting Period",
+    fields: [
+      {
+        name: "scope_period.reference_start",
+        label: "5. Reference period start date",
+        type: "date",
+        required: true,
+        placeholder: "Default: first day of the prior calendar year",
+      },
+      {
+        name: "scope_period.reference_end",
+        label: "Reference period end date",
+        type: "date",
+        required: true,
+        placeholder: "Default: last day of the prior calendar year",
+      },
+      {
+        name: "scope_period.validity_start",
+        label: "Validity start date",
+        type: "date",
+        required: true,
+        placeholder: "Default: same as reference end date",
+      },
+      {
+        name: "scope_period.validity_end",
+        label: "Validity end date (optional)",
+        type: "date",
+        required: false,
+        placeholder: "Default: reference end date + 2 years",
+      },
+      {
+        name: "scope_period.pcf_type",
+        label: "6. Is this a retrospective or a prospective PCF?",
+        type: "radio",
+        options: PCF_TYPES,
+        required: true,
+      },
+      {
+        name: "scope_period.system_boundary",
+        label: "7. Which system boundary does this footprint cover?",
+        type: "radio",
+        options: SYSTEM_BOUNDARIES,
+        required: true,
+      },
+    ],
+  },
+
+  // =========================================================================
+  // Section C — What the product is made of (Bill of Materials) (Q8–Q9)
+  // =========================================================================
+  {
+    id: "section_c_bom",
+    title: "Section C: Bill of Materials",
+    fields: [
+      {
+        name: "bom.bill_of_materials",
+        label:
+          "8. List every material and component in one unit of the product, with its biogenic and recycled characteristics.",
+        type: "table",
+        addButtonLabel: "Add Material / Component",
+        required: true,
+        placeholder: "One row per material/component in a single unit of the product.",
+        columns: [
+          { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN" },
+          { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name" },
+          { name: "material", label: "Material", type: "select", options: MATERIALS, placeholder: "Select material" },
+          { name: "process", label: "Process", type: "select", options: PROCESSES, placeholder: "Select process" },
+          { name: "mass_percent", label: "Mass (%)", type: "number", required: true, placeholder: "0-100" },
+          { name: "carbon_percent", label: "Carbon (%)", type: "number", placeholder: "0-100" },
+          { name: "biogenic", label: "Biogenic? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+          { name: "biogenic_carbon_percent", label: "Biogenic C (%)", type: "number", placeholder: "0-100" },
+          { name: "recycled", label: "Recycled? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+          { name: "recycled_carbon_percent", label: "Recycled C (%)", type: "number", placeholder: "0-100" },
+        ],
+      },
+      {
+        name: "bom.co_products_produced",
+        label: "9. Does the same manufacturing process also yield other saleable co-products?",
+        type: "radio",
+        options: YES_NO,
+        required: true,
+      },
+      {
+        name: "bom.co_products",
+        label: "9.1 List each co-product and its unit price",
+        type: "table",
+        addButtonLabel: "Add Co-product",
+        required: true,
+        placeholder:
+          "One row per co-product. The allocation basis is computed using the Catena-X co-product formula.",
+        dependency: {
+          field: "bom.co_products_produced",
+          value: "Yes",
+        },
+        columns: [
+          { name: "mpn", label: "MPN", type: "text", placeholder: "MPN" },
+          { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name" },
+          { name: "co_product_name", label: "Co-Product Name", type: "text", placeholder: "Co-product name" },
+          { name: "co_product_price", label: "Co-Product Price (currency/unit)", type: "number", placeholder: "0.00" },
+          { name: "is_primary", label: "Is this the primary product? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+        ],
+      },
+    ],
+  },
+
+  // =========================================================================
+  // Section D — Energy, process, quality control and waste (Q10–Q14)
+  // =========================================================================
+  {
+    id: "section_d_energy_process",
+    title: "Section D: Energy, Process & Waste",
+    fields: [
+      {
+        name: "energy.electricity",
+        label:
+          "10. How much electricity was consumed to manufacture the product, and what share was renewable?",
+        type: "table",
+        addButtonLabel: "Add Row",
+        required: true,
+        placeholder:
+          "Use meter readings or electricity invoices for the reporting period. Default unit is kWh.",
+        columns: [
+          { name: "electricity_type", label: "Type of Electricity", type: "select", options: ELECTRICITY_TYPES, placeholder: "Select type" },
+          { name: "generator_type", label: "Generator Type", type: "text", placeholder: "If self-generated" },
+          { name: "quantity", label: "Quantity", type: "number", placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, placeholder: "Select unit" },
+          { name: "renewable_percent", label: "Renewable (%)", type: "number", placeholder: "0-100" },
+          { name: "renewable_sourcing", label: "Renewable (%) Sourcing", type: "select", options: RENEWABLE_SOURCING, placeholder: "Select mechanism" },
+          { name: "infrastructure_included", label: "Infrastructure Emissions Included? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+          { name: "infrastructure_ef", label: "Infrastructure EF (kgCO₂e/kWh)", type: "number", placeholder: "0.00" },
+        ],
+      },
+      {
+        name: "energy.other_fuels",
+        label: "11. Which other fuels or energy carriers were used? (optional)",
+        type: "table",
+        addButtonLabel: "Add Row",
+        required: false,
+        columns: [
+          { name: "fuel_carrier", label: "Fuel / energy carrier", type: "select", options: FUEL_CARRIERS, placeholder: "Select fuel" },
+          { name: "quantity", label: "Quantity", type: "number", placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: FUEL_UNITS, placeholder: "Select unit" },
+          { name: "biogenic", label: "Biogenic? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+        ],
+      },
+      {
+        name: "energy.direct_process_gases",
+        label:
+          "12. Does the manufacturing process release greenhouse gases directly (not from burning fuel)? (optional)",
+        type: "table",
+        addButtonLabel: "Add Row",
+        required: false,
+        columns: [
+          { name: "gas", label: "Direct process gas", type: "select", options: PROCESS_GASES, placeholder: "Select gas" },
+          { name: "quantity", label: "Quantity", type: "number", placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: GAS_UNITS, placeholder: "Select unit" },
+          { name: "origin", label: "Fossil / biogenic origin", type: "select", options: FOSSIL_BIOGENIC, placeholder: "Select origin" },
+        ],
+      },
+      {
+        name: "energy.qc_it_energy",
+        label: "13. How much energy did quality control and production IT consume? (optional)",
+        type: "table",
+        addButtonLabel: "Add Row",
+        required: false,
+        placeholder:
+          "If this energy is already included in the Q10 electricity total, select 'Yes' under 'Already in Q10' to avoid double-counting.",
+        columns: [
+          { name: "item", label: "Item", type: "text", placeholder: "e.g. QC lab, server room" },
+          { name: "value", label: "Value", type: "number", placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, placeholder: "Select unit" },
+          { name: "already_in_q10", label: "Already in Q10? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+        ],
+      },
+      {
+        name: "energy.production_waste",
+        label:
+          "14. What production and quality-control waste were generated, and how was it treated?",
+        type: "table",
+        addButtonLabel: "Add Row",
+        required: true,
+        columns: [
+          { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN" },
+          { name: "component_name", label: "Component name", type: "text", placeholder: "Component name" },
+          { name: "waste_type", label: "Waste Type", type: "select", options: WASTE_TYPES, placeholder: "Select type" },
+          { name: "treatment_type", label: "Treatment Type", type: "select", options: TREATMENT_TYPES, placeholder: "Select treatment" },
+          { name: "quantity", label: "Quantity", type: "number", placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
+          { name: "energy_recovered", label: "Energy recovered? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+          { name: "polluter_pays_applied", label: "Polluter Pays Applied? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+        ],
+      },
+    ],
+  },
+
+  // =========================================================================
+  // Section E — Packaging (Q15–Q17)
+  // =========================================================================
+  {
+    id: "section_e_packaging",
+    title: "Section E: Packaging",
+    fields: [
+      {
+        name: "packaging.include_packaging",
+        label: "15. Should packaging be included within this footprint?",
+        type: "radio",
+        options: PACKAGING_INCLUDE,
+        required: true,
+      },
+      {
+        name: "packaging.materials_used",
+        label: "16. Which packaging materials are used for the product?",
+        type: "table",
+        addButtonLabel: "Add Packaging Material",
+        required: true,
+        dependency: {
+          field: "packaging.include_packaging",
+          value: "Yes, include packaging",
+        },
+        columns: [
+          { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN" },
+          { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name" },
+          { name: "packaging_type", label: "Packaging Type", type: "select", options: PACKAGING_TYPES, placeholder: "Select type" },
+          { name: "process_type", label: "Process Type", type: "select", options: PROCESSES, placeholder: "Select process" },
+          { name: "packaging_weight", label: "Packaging weight", type: "number", placeholder: "0.00" },
+          { name: "unit", label: "Units", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
+          { name: "region", label: "Region", type: "select", options: REGIONS, placeholder: "Select region" },
+          { name: "country", label: "Country", type: "select", options: COUNTRIES, placeholder: "Select country" },
+          { name: "recycled_percent", label: "Recycled (%)", type: "number", placeholder: "0-100" },
+          { name: "carbon_biogenic_percent", label: "Carbon / Biogenic (%)", type: "number", placeholder: "0-100" },
+        ],
+      },
+      {
+        name: "packaging.transport",
+        label: "16.1 How is each packaging item transported to your site?",
+        type: "table",
+        addButtonLabel: "Add Transport Leg",
+        required: true,
+        placeholder:
+          "One row per packaging transport leg, from delivery notes or freight invoices. Distance in km. Select Mode = Air for any air-freighted packaging.",
+        dependency: {
+          field: "packaging.include_packaging",
+          value: "Yes, include packaging",
+        },
+        columns: [
+          { name: "product_id", label: "Packaging Product ID / MPN", type: "text", placeholder: "MPN" },
+          { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name" },
+          { name: "transport_mode", label: "Transport Mode", type: "select", options: TRANSPORT_MODES, placeholder: "Select mode" },
+          { name: "weight", label: "Weight", type: "number", placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
+          { name: "distance_km", label: "Distance (km)", type: "number", placeholder: "0" },
+        ],
+      },
+      {
+        name: "packaging.waste",
+        label: "17. What packaging waste was generated, and how was it treated?",
+        type: "table",
+        addButtonLabel: "Add Row",
+        required: true,
+        dependency: {
+          field: "packaging.include_packaging",
+          value: "Yes, include packaging",
+        },
+        columns: [
+          { name: "mpn_code", label: "MPN Code", type: "text", placeholder: "MPN" },
+          { name: "component_name", label: "Component name", type: "text", placeholder: "Component name" },
+          { name: "packaging_waste_type", label: "Packaging waste type", type: "select", options: WASTE_TYPES, placeholder: "Select type" },
+          { name: "treatment_type", label: "Treatment Type", type: "select", options: TREATMENT_TYPES, placeholder: "Select treatment" },
+          { name: "quantity", label: "Quantity", type: "number", placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
+          { name: "energy_recovered", label: "Energy recovered? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+        ],
+      },
+    ],
+  },
+
+  // =========================================================================
+  // Section F — Transport (Q18–Q19)
+  // =========================================================================
+  {
+    id: "section_f_transport",
+    title: "Section F: Transport",
+    fields: [
+      {
+        name: "transport.outbound_in_boundary",
+        label: "18. Is outbound (distribution) transport arranged and paid for by your company?",
+        type: "radio",
+        options: OUTBOUND_TRANSPORT,
+        required: true,
+      },
+      {
+        name: "transport.legs",
+        label: "19. What are the transport legs for the product and its components?",
+        type: "table",
+        addButtonLabel: "Add Transport Leg",
+        required: true,
+        placeholder:
+          "One row per journey, from delivery notes or freight invoices. Weight in tonnes, distance in km.",
+        columns: [
+          { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN" },
+          { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name" },
+          { name: "transport_mode", label: "Transport Mode", type: "select", options: TRANSPORT_MODES, placeholder: "Select mode" },
+          { name: "source", label: "Source", type: "text", placeholder: "Origin" },
+          { name: "destination", label: "Destination", type: "text", placeholder: "Destination" },
+          { name: "weight", label: "Weight", type: "number", placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
+          { name: "distance_km", label: "Distance (km)", type: "number", placeholder: "0" },
+          { name: "low_carbon_fuel", label: "Low-Carbon Fuel? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+          { name: "fuel_certificate_ref", label: "Fuel Certificate Ref.", type: "text", placeholder: "Reference" },
+        ],
+      },
+    ],
+  },
+
+  // =========================================================================
+  // Section G — Bio-based feedstock & land use (Q20)
+  // =========================================================================
+  {
+    id: "section_g_biobased",
+    title: "Section G: Bio-based Feedstock & Land Use",
+    fields: [
+      {
+        name: "biobased.contains_biobased",
+        label: "20. Does the product or its packaging contain bio-based feedstock? (optional)",
+        type: "radio",
+        options: BIOBASED_PRESENT,
+        required: false,
+      },
+      {
+        name: "biobased.details",
+        label: "20.1 Bio-based feedstock details",
+        type: "table",
+        addButtonLabel: "Add Feedstock",
+        required: false,
+        dependency: {
+          field: "biobased.contains_biobased",
+          value: "Yes, contains bio-based feedstock",
+        },
+        columns: [
+          { name: "feedstock", label: "Type of Biomass Feedstock", type: "select", options: BIOMASS_FEEDSTOCKS, placeholder: "Select feedstock" },
+          { name: "quantity", label: "Quantity", type: "number", placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: QUANTITY_UNITS, placeholder: "Select unit" },
+          { name: "biogenic_carbon_percent", label: "Biogenic Carbon Content (%)", type: "number", placeholder: "0-100" },
+        ],
+      },
+      {
+        name: "biobased.uses_agri_forestry_land",
+        label: "Uses agricultural / forestry land? (Y/N)",
+        type: "radio",
+        options: YES_NO,
+        required: false,
+        dependency: {
+          field: "biobased.contains_biobased",
+          value: "Yes, contains bio-based feedstock",
+        },
+      },
+      {
+        name: "biobased.land_area_hectares",
+        label: "Land area for feedstock (hectares)",
+        type: "number",
+        required: false,
+        placeholder: "0.00",
+        dependency: {
+          field: "biobased.contains_biobased",
+          value: "Yes, contains bio-based feedstock",
+        },
+      },
+      {
+        name: "biobased.forest_converted",
+        label: "Forest converted to agricultural land? (Y/N)",
+        type: "radio",
+        options: YES_NO,
+        required: false,
+        dependency: {
+          field: "biobased.contains_biobased",
+          value: "Yes, contains bio-based feedstock",
+        },
+      },
+      {
+        name: "biobased.luc_emission_factor",
+        label: "Known land-use-change emission factor (if any)",
+        type: "text",
+        required: false,
+        placeholder: "e.g. kgCO₂e per ha or per unit",
+        dependency: {
+          field: "biobased.contains_biobased",
+          value: "Yes, contains bio-based feedstock",
+        },
+      },
+    ],
+  },
+
+  // =========================================================================
+  // Section H — Methodology & allocation (Q21–Q23)
+  // =========================================================================
+  {
+    id: "section_h_methodology",
+    title: "Section H: Methodology & Allocation",
+    fields: [
+      {
+        name: "methodology.cross_sectoral_standard",
+        label: "21. Which cross-sectoral standard(s) did you apply?",
+        type: "text",
+        required: true,
+        placeholder: "e.g. ISO 14067, GHG Protocol Product Standard",
+      },
+      {
+        name: "methodology.product_sector_pcr",
+        label: "Product / sector PCR (reference)",
+        type: "text",
+        required: true,
+        placeholder: "e.g. Catena-X PCF Rulebook v4",
+      },
+      {
+        name: "methodology.gwp_version_info",
+        type: "info",
+        label: "IPCC GWP version",
+        content: "AR6 (100-year GWP100y), fixed and mandatory per §4.1.",
+        className: "bg-gray-50 border border-gray-200 rounded-lg p-4 text-gray-700",
+      },
+      {
+        name: "methodology.mass_balancing_used",
+        label: "22. Did you apply mass balancing? (Mass balancing used? Y/N)",
+        type: "radio",
+        options: YES_NO,
+        required: true,
+      },
+      {
+        name: "methodology.certificate_scheme",
+        label: "Certificate scheme (e.g. REDCert II, ISCC Plus)",
+        type: "text",
+        required: true,
+        placeholder: "Chain-of-custody / certificate scheme",
+      },
+      {
+        name: "methodology.free_attribution_used",
+        label: "Free attribution used? (Y/N)",
+        type: "radio",
+        options: YES_NO,
+        required: true,
+      },
+      {
+        name: "methodology.allocation_methods_info",
+        type: "info",
+        label: "23. How are shared emissions allocated?",
+        content:
+          "Recycled-carbon method: Cut-off (fixed per §5.2.5).\nWaste-incineration method: Polluter pays principle (fixed per §5.2.4).",
+        className: "bg-gray-50 border border-gray-200 rounded-lg p-4 text-gray-700",
+      },
+      {
+        name: "methodology.allocation_rationale",
+        label: "23. Allocation rationale (short) (optional)",
+        type: "textarea",
+        required: false,
+        placeholder: "Briefly describe your allocation approach",
+      },
+    ],
+  },
+
+  // =========================================================================
+  // Section I — Boundary, technology & data quality (Q24–Q25)
+  // =========================================================================
+  {
+    id: "section_i_boundary_dqr",
+    title: "Section I: Boundary, Technology & Data Quality",
+    fields: [
+      {
+        name: "boundary.processes_inside",
+        label: "24. Which processes lie inside the assessment boundary? (optional)",
+        type: "textarea",
+        required: false,
+        placeholder: "List the processes covered by this footprint",
+      },
+      {
+        name: "boundary.ccs_ccu_used",
+        label: "Is CCS / CCU CO₂ capture used? (Y/N)",
+        type: "radio",
+        options: YES_NO,
+        required: true,
+      },
+      {
+        name: "boundary.excluded_flows",
+        label: "Excluded (cut-off) flows, or write 'No exemption'",
+        type: "textarea",
+        required: true,
+        placeholder: "Describe excluded flows, or write 'No exemption'",
+      },
+      {
+        name: "boundary.exempted_percent",
+        label: "Estimated exempted emissions as % of total PCF (optional)",
+        type: "number",
+        required: false,
+        min: 0,
+        max: 3,
+        placeholder: "Enter 0 if no exemption; must be ≤ 3%",
+      },
+      {
+        name: "dqr.primary_data_share",
+        label: "25. Primary data share (%) (optional)",
+        type: "number",
+        required: false,
+        min: 0,
+        max: 100,
+        placeholder: "0-100",
+      },
+      {
+        name: "dqr.secondary_ef_source",
+        label: "Secondary emission-factor source (e.g. ecoinvent 3.8)",
+        type: "text",
+        required: false,
+        placeholder: "e.g. ecoinvent 3.8",
+      },
+      {
+        name: "dqr.data_year",
+        label: "Year the data was collected",
+        type: "number",
+        required: false,
+        placeholder: "e.g. 2024",
+      },
+      {
+        name: "dqr.technological",
+        label: "Technological DQR (1-5, 1 = best)",
+        type: "select",
+        options: DQR_SCALE,
+        required: false,
+        placeholder: "Select",
+      },
+      {
+        name: "dqr.geographical",
+        label: "Geographical DQR (1-5, 1 = best)",
+        type: "select",
+        options: DQR_SCALE,
+        required: false,
+        placeholder: "Select",
+      },
+      {
+        name: "dqr.temporal",
+        label: "Temporal DQR (1-5, 1 = best)",
+        type: "select",
+        options: DQR_SCALE,
+        required: false,
+        placeholder: "Select",
+      },
+    ],
+  },
+
+  // =========================================================================
+  // Section J — Verification & attestation (Q26–Q27)
+  // =========================================================================
+  {
+    id: "section_j_verification",
+    title: "Section J: Verification & Attestation",
+    fields: [
+      {
+        name: "verification.product_certified",
+        label: "26. Is the product certified? (Y/N)",
+        type: "radio",
+        options: YES_NO,
+        required: true,
+      },
+      {
+        name: "verification.certification_scheme",
+        label: "Certification scheme",
+        type: "text",
+        required: false,
+        placeholder: "Scheme name",
+        dependency: { field: "verification.product_certified", value: "Yes" },
+      },
+      {
+        name: "verification.certificate_number",
+        label: "Certificate number",
+        type: "text",
+        required: false,
+        placeholder: "Certificate number",
+        dependency: { field: "verification.product_certified", value: "Yes" },
+      },
+      {
+        name: "verification.certificate_valid_from",
+        label: "Certificate valid FROM",
+        type: "date",
+        required: false,
+        dependency: { field: "verification.product_certified", value: "Yes" },
+      },
+      {
+        name: "verification.certificate_valid_to",
+        label: "Certificate valid TO",
+        type: "date",
+        required: false,
+        dependency: { field: "verification.product_certified", value: "Yes" },
+      },
+      {
+        name: "verification.pcf_verified",
+        label: "Has the PCF been independently verified? (Y/N)",
+        type: "radio",
+        options: YES_NO,
+        required: true,
+      },
+      {
+        name: "verification.attestation_type",
+        label: "Attestation type",
+        type: "text",
+        required: true,
+        placeholder: "e.g. self-declaration, 3rd-party verified",
+        dependency: { field: "verification.pcf_verified", value: "Yes" },
+      },
+      {
+        name: "verification.conformant_standards",
+        label: "Conformant standard(s) / PCR(s)",
+        type: "text",
+        required: true,
+        placeholder: "Standards / PCRs conformed to",
+        dependency: { field: "verification.pcf_verified", value: "Yes" },
+      },
+      {
+        name: "verification.attestation_scheme_standard",
+        label: "Attestation scheme standard",
+        type: "text",
+        required: true,
+        placeholder: "Scheme standard",
+        dependency: { field: "verification.pcf_verified", value: "Yes" },
+      },
+      {
+        name: "verification.attestation_id",
+        label: "Attestation ID",
+        type: "text",
+        required: true,
+        placeholder: "Attestation identifier",
+        dependency: { field: "verification.pcf_verified", value: "Yes" },
+      },
+      {
+        name: "verification.attestation_issuer",
+        label: "Issuer of attestation",
+        type: "text",
+        required: true,
+        placeholder: "Issuing body",
+        dependency: { field: "verification.pcf_verified", value: "Yes" },
+      },
+      {
+        name: "verification.issuer_id",
+        label: "Issuer ID (URN / BPN) (optional)",
+        type: "text",
+        required: false,
+        placeholder: "URN / BPN",
+        dependency: { field: "verification.pcf_verified", value: "Yes" },
+      },
+      {
+        name: "verification.attestation_url",
+        label: "Link to attestation (URL) (optional)",
+        type: "text",
+        required: false,
+        placeholder: "https://",
+        dependency: { field: "verification.pcf_verified", value: "Yes" },
+      },
+      {
+        name: "verification.attestation_completed_at",
+        label: "Attestation completed at (optional)",
+        type: "date",
+        required: false,
+        dependency: { field: "verification.pcf_verified", value: "Yes" },
+      },
+      {
+        name: "verification.volumes",
+        label: "27. Which production or product volumes are certified or verified? (optional)",
+        type: "table",
+        addButtonLabel: "Add Volume",
+        required: false,
+        placeholder: "One row per volume type.",
+        columns: [
+          { name: "volume_type", label: "Volume type", type: "select", options: VOLUME_TYPES, placeholder: "Select type" },
+          { name: "volume", label: "Volume (units / tonnes)", type: "number", placeholder: "0.00" },
+          { name: "share_percent", label: "Share (%)", type: "number", placeholder: "0-100" },
+        ],
+      },
+    ],
+  },
+
+  // =========================================================================
+  // Section K — Anything else (Q28)
+  // =========================================================================
+  {
+    id: "section_k_other",
+    title: "Section K: Anything Else",
+    fields: [
+      {
+        name: "notes.comments",
+        label: "28. Are there any assumptions, exclusions or additional notes? (optional)",
+        type: "textarea",
+        required: false,
+        placeholder: "Any assumptions, exclusions, or comments",
+      },
+    ],
+  },
+];

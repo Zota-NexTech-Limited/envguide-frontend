@@ -576,10 +576,6 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         type: "table",
         addButtonLabel: "Add Packaging Material",
         required: true,
-        dependency: {
-          field: "packaging.include_packaging",
-          value: "Yes, include packaging",
-        },
         columns: [
           { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN" },
           { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name" },
@@ -601,10 +597,6 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         required: true,
         placeholder:
           "One row per packaging transport leg, from delivery notes or freight invoices. Distance in km. Select Mode = Air for any air-freighted packaging.",
-        dependency: {
-          field: "packaging.include_packaging",
-          value: "Yes, include packaging",
-        },
         columns: [
           { name: "product_id", label: "Packaging Product ID / MPN", type: "text", placeholder: "MPN" },
           { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name" },
@@ -620,10 +612,6 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         type: "table",
         addButtonLabel: "Add Row",
         required: true,
-        dependency: {
-          field: "packaging.include_packaging",
-          value: "Yes, include packaging",
-        },
         columns: [
           { name: "mpn_code", label: "MPN Code", type: "text", placeholder: "MPN" },
           { name: "component_name", label: "Component name", type: "text", placeholder: "Component name" },

@@ -2449,12 +2449,12 @@ const buildVisibleQuestionnaireSchema = (
     });
 };
 
-// Legacy (filtered 84-question) schema — preserved for reference and easy
-// revival. No longer the active questionnaire.
+// Legacy (filtered 84-question) schema: General Information + Sections 1-4
+// (10 questions). Preserved for reference and easy revival.
 export const QUESTIONNAIRE_SCHEMA_LEGACY: QuestionnaireSection[] =
   buildVisibleQuestionnaireSchema(_FULL_QUESTIONNAIRE_SCHEMA);
 
-// Active questionnaire: Version 3.0 (CX-PCF Rulebook v4 / ISO 14067 / SAMM 9.0.0).
-// Defined in questionnaireSchemaV3.ts. General Information is kept unchanged; the
-// rest is the new Sections A–K (Q1–28). See that file for the form-first scope note.
+// Active questionnaire: Version 3.0 (Sections A-K, Q1-28), defined in
+// questionnaireSchemaV3.ts. To switch back to the original 10-question form,
+// point QUESTIONNAIRE_SCHEMA at QUESTIONNAIRE_SCHEMA_LEGACY.
 export const QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = QUESTIONNAIRE_SCHEMA_V3;

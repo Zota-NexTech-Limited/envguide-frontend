@@ -37,6 +37,30 @@ export const SECTION_HELP: Record<string, SectionHelp> = {
     summary:
       "A short introduction and consent. It explains how your data is used (only for sustainability assessment) and what counts as renewable electricity. Just read and acknowledge.",
   },
+  organization_details: {
+    summary:
+      "Basic facts about your company and the time period your answers cover. This identifies who is reporting and over which year.",
+    whereToFind:
+      "Your company registration documents and your finance team for the reporting year.",
+  },
+  product_details: {
+    summary:
+      "The components or products you supply, where they are made, and their weight, quantity and price. This is the backbone of the footprint calculation.",
+    whereToFind:
+      "Your bill of materials (BOM), product spec sheets, and your ERP or production records.",
+  },
+  scope_2: {
+    summary:
+      "The energy you buy from outside, mainly grid electricity used to make the product, and whether any of it is renewable.",
+    whereToFind:
+      "Your electricity and energy bills for the reporting year, plus any renewable energy certificates you hold.",
+  },
+  scope_3: {
+    summary:
+      "Everything else in your value chain: raw materials, packaging, waste, and transport. These are usually the biggest part of a product's footprint.",
+    whereToFind:
+      "Bills of materials, supplier invoices, packaging specs, waste contractor statements, and freight or logistics records.",
+  },
   section_a_company_product: {
     summary:
       "Who you are and which exact product this footprint is for: legal name, company ID, product name and IDs, the declared unit, and where it is made.",

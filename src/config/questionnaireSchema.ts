@@ -91,6 +91,14 @@ export interface QuestionnaireField {
   efSource?: "electricity" | "fuel" | "packaging" | "vehicle" | "waste" | "materials";
   efLayer?: 1 | 2 | 3 | 4;
   autoPopulateFromProducts?: boolean;
+  // Pre-fill table with one row per BOM component sourced from the client-uploaded
+  // BOM (bomComponents prop in DynamicQuestionnaireForm). Used by Q8 — supplier
+  // describes each BOM line but cannot add or remove rows.
+  autoPopulateFromBom?: boolean;
+  // Hide the "Add Row" button AND replace the per-row Delete with a Clear button
+  // (wipes editable columns, keeps readOnly columns + the row itself). Used by Q8
+  // so the BOM structure can't be tampered with.
+  lockAddRemove?: boolean;
   multiple?: boolean;
   readOnly?: boolean;
 }

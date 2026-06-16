@@ -154,6 +154,29 @@ const SupplierQuestionnaire: React.FC = () => {
     };
   }, [sup_id, bom_pcf_id, isClientMode]);
 
+  // V3 hard-coded defaults: Q6 PCF type and Q7 system boundary are fixed per
+  // Catena-X policy and the corresponding fields are disabled in the schema.
+  // We seed them into formData once so they are persisted and submitted even
+  // if the supplier never visits Section B.
+  useEffect(() => {
+    setFormData((prev) => {
+      const next = { ...prev };
+      const sp = { ...(prev?.scope_period ?? {}) };
+      let changed = false;
+      if (!sp.pcf_type) {
+        sp.pcf_type = "1: Retrospective PCF (historical / measured data)";
+        changed = true;
+      }
+      if (!sp.system_boundary) {
+        sp.system_boundary = "Cradle-to-Gate (default, per Catena-X)";
+        changed = true;
+      }
+      if (!changed) return prev;
+      next.scope_period = sp;
+      return next;
+    });
+  }, []);
+
   // Check supplier onboarding status first (only for supplier mode with sup_id)
   useEffect(() => {
     const checkOnboardingStatus = async () => {
@@ -536,10 +559,26 @@ const SupplierQuestionnaire: React.FC = () => {
   // when false, source always wins (for draft loading)
   // mergeArrayItems: when true, merges each array item (object spread) so hidden fields like bom_id
   //   that exist in target but not source are preserved instead of being silently dropped.
+  // dayjs / Date / File / Blob must be treated as opaque primitives by deepMerge,
+  // otherwise their prototypes (and internal $d / lastModified / etc.) get stripped
+  // and methods like toISOString() throw later during JSON.stringify or render.
+  const isOpaqueValue = (v: any): boolean => {
+    if (v === null || typeof v !== 'object') return false;
+    if (v instanceof Date) return true;
+    if (typeof File !== 'undefined' && v instanceof File) return true;
+    if (typeof Blob !== 'undefined' && v instanceof Blob) return true;
+    // dayjs duck-typing — has internal $d + format() method
+    if (typeof (v as any).format === 'function' && (v as any).$d !== undefined) return true;
+    return false;
+  };
+
   const deepMerge = (target: any, source: any, preserveTargetArrays = false, mergeArrayItems = false): any => {
     const result = { ...target };
     for (const key in source) {
-      if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      if (isOpaqueValue(source[key])) {
+        // dayjs / Date / File — copy reference as-is, no spread.
+        result[key] = source[key];
+      } else if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
         // Recursively merge nested objects
         result[key] = deepMerge(result[key] || {}, source[key], preserveTargetArrays, mergeArrayItems);
       } else if (Array.isArray(source[key])) {

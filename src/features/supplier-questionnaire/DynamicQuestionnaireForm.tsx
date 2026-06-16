@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import { Form, Input, Select, Checkbox, Radio, InputNumber, Button, Table, Space, Typography, Tooltip, Badge, Empty, Tag, Spin, Upload, message, DatePicker } from 'antd';
 import type { UploadFile, UploadProps } from 'antd';
 import { QUESTIONNAIRE_OPTIONS } from '../../config/questionnaireConfig';
-import { PlusOutlined, DeleteOutlined, UploadOutlined, QuestionCircleOutlined, CheckCircleOutlined, InfoCircleOutlined, LoadingOutlined, FileOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, UploadOutlined, QuestionCircleOutlined, CheckCircleOutlined, InfoCircleOutlined, LoadingOutlined, FileOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { QuestionnaireSection, QuestionnaireField, ApiDropdownType } from '../../config/questionnaireSchema';
 import questionnaireDropdownService, { type DropdownItem } from '../../lib/questionnaireDropdownService';
 // EF cascading dropdowns were wired to the 6 legacy ECOInvent EF tables (now
@@ -222,8 +222,16 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
     if (initialValues && Object.keys(initialValues).length > 0) {
       // Only update if there are actual values to set
       const currentValues = form.getFieldsValue();
-      const hasNewData = JSON.stringify(currentValues) !== JSON.stringify(initialValues);
-      
+      // JSON.stringify can throw if a dayjs object has been mangled (its toJSON
+      // calls $d.toISOString which then fails). In that case treat as "changed"
+      // so we still call setFieldsValue — harmless re-render is preferable to crash.
+      let hasNewData = true;
+      try {
+        hasNewData = JSON.stringify(currentValues) !== JSON.stringify(initialValues);
+      } catch {
+        hasNewData = true;
+      }
+
       if (hasNewData) {
         console.log("DynamicQuestionnaireForm: Updating form values from initialValues", initialValues);
         form.setFieldsValue(initialValues);
@@ -314,6 +322,49 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
   useEffect(() => {
     autoPopulateTables();
   }, [autoPopulateTables, initialValues]);
+
+  // Q8 (and any other autoPopulateFromBom table): pre-fill ONE row per BOM
+  // component sourced directly from the immutable client-uploaded BOM.
+  // MPN and Component Name come from the BOM; supplier fills the rest.
+  useEffect(() => {
+    if (!section) return;
+    if (!Array.isArray(bomComponents) || bomComponents.length === 0) return;
+
+    const tablesFromBom = section.fields.filter(
+      (f) => f.type === "table" && f.autoPopulateFromBom
+    );
+    if (tablesFromBom.length === 0) return;
+
+    tablesFromBom.forEach((field) => {
+      const fieldPath = field.name.split(".");
+      const existing = form.getFieldValue(fieldPath) || [];
+      const filledRows = (Array.isArray(existing) ? existing : []).filter(Boolean);
+
+      // If the table is empty OR has the wrong number of rows for this BOM,
+      // rebuild it from the BOM list. We preserve any supplier-entered data
+      // for rows whose bom_id matches a BOM component (so refreshes don't wipe).
+      if (filledRows.length === bomComponents.length) return;
+
+      const existingByBomId: Record<string, any> = {};
+      filledRows.forEach((r: any) => {
+        if (r && r.bom_id) existingByBomId[r.bom_id] = r;
+      });
+
+      const newRows = bomComponents.map((c) => {
+        const prior = existingByBomId[c.bom_id] || {};
+        return {
+          ...prior,
+          bom_id: c.bom_id,
+          material_number: c.material_number,
+          product_id: c.material_number,
+          component_name: c.component_name,
+          product_name: c.component_name,
+        };
+      });
+
+      form.setFieldValue(fieldPath, newRows);
+    });
+  }, [section, bomComponents, form, initialValues]);
 
   // Watch for dependency field changes to trigger auto-populate
   // This handles cases where conditional tables become visible
@@ -1276,6 +1327,30 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                     render: (_: any, fieldRecord: any) => {
                       const fieldPath = field.name.split('.');
 
+                      // ReadOnly columns (e.g. Q8 MPN/Component Name auto-populated
+                      // from the BOM, Q9.1/Q14 Component Name auto-filled when the
+                      // MPN dropdown picks a row). Render plain text, but keep a
+                      // hidden Form.Item so the value persists in form state.
+                      if (col.readOnly) {
+                        const rowValues = form.getFieldValue([...fieldPath, fieldRecord.name]) || {};
+                        const display = rowValues[col.name];
+                        return (
+                          <>
+                            <Form.Item name={[fieldRecord.name, col.name]} hidden>
+                              <Input type="hidden" />
+                            </Form.Item>
+                            <div
+                              className="px-2 py-1 text-sm text-gray-700 bg-gray-50 rounded border border-gray-200 truncate"
+                              title={display ? String(display) : ""}
+                            >
+                              {display !== undefined && display !== null && display !== ""
+                                ? String(display)
+                                : <span className="text-gray-400">—</span>}
+                            </div>
+                          </>
+                        );
+                      }
+
                       // Handle Emission Factors cascade dropdown (Layer 1..4 sourced from
                       // the categorized EF API, keyed by col.efSource). Each layer is
                       // filtered by the earlier layers selected on the same row;
@@ -1553,7 +1628,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         const bomMaterialOptions: DropdownItem[] = (bomComponents || [])
                           .map((item) => ({
                             id: item.material_number || '',
-                            name: `${item.material_number || ''} - ${item.component_name || ''}`,
+                            name: `${item.material_number || ''} — ${item.component_name || ''}`,
                             bom_id: item.bom_id || '',
                             product_name: item.component_name || '',
                           }))
@@ -1961,16 +2036,46 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                   key: 'action',
                   width: 70,
                   fixed: 'right' as const,
-                  render: (_: any, fieldRecord: any) => (
-                    <Button
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={() => remove(fieldRecord.name)}
-                      className="hover:bg-red-50"
-                      size="small"
-                    />
-                  )
+                  render: (_: any, fieldRecord: any) =>
+                    field.lockAddRemove ? (
+                      // Q8 (BOM): supplier can wipe editable fields but the row
+                      // stays anchored to its BOM component. ReadOnly columns
+                      // (MPN, Component Name) are preserved.
+                      <Button
+                        type="text"
+                        icon={<ReloadOutlined />}
+                        onClick={() => {
+                          const path = field.name.split('.');
+                          const rowPath = [...path, fieldRecord.name];
+                          const rowValues = form.getFieldValue(rowPath) || {};
+                          const cleared: Record<string, any> = {};
+                          (field.columns || []).forEach((c: QuestionnaireField) => {
+                            if (c.readOnly) {
+                              cleared[c.name] = rowValues[c.name];
+                            } else {
+                              cleared[c.name] = undefined;
+                            }
+                          });
+                          // Preserve hidden link fields (bom_id etc.) too.
+                          ["bom_id", "material_number", "product_name"].forEach((k) => {
+                            if (rowValues[k] !== undefined) cleared[k] = rowValues[k];
+                          });
+                          form.setFieldValue(rowPath, cleared);
+                        }}
+                        className="hover:bg-amber-50 hover:text-amber-600"
+                        size="small"
+                        title="Clear this row's data (the BOM component stays)"
+                      />
+                    ) : (
+                      <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => remove(fieldRecord.name)}
+                        className="hover:bg-red-50"
+                        size="small"
+                      />
+                    )
                 }
               ];
 
@@ -2017,22 +2122,27 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-xs text-gray-500">
                       {fields.length} {fields.length === 1 ? 'item' : 'items'}
-                      {field.required && fields.length === 0 && (
+                      {field.required && fields.length === 0 && !field.lockAddRemove && (
                         <span className="text-red-500 ml-1">(Required - add at least one entry)</span>
                       )}
+                      {field.lockAddRemove && (
+                        <span className="text-gray-500 ml-1">(locked to BOM — rows cannot be added or removed)</span>
+                      )}
                     </span>
-                    <Button
-                      type="dashed"
-                      onClick={() => {
-                        // Add empty row — supplier must select MPN/component for each row
-                        // to ensure correct bom_id mapping across multiple components
-                        add();
-                      }}
-                      icon={<PlusOutlined />}
-                      className="hover:border-green-400 hover:text-green-600"
-                    >
-                      {field.addButtonLabel || 'Add Row'}
-                    </Button>
+                    {!field.lockAddRemove && (
+                      <Button
+                        type="dashed"
+                        onClick={() => {
+                          // Add empty row — supplier must select MPN/component for each row
+                          // to ensure correct bom_id mapping across multiple components
+                          add();
+                        }}
+                        icon={<PlusOutlined />}
+                        className="hover:border-green-400 hover:text-green-600"
+                      >
+                        {field.addButtonLabel || 'Add Row'}
+                      </Button>
+                    )}
                   </div>
                 </>
               );

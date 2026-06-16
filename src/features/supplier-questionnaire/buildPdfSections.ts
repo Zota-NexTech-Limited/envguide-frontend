@@ -1,6 +1,27 @@
 import { QUESTIONNAIRE_SCHEMA } from "../../config/questionnaireSchema";
 import type { QuestionnaireField } from "../../config/questionnaireSchema";
 
+// Safe stringifier — dayjs / Date / plain value, never throws.
+const safeToString = (val: any): string => {
+  if (val === null || val === undefined) return "";
+  if (val instanceof Date) {
+    try { return val.toISOString().split("T")[0]; } catch { return ""; }
+  }
+  if (typeof val === "object") {
+    const v: any = val;
+    if (typeof v.format === "function") {
+      try { return v.format("YYYY-MM-DD"); } catch { /* fall through */ }
+    }
+    if (typeof v.toISOString === "function") {
+      try { return v.toISOString().split("T")[0]; } catch { /* fall through */ }
+    }
+    if (typeof v.$d !== "undefined" && v.$d instanceof Date) {
+      try { return v.$d.toISOString().split("T")[0]; } catch { /* fall through */ }
+    }
+  }
+  try { return String(val); } catch { return ""; }
+};
+
 // Shape matching the backend PDF helper contract
 export interface PdfFieldItem {
   type: "field";
@@ -130,13 +151,13 @@ const formatFieldValue = (
     return value === true ? "Acknowledged" : "Not Acknowledged";
   }
   if (field.type === "radio") {
-    return String(value);
+    return safeToString(value);
   }
   if (field.type === "checkbox" && field.options) {
-    return Array.isArray(value) ? value.join(", ") : String(value);
+    return Array.isArray(value) ? value.join(", ") : safeToString(value);
   }
   if (field.type === "tags") {
-    return Array.isArray(value) ? value.join(", ") : String(value);
+    return Array.isArray(value) ? value.join(", ") : safeToString(value);
   }
   if (field.type === "file") {
     const files = Array.isArray(value) ? value : [value];
@@ -148,13 +169,14 @@ const formatFieldValue = (
   }
   if (field.type === "select" && field.apiDropdown) {
     const map = dropdownMaps[field.apiDropdown];
-    if (map && map[String(value)]) return map[String(value)];
-    return String(value);
+    const k = safeToString(value);
+    if (map && map[k]) return map[k];
+    return k;
   }
   if (typeof value === "number") {
     return value.toLocaleString();
   }
-  return String(value);
+  return safeToString(value);
 };
 
 // Main builder ----------------------------------------------------
@@ -197,10 +219,11 @@ export const buildPdfSections = (
             const val = row[col.name];
             if (val === undefined || val === null || val === "") return "-";
             if (col.apiDropdown && dropdownMaps[col.apiDropdown]) {
-              return dropdownMaps[col.apiDropdown][String(val)] || String(val);
+              const k = safeToString(val);
+              return dropdownMaps[col.apiDropdown][k] || k;
             }
             if (typeof val === "number") return val.toLocaleString();
-            return String(val);
+            return safeToString(val);
           })
         );
 

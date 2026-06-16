@@ -32,6 +32,11 @@ import {
 } from "@ant-design/icons";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import supplierQuestionnaireService from "../../lib/supplierQuestionnaireService";
+import {
+  saveV3Questionnaire,
+  submitV3Questionnaire,
+  downloadV3Pdf,
+} from "../../lib/questionnaireV3Api";
 import authService from "../../lib/authService";
 import productService from "../../lib/productService";
 import userManagementService from "../../lib/userManagementService";
@@ -114,6 +119,8 @@ const SupplierQuestionnaire: React.FC = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [submittedSgiqId, setSubmittedSgiqId] = useState<string | null>(null);
+  // V3 (28-question) backend response id — captured after the first save, reused for subsequent upserts + submit.
+  const [v3ResponseId, setV3ResponseId] = useState<string | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   // Supplier onboarding state
@@ -883,12 +890,22 @@ const SupplierQuestionnaire: React.FC = () => {
       const updatedData = deepMerge(formData, values, false, true);
       setFormData(updatedData);
 
-      supplierQuestionnaireService.saveDraft(
-        updatedData,
-        currentStep,
-        sup_id,
-        bom_pcf_id,
-      );
+      if (!sup_id || !bom_pcf_id) {
+        throw new Error("Missing supplier or PCF identifiers — cannot save draft.");
+      }
+
+      const v3Result = await saveV3Questionnaire(updatedData, {
+        bomPcfRequestId: bom_pcf_id,
+        supplierId: sup_id,
+        responseId: v3ResponseId ?? undefined,
+        status: "draft",
+      });
+      if (!v3Result?.status) {
+        throw new Error(v3Result?.message || "Draft save failed");
+      }
+      const newId = v3Result?.data?.responseId;
+      if (newId && newId !== v3ResponseId) setV3ResponseId(newId);
+
       setLastSaved(new Date());
       setAutoSaveStatus("saved");
       message.success({
@@ -909,140 +926,68 @@ const SupplierQuestionnaire: React.FC = () => {
     }
   };
 
-  // Walks the form payload and back-fills bom_id / material_number on sub-table
-  // rows whenever they have been dropped but the row still has identifying info
-  // (mpn / material_number / component_name). Source of truth is the user's
-  // products_manufactured list (Q5), which always has correct bom_ids.
-  const backfillBomLinksInPlace = (data: any) => {
-    const products = data?.product_details?.products_manufactured;
-    if (!Array.isArray(products) || products.length === 0) return;
-
-    const byMaterial = new Map<string, { bom_id: string; material_number: string; component_name: string }>();
-    const byComponent = new Map<string, { bom_id: string; material_number: string; component_name: string }>();
-    products.forEach((p: any) => {
-      if (!p) return;
-      const entry = {
-        bom_id: p.bom_id || "",
-        material_number: p.material_number || p.mpn || "",
-        component_name: p.product_name || "",
-      };
-      if (entry.material_number) byMaterial.set(String(entry.material_number).trim(), entry);
-      if (entry.component_name)  byComponent.set(String(entry.component_name).trim(), entry);
-    });
-
-    const enrichRow = (row: any) => {
-      if (!row) return row;
-      if (row.bom_id) return row;
-      const mat = row.material_number || row.mpn;
-      const comp = row.component_name || row.product_name;
-      const match =
-        (mat && byMaterial.get(String(mat).trim())) ||
-        (comp && byComponent.get(String(comp).trim()));
-      if (match) {
-        if (!row.bom_id && match.bom_id) row.bom_id = match.bom_id;
-        if (!row.material_number && match.material_number) row.material_number = match.material_number;
-        if (!row.component_name && match.component_name) row.component_name = match.component_name;
-      }
-      return row;
-    };
-
-    const enrichArrayAt = (path: string[]) => {
-      let node = data;
-      for (const key of path.slice(0, -1)) {
-        node = node?.[key];
-        if (!node) return;
-      }
-      const arr = node?.[path[path.length - 1]];
-      if (Array.isArray(arr)) arr.forEach(enrichRow);
-    };
-
-    enrichArrayAt(["scope_3", "packaging", "materials_used"]);
-    enrichArrayAt(["scope_3", "packaging", "weight_per_unit"]);
-    enrichArrayAt(["scope_3", "packaging", "size"]);
-    enrichArrayAt(["scope_3", "materials", "raw_materials_used"]);
-    enrichArrayAt(["scope_3", "materials", "recycled_materials_used"]);
-    enrichArrayAt(["scope_3", "waste_disposal", "types_and_weight"]);
-    enrichArrayAt(["scope_3", "transport", "transport_modes"]);
-    enrichArrayAt(["scope_3", "by_products"]);
-  };
-
   const handleSubmit = async () => {
     try {
-      console.log("Submitting questionnaire with formData:", formData);
       const values = await form.validateFields();
       const finalData = deepMerge(formData, values, false, true);
 
-      // Back-fill bom_id / material_number on any sub-table rows that lost them
-      // (Ant Design hidden Form.Item registration sometimes drops these for rows
-      // beyond the first). Source of truth is products_manufactured (Q5).
-      backfillBomLinksInPlace(finalData);
+      if (!sup_id || !bom_pcf_id) {
+        throw new Error("Missing supplier or PCF identifiers — cannot submit.");
+      }
 
       setIsSaving(true);
       setFormErrors({});
 
-      let result;
-      if (questionnaireId) {
-        result = await supplierQuestionnaireService.updateQuestionnaire(
-          questionnaireId,
-          finalData,
-        );
-      } else if (isClientMode && client_id && product_id && bom_pcf_id) {
-        // Client mode - use client-specific endpoint
-        console.log("Submitting client questionnaire with:", { client_id, product_id, bom_pcf_id });
-        result = await supplierQuestionnaireService.createClientQuestionnaire(
-          finalData,
-          client_id,
-          product_id,
-          bom_pcf_id,
-        );
-      } else {
-        // Supplier mode - use supplier endpoint
-        result = await supplierQuestionnaireService.createQuestionnaire(
-          finalData,
-          sup_id || undefined,
-          bom_pcf_id || undefined,
-        );
-      }
-
-      if (result.success) {
-        supplierQuestionnaireService.clearDraft(sup_id, bom_pcf_id);
-
-        // Capture the new sgiq_id for PDF reference
-        const newSgiqId =
-          result.data?.general_info?.sgiq_id ||
-          result.data?.sgiq_id ||
-          questionnaireId;
-        if (newSgiqId) {
-          setSubmittedSgiqId(newSgiqId);
-        }
-
-        // For supplier mode (public route) or client mode, show thank you page instead of navigating
-        if (isPublicRoute || isClientMode) {
-          setIsCompleted(true);
-        } else {
-          message.success({
-            content:
-              "Questionnaire submitted successfully! Thank you for completing the form.",
-            duration: 4,
-          });
-
-          // Navigate to DQR or list
-          const newId =
-            result.data?.general_info?.sgiq_id ||
-            result.data?.sgiq_id ||
-            questionnaireId;
-          if (newId) {
-            // Optional: Redirect to view or DQR
-            navigate("/supplier-questionnaire");
-          }
-        }
-      } else {
+      const v3Save = await saveV3Questionnaire(finalData, {
+        bomPcfRequestId: bom_pcf_id,
+        supplierId: sup_id,
+        responseId: v3ResponseId ?? undefined,
+        status: "submitted",
+      });
+      if (!v3Save?.status) {
         message.error({
-          content: result.message
-            ? `Submission failed: ${result.message}. Please review your answers and try again.`
-            : "Unable to submit the questionnaire. Please check your internet connection and try again. If the problem persists, contact support.",
+          content: v3Save?.message
+            ? `Submission failed: ${v3Save.message}`
+            : "Unable to submit the questionnaire. Please try again.",
           duration: 6,
         });
+        return;
+      }
+
+      const v3Id = v3Save?.data?.responseId ?? v3ResponseId;
+      if (!v3Id) {
+        throw new Error("Backend did not return a response id.");
+      }
+      setV3ResponseId(v3Id);
+      setSubmittedSgiqId(v3Id);
+
+      const v3Submit = await submitV3Questionnaire(v3Id);
+      if (!v3Submit?.status) {
+        const validationErrors =
+          (v3Submit?.data as any)?.errors as Array<{ field: string; message: string }> | undefined;
+        if (validationErrors?.length) {
+          const errMap: Record<string, string[]> = {};
+          validationErrors.forEach((e) => {
+            errMap[e.field] = [...(errMap[e.field] ?? []), e.message];
+          });
+          setFormErrors(errMap);
+        }
+        message.error({
+          content: v3Submit?.message ?? "Submission validation failed.",
+          duration: 6,
+        });
+        return;
+      }
+
+      if (isPublicRoute || isClientMode) {
+        setIsCompleted(true);
+      } else {
+        message.success({
+          content:
+            "Questionnaire submitted successfully! Thank you for completing the form.",
+          duration: 4,
+        });
+        navigate("/supplier-questionnaire");
       }
     } catch (error: any) {
       console.error("Submit error:", error);
@@ -1071,63 +1016,33 @@ const SupplierQuestionnaire: React.FC = () => {
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
     try {
-      const [
-        fuelTypes,
-        subFuelTypes,
-        energySources,
-        energyTypes,
-        refrigerantTypes,
-        processSpecificEnergy,
-        transportModes,
-      ] = await Promise.all([
-        getFuelTypeDropdown().catch(() => [] as DropdownItem[]),
-        getSubFuelTypeDropdown().catch(() => [] as DropdownItem[]),
-        getEnergySourceDropdown().catch(() => [] as DropdownItem[]),
-        getEnergyTypeDropdown().catch(() => [] as DropdownItem[]),
-        getRefrigerantTypeDropdown().catch(() => [] as DropdownItem[]),
-        getProcessSpecificEnergyDropdown().catch(() => [] as DropdownItem[]),
-        getTransportModeDropdown().catch(() => [] as DropdownItem[]),
-      ]);
+      // V3 form uses static option lists, not API-backed dropdown IDs — empty maps are fine.
+      const sections = buildPdfSections(formData, {});
 
-      const buildMap = (items: DropdownItem[]) => {
-        const map: Record<string, string> = {};
-        items.forEach((item) => {
-          map[item.id] = item.name;
-        });
-        return map;
-      };
-
-      const dropdownMaps: Record<string, Record<string, string>> = {
-        fuelType: buildMap(fuelTypes),
-        subFuelType: buildMap(subFuelTypes),
-        subFuelTypeByFuel: buildMap(subFuelTypes),
-        energySource: buildMap(energySources),
-        energyType: buildMap(energyTypes),
-        energyTypeBySource: buildMap(energyTypes),
-        refrigerantType: buildMap(refrigerantTypes),
-        processSpecificEnergy: buildMap(processSpecificEnergy),
-        transportMode: buildMap(transportModes),
-      };
-
-      const sections = buildPdfSections(formData, dropdownMaps);
       const supplierName =
-        formData?.organization_details?.organization_name ||
+        formData?.company?.legal_name ||
         formData?.supplier_company_name ||
         "Supplier";
 
-      const result = await supplierQuestionnaireService.downloadQuestionnairePdf({
+      const result = await downloadV3Pdf({
         sections,
         supplier_name: supplierName,
         submission_date: new Date().toISOString(),
-        reference_id: submittedSgiqId || undefined,
+        reference_id: submittedSgiqId || v3ResponseId || undefined,
         bom_pcf_id: bom_pcf_id || undefined,
       });
 
-      if (result.success) {
-        message.success({
-          content: "PDF report downloaded successfully!",
-          duration: 3,
-        });
+      if (result.success && result.blob) {
+        const sanitized = String(supplierName).replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_");
+        const url = URL.createObjectURL(result.blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Supplier_Questionnaire_${sanitized}_${new Date().toISOString().split("T")[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        message.success({ content: "PDF report downloaded successfully!", duration: 3 });
       } else {
         message.error({
           content: result.message || "Failed to generate PDF. Please try again.",

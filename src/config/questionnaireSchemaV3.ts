@@ -288,11 +288,24 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         placeholder: "Enter the registered company name",
       },
       {
+        // Generic company registration identifier — supplier picks whichever
+        // applies to their jurisdiction (DUNS / VAT / CIN / etc.). Optional
+        // per Word doc; BPN below is the mandatory Catena-X identifier.
         name: "company.company_id",
-        label: "Company registration ID (BPN / DUNS / VAT / CIN)",
+        label: "Company registration ID (DUNS / VAT / CIN / other) (optional)",
+        type: "text",
+        required: false,
+        placeholder: "e.g. DUNS / VAT / CIN",
+      },
+      {
+        // Catena-X mandates BPN (Business Partner Number) on every supplier
+        // record. Must follow BPNL/BPNS/BPNA + 12 alphanumeric chars.
+        name: "company.bpn",
+        label: "Business Partner Number (BPN)",
         type: "text",
         required: true,
-        placeholder: "e.g. BPNL000000000000 / DUNS / VAT / CIN",
+        placeholder: "BPNL000000000000",
+        maxLength: 16,
       },
       {
         name: "product.name",
@@ -335,7 +348,18 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         label: "Declared quantity / amount (e.g. 1)",
         type: "number",
         required: true,
+        min: 0,
         placeholder: "e.g. 1",
+      },
+      {
+        // Absolute product mass per declared unit (kg). Feeds the carbon
+        // content + intensity calcs in the formula engine.
+        name: "product.declared_mass",
+        label: "Declared Mass (kg per declared unit)",
+        type: "number",
+        required: true,
+        min: 0,
+        placeholder: "e.g. 2.5",
       },
       {
         name: "product.manufacturing_sites",
@@ -379,16 +403,16 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
       },
       {
         name: "scope_period.validity_start",
-        label: "Validity start date",
+        label: "Validity start date (optional)",
         type: "date",
-        required: true,
+        required: false,
         placeholder: "Default: same as reference end date",
       },
       {
         name: "scope_period.validity_end",
-        label: "Validity end date (optional)",
+        label: "Validity end date",
         type: "date",
-        required: false,
+        required: true,
         placeholder: "Default: reference end date + 2 years",
       },
       {
@@ -439,14 +463,14 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         columns: [
           { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN", readOnly: true },
           { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name", readOnly: true },
-          { name: "material", label: "Material", type: "select", options: MATERIALS, required: true, placeholder: "Select material" },
-          { name: "process", label: "Process", type: "select", options: PROCESSES, required: true, placeholder: "Select process" },
-          { name: "mass_percent", label: "Mass (%)", type: "number", required: true, placeholder: "0-100" },
-          { name: "carbon_percent", label: "Carbon (%)", type: "number", required: true, placeholder: "0-100" },
-          { name: "biogenic", label: "Biogenic? (Y/N)", type: "select", options: YES_NO, required: true, placeholder: "Y/N" },
-          { name: "biogenic_carbon_percent", label: "Biogenic C (%)", type: "number", placeholder: "0-100" },
-          { name: "recycled", label: "Recycled? (Y/N)", type: "select", options: YES_NO, required: true, placeholder: "Y/N" },
-          { name: "recycled_carbon_percent", label: "Recycled C (%)", type: "number", placeholder: "0-100" },
+          { name: "material", label: "Material", type: "select", options: MATERIALS, placeholder: "Select material" },
+          { name: "process", label: "Process", type: "select", options: PROCESSES, placeholder: "Select process" },
+          { name: "mass_percent", label: "Mass (%)", type: "number", required: true, min: 0, max: 100, placeholder: "0-100" },
+          { name: "carbon_percent", label: "Carbon (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
+          { name: "biogenic", label: "Biogenic? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+          { name: "biogenic_carbon_percent", label: "Biogenic C (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
+          { name: "recycled", label: "Recycled? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+          { name: "recycled_carbon_percent", label: "Recycled C (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
         ],
       },
       {
@@ -469,11 +493,11 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           value: "Yes",
         },
         columns: [
-          { name: "mpn", label: "MPN", type: "select", apiDropdown: "bomMaterials", required: true, placeholder: "Pick a component" },
+          { name: "mpn", label: "MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
           { name: "component_name", label: "Component Name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
-          { name: "co_product_name", label: "Co-Product Name", type: "text", required: true, placeholder: "Co-product name" },
-          { name: "co_product_price", label: "Co-Product Price (currency/unit)", type: "number", required: true, placeholder: "0.00" },
-          { name: "is_primary", label: "Is this the primary product? (Y/N)", type: "select", options: YES_NO, required: true, placeholder: "Y/N" },
+          { name: "co_product_name", label: "Co-Product Name", type: "text", placeholder: "Co-product name" },
+          { name: "co_product_price", label: "Co-Product Price (currency/unit)", type: "number", min: 0, placeholder: "0.00" },
+          { name: "is_primary", label: "Is this the primary product? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
         ],
       },
     ],
@@ -496,29 +520,27 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         placeholder:
           "Use meter readings or electricity invoices for the reporting period. Default unit is kWh.",
         columns: [
-          { name: "electricity_type", label: "Type of Electricity", type: "select", options: ELECTRICITY_TYPES, required: true, placeholder: "Select type" },
+          { name: "electricity_type", label: "Type of Electricity", type: "select", options: ELECTRICITY_TYPES, placeholder: "Select type" },
           { name: "generator_type", label: "Generator Type", type: "text", placeholder: "If self-generated" },
-          { name: "quantity", label: "Quantity", type: "number", required: true, placeholder: "0.00" },
-          { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, required: true, placeholder: "Select unit" },
-          { name: "renewable_percent", label: "Renewable (%)", type: "number", required: true, placeholder: "0-100" },
-          { name: "renewable_sourcing", label: "Renewable (%) Sourcing", type: "select", options: RENEWABLE_SOURCING, required: true, placeholder: "Select mechanism" },
+          { name: "quantity", label: "Quantity", type: "number", min: 0, placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, placeholder: "Select unit" },
+          { name: "renewable_percent", label: "Renewable (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
+          { name: "renewable_sourcing", label: "Renewable (%) Sourcing", type: "select", options: RENEWABLE_SOURCING, placeholder: "Select mechanism" },
           { name: "infrastructure_included", label: "Infrastructure Emissions Included? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
-          { name: "infrastructure_ef", label: "Infrastructure EF (kgCO₂e/kWh)", type: "number", placeholder: "0.00" },
+          { name: "infrastructure_ef", label: "Infrastructure EF (kgCO₂e/kWh)", type: "number", min: 0, placeholder: "0.00" },
         ],
       },
       {
-        // Optional section — supplier can skip. If they add a row, every column
-        // is required so we never persist half-filled rows.
         name: "energy.other_fuels",
         label: "11. Which other fuels or energy carriers were used? (optional)",
         type: "table",
         addButtonLabel: "Add Row",
         required: false,
         columns: [
-          { name: "fuel_carrier", label: "Fuel / energy carrier", type: "select", options: FUEL_CARRIERS, required: true, placeholder: "Select fuel" },
-          { name: "quantity", label: "Quantity", type: "number", required: true, placeholder: "0.00" },
-          { name: "unit", label: "Unit", type: "select", options: FUEL_UNITS, required: true, placeholder: "Select unit" },
-          { name: "biogenic", label: "Biogenic? (Y/N)", type: "select", options: YES_NO, required: true, placeholder: "Y/N" },
+          { name: "fuel_carrier", label: "Fuel / energy carrier", type: "select", options: FUEL_CARRIERS, placeholder: "Select fuel" },
+          { name: "quantity", label: "Quantity", type: "number", min: 0, placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: FUEL_UNITS, placeholder: "Select unit" },
+          { name: "biogenic", label: "Biogenic? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
         ],
       },
       {
@@ -529,10 +551,10 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         addButtonLabel: "Add Row",
         required: false,
         columns: [
-          { name: "gas", label: "Direct process gas", type: "select", options: PROCESS_GASES, required: true, placeholder: "Select gas" },
-          { name: "quantity", label: "Quantity", type: "number", required: true, placeholder: "0.00" },
-          { name: "unit", label: "Unit", type: "select", options: GAS_UNITS, required: true, placeholder: "Select unit" },
-          { name: "origin", label: "Fossil / biogenic origin", type: "select", options: FOSSIL_BIOGENIC, required: true, placeholder: "Select origin" },
+          { name: "gas", label: "Direct process gas", type: "select", options: PROCESS_GASES, placeholder: "Select gas" },
+          { name: "quantity", label: "Quantity", type: "number", min: 0, placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: GAS_UNITS, placeholder: "Select unit" },
+          { name: "origin", label: "Fossil / biogenic origin", type: "select", options: FOSSIL_BIOGENIC, placeholder: "Select origin" },
         ],
       },
       {
@@ -544,10 +566,10 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         placeholder:
           "If this energy is already included in the Q10 electricity total, select 'Yes' under 'Already in Q10' to avoid double-counting.",
         columns: [
-          { name: "item", label: "Item", type: "text", required: true, placeholder: "e.g. QC lab, server room" },
-          { name: "value", label: "Value", type: "number", required: true, placeholder: "0.00" },
-          { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, required: true, placeholder: "Select unit" },
-          { name: "already_in_q10", label: "Already in Q10? (Y/N)", type: "select", options: YES_NO, required: true, placeholder: "Y/N" },
+          { name: "item", label: "Item", type: "text", placeholder: "e.g. QC lab, server room" },
+          { name: "value", label: "Value", type: "number", min: 0, placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, placeholder: "Select unit" },
+          { name: "already_in_q10", label: "Already in Q10? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
         ],
       },
       {
@@ -558,12 +580,12 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         addButtonLabel: "Add Row",
         required: true,
         columns: [
-          { name: "product_id", label: "Product ID / MPN", type: "select", apiDropdown: "bomMaterials", required: true, placeholder: "Pick a component" },
+          { name: "product_id", label: "Product ID / MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
           { name: "component_name", label: "Component name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
-          { name: "waste_type", label: "Waste Type", type: "select", options: WASTE_TYPES, required: true, placeholder: "Select type" },
-          { name: "treatment_type", label: "Treatment Type", type: "select", options: TREATMENT_TYPES, required: true, placeholder: "Select treatment" },
-          { name: "quantity", label: "Quantity", type: "number", required: true, placeholder: "0.00" },
-          { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, required: true, placeholder: "Select unit" },
+          { name: "waste_type", label: "Waste Type", type: "select", options: WASTE_TYPES, placeholder: "Select type" },
+          { name: "treatment_type", label: "Treatment Type", type: "select", options: TREATMENT_TYPES, placeholder: "Select treatment" },
+          { name: "quantity", label: "Quantity", type: "number", min: 0, placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
           { name: "energy_recovered", label: "Energy recovered? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
           { name: "polluter_pays_applied", label: "Polluter Pays Applied? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
         ],
@@ -591,17 +613,18 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         type: "table",
         addButtonLabel: "Add Packaging Material",
         required: true,
+        dependency: { field: "packaging.include_packaging", value: "Yes, include packaging" },
         columns: [
-          { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN" },
-          { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name" },
+          { name: "product_id", label: "Product ID / MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
+          { name: "component_name", label: "Component Name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
           { name: "packaging_type", label: "Packaging Type", type: "select", options: PACKAGING_TYPES, placeholder: "Select type" },
           { name: "process_type", label: "Process Type", type: "select", options: PROCESSES, placeholder: "Select process" },
-          { name: "packaging_weight", label: "Packaging weight", type: "number", placeholder: "0.00" },
+          { name: "packaging_weight", label: "Packaging weight", type: "number", min: 0, placeholder: "0.00" },
           { name: "unit", label: "Units", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
           { name: "region", label: "Region", type: "select", options: REGIONS, placeholder: "Select region" },
           { name: "country", label: "Country", type: "select", options: COUNTRIES, placeholder: "Select country" },
-          { name: "recycled_percent", label: "Recycled (%)", type: "number", placeholder: "0-100" },
-          { name: "carbon_biogenic_percent", label: "Carbon / Biogenic (%)", type: "number", placeholder: "0-100" },
+          { name: "recycled_percent", label: "Recycled (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
+          { name: "carbon_biogenic_percent", label: "Carbon / Biogenic (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
         ],
       },
       {
@@ -610,15 +633,16 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         type: "table",
         addButtonLabel: "Add Transport Leg",
         required: true,
+        dependency: { field: "packaging.include_packaging", value: "Yes, include packaging" },
         placeholder:
           "One row per packaging transport leg, from delivery notes or freight invoices. Distance in km. Select Mode = Air for any air-freighted packaging.",
         columns: [
-          { name: "product_id", label: "Packaging Product ID / MPN", type: "text", placeholder: "MPN" },
-          { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name" },
+          { name: "product_id", label: "Packaging Product ID / MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
+          { name: "component_name", label: "Component Name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
           { name: "transport_mode", label: "Transport Mode", type: "select", options: TRANSPORT_MODES, placeholder: "Select mode" },
-          { name: "weight", label: "Weight", type: "number", placeholder: "0.00" },
+          { name: "weight", label: "Weight", type: "number", min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
-          { name: "distance_km", label: "Distance (km)", type: "number", placeholder: "0" },
+          { name: "distance_km", label: "Distance (km)", type: "number", min: 0, placeholder: "0" },
         ],
       },
       {
@@ -627,12 +651,13 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         type: "table",
         addButtonLabel: "Add Row",
         required: true,
+        dependency: { field: "packaging.include_packaging", value: "Yes, include packaging" },
         columns: [
-          { name: "mpn_code", label: "MPN Code", type: "text", placeholder: "MPN" },
-          { name: "component_name", label: "Component name", type: "text", placeholder: "Component name" },
+          { name: "mpn_code", label: "MPN Code", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
+          { name: "component_name", label: "Component name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
           { name: "packaging_waste_type", label: "Packaging waste type", type: "select", options: WASTE_TYPES, placeholder: "Select type" },
           { name: "treatment_type", label: "Treatment Type", type: "select", options: TREATMENT_TYPES, placeholder: "Select treatment" },
-          { name: "quantity", label: "Quantity", type: "number", placeholder: "0.00" },
+          { name: "quantity", label: "Quantity", type: "number", min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
           { name: "energy_recovered", label: "Energy recovered? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
         ],
@@ -660,17 +685,21 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         type: "table",
         addButtonLabel: "Add Transport Leg",
         required: true,
+        dependency: {
+          field: "transport.outbound_in_boundary",
+          value: "Yes, distribution is within my boundary",
+        },
         placeholder:
           "One row per journey, from delivery notes or freight invoices. Weight in tonnes, distance in km.",
         columns: [
-          { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN" },
-          { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name" },
+          { name: "product_id", label: "Product ID / MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
+          { name: "component_name", label: "Component Name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
           { name: "transport_mode", label: "Transport Mode", type: "select", options: TRANSPORT_MODES, placeholder: "Select mode" },
           { name: "source", label: "Source", type: "text", placeholder: "Origin" },
           { name: "destination", label: "Destination", type: "text", placeholder: "Destination" },
-          { name: "weight", label: "Weight", type: "number", placeholder: "0.00" },
+          { name: "weight", label: "Weight", type: "number", min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
-          { name: "distance_km", label: "Distance (km)", type: "number", placeholder: "0" },
+          { name: "distance_km", label: "Distance (km)", type: "number", min: 0, placeholder: "0" },
           { name: "low_carbon_fuel", label: "Low-Carbon Fuel? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
           { name: "fuel_certificate_ref", label: "Fuel Certificate Ref.", type: "text", placeholder: "Reference" },
         ],
@@ -764,8 +793,18 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
     title: "Section H: Methodology & Allocation",
     fields: [
       {
+        // Q21 header — three sub-fields below, all mandatory per Word doc.
+        // Plain heading style (no blue card) so the question reads as a
+        // section header above its sub-fields rather than a callout box.
+        name: "methodology.q21_intro",
+        type: "info",
+        label: "21. Which standards and characterisation factors did you apply?",
+        content: "",
+        className: "",
+      },
+      {
         name: "methodology.cross_sectoral_standard",
-        label: "21. Which cross-sectoral standard(s) did you apply?",
+        label: "Cross-sectoral standard(s)",
         type: "text",
         required: true,
         placeholder: "e.g. ISO 14067, GHG Protocol Product Standard",
@@ -778,11 +817,14 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         placeholder: "e.g. Catena-X PCF Rulebook v4",
       },
       {
-        name: "methodology.gwp_version_info",
-        type: "info",
+        // IPCC GWP version — supplier fills it. The §4.1 default text is
+        // shown as a placeholder hint, but the supplier types the actual
+        // value (e.g. "AR6 100-year GWP100y") themselves.
+        name: "methodology.ipcc_gwp_version",
         label: "IPCC GWP version",
-        content: "AR6 (100-year GWP100y), fixed and mandatory per §4.1.",
-        className: "bg-gray-50 border border-gray-200 rounded-lg p-4 text-gray-700",
+        type: "text",
+        required: true,
+        placeholder: "e.g. AR6 (100-year GWP100y)",
       },
       {
         name: "methodology.mass_balancing_used",
@@ -806,16 +848,30 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         required: true,
       },
       {
-        name: "methodology.allocation_methods_info",
+        // Q23 header — three sub-fields below per Word doc.
+        name: "methodology.q23_intro",
         type: "info",
         label: "23. How are shared emissions allocated?",
-        content:
-          "Recycled-carbon method: Cut-off (fixed per §5.2.5).\nWaste-incineration method: Polluter pays principle (fixed per §5.2.4).",
-        className: "bg-gray-50 border border-gray-200 rounded-lg p-4 text-gray-700",
+        content: "",
+        className: "",
+      },
+      {
+        name: "methodology.recycled_carbon_method",
+        label: "Recycled-carbon method (optional)",
+        type: "text",
+        required: false,
+        placeholder: "e.g. Cut-off (per §5.2.5)",
+      },
+      {
+        name: "methodology.waste_incineration_method",
+        label: "Waste-incineration method",
+        type: "text",
+        required: true,
+        placeholder: "e.g. Polluter pays principle (per §5.2.4)",
       },
       {
         name: "methodology.allocation_rationale",
-        label: "23. Allocation rationale (short) (optional)",
+        label: "Allocation rationale (short) (optional)",
         type: "textarea",
         required: false,
         placeholder: "Briefly describe your allocation approach",
@@ -831,8 +887,16 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
     title: "Section I: Boundary, Technology & Data Quality",
     fields: [
       {
+        // Q24 header — the 4 fields below are sub-rows of this question.
+        name: "boundary.q24_intro",
+        type: "info",
+        label: "24. What lies inside the assessment boundary, and is carbon capture used?",
+        content: "",
+        className: "",
+      },
+      {
         name: "boundary.processes_inside",
-        label: "24. Which processes lie inside the assessment boundary? (optional)",
+        label: "Processes inside the boundary (optional)",
         type: "textarea",
         required: false,
         placeholder: "List the processes covered by this footprint",
@@ -853,9 +917,9 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
       },
       {
         name: "boundary.exempted_percent",
-        label: "Estimated exempted emissions as % of total PCF (optional)",
+        label: "Estimated exempted emissions as % of total PCF",
         type: "number",
-        required: false,
+        required: true,
         min: 0,
         max: 3,
         placeholder: "Enter 0 if no exemption; must be ≤ 3%",

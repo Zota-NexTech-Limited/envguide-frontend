@@ -237,9 +237,12 @@ export function mapV3FormToBackend(
         supplierId: ctx.supplierId,
         status: ctx.status ?? "draft",
 
-        // Q1
+        // Q1 — Catena-X requires BPN as the canonical company identifier;
+        // the generic company_id (DUNS/VAT/CIN) is kept as a secondary record.
         companyName: str(company.legal_name),
-        companyIdUrn: str(company.company_id),
+        companyIdUrn: str(company.bpn) ?? str(company.company_id),
+        companyBpn: str(company.bpn),
+        companyRegistrationId: str(company.company_id),
 
         // Q2
         productNameCompany: str(product.name),
@@ -250,6 +253,7 @@ export function mapV3FormToBackend(
         // Q3
         declaredUnit: str(product.declared_unit),
         declaredUnitAmount: num(product.declared_unit_quantity),
+        productMassPerDeclaredUnit: num(product.declared_mass),
 
         // Q5
         referencePeriodStart: str(sp.reference_start),

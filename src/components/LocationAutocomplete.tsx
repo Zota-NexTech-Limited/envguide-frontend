@@ -146,6 +146,13 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
         placeholder={placeholder}
         disabled={disabled}
         className={className}
+        // Kill Chrome / 1Password / LastPass / Dashlane address autofill that
+        // injects saved profile suggestions (e.g. "Karnataka, Beside Hypercity
+        // mall") on top of this field. autoComplete="off" alone is ignored for
+        // address-shaped inputs; "new-password" is treated as a credential and
+        // hard-disables address autofill.
+        autoComplete="new-password"
+        {...({ "data-form-type": "other", "data-lpignore": "true", "data-1p-ignore": "true" } as any)}
         suffix={loading ? <LoadingOutlined spin style={{ color: '#6366f1' }} /> : <EnvironmentOutlined style={{ color: '#9ca3af' }} />}
       />
 

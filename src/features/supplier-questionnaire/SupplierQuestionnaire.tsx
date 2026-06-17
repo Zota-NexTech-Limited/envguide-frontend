@@ -177,6 +177,77 @@ const SupplierQuestionnaire: React.FC = () => {
     });
   }, []);
 
+  // BACKFILL component_name for every Form.List row that has an MPN selected
+  // (saved before the bomMaterials onChange started writing component_name).
+  // This is the parent-level backfill — it mutates formData directly so the
+  // values arrive at DynamicQuestionnaireForm already filled and the readOnly
+  // Component Name cell renders correctly on first paint.
+  //
+  // CRITICAL: the effect depends on BOTH bomComponents AND formData. Without
+  // formData in the dep array the backfill misses the common case: bomComponents
+  // arrives from /api/bom-components quickly, but the draft formData arrives a
+  // few hundred ms later from /api/questionnaire/:id. If we only ran on
+  // bomComponents change, the backfill would scan an empty formData and do
+  // nothing, then the draft would arrive (without component_name) and never get
+  // backfilled. With formData also as a dep, the effect re-runs the moment the
+  // draft lands. The functional setState returning `prev` when nothing
+  // changes prevents an infinite re-render loop.
+  useEffect(() => {
+    if (!Array.isArray(bomComponents) || bomComponents.length === 0) return;
+    // Known table paths in the V3 schema whose rows use bomMaterials. If any
+    // new table with bomMaterials is added, append its [parentKey, childKey]
+    // pair here. The function below applies the same backfill rule (look up
+    // material_number → component_name) to every row in each list.
+    // Verified against questionnaireSchemaV3.ts — every `type: "table"` field
+    // that uses `apiDropdown: "bomMaterials"` in any of its columns.
+    const listPaths: Array<[string, string]> = [
+      ["bom", "co_products"],            // Q9.1
+      ["energy", "production_waste"],    // Q14
+      ["packaging", "materials_used"],   // Q16
+      ["packaging", "transport"],        // Q16.1
+      ["packaging", "waste"],            // Q17
+      ["transport", "legs"],             // Q19
+    ];
+    setFormData((prev) => {
+      if (!prev || typeof prev !== "object") return prev;
+      let mutated = false;
+      const next: any = { ...prev };
+      for (const [parent, child] of listPaths) {
+        const parentObj = next[parent];
+        if (!parentObj || typeof parentObj !== "object") continue;
+        const arr = parentObj[child];
+        if (!Array.isArray(arr) || arr.length === 0) continue;
+        let rowMutated = false;
+        const newArr = arr.map((row: any) => {
+          if (!row || typeof row !== "object") return row;
+          if (row.component_name && row.product_name) return row;
+          // The dropdown column may be named "mpn" OR "product_id" depending
+          // on table — check both.
+          const mpnVal =
+            row.mpn ?? row.product_id ?? row.material_number ?? row.mpn_code;
+          if (!mpnVal) return row;
+          const bom = bomComponents.find(
+            (b) => b.material_number === mpnVal
+          );
+          if (!bom) return row;
+          rowMutated = true;
+          return {
+            ...row,
+            bom_id: row.bom_id || bom.bom_id,
+            material_number: row.material_number || bom.material_number,
+            component_name: row.component_name || bom.component_name,
+            product_name: row.product_name || bom.component_name,
+          };
+        });
+        if (rowMutated) {
+          mutated = true;
+          next[parent] = { ...parentObj, [child]: newArr };
+        }
+      }
+      return mutated ? next : prev;
+    });
+  }, [bomComponents, formData]);
+
   // Check supplier onboarding status first (only for supplier mode with sup_id)
   useEffect(() => {
     const checkOnboardingStatus = async () => {

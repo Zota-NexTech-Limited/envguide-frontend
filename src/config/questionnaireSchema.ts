@@ -692,6 +692,14 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             placeholder: "Select Layer 4",
           },
           {
+            name: "layer5",
+            label: "Layer 5",
+            type: "select",
+            efSource: "electricity",
+            efLayer: 5,
+            placeholder: "Select Layer 5",
+          },
+          {
             name: "quantity",
             label: "Purchased/Acquired Quantity",
             type: "number",
@@ -1593,6 +1601,14 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             placeholder: "Select Layer 4",
           },
           {
+            name: "layer5",
+            label: "Layer 5",
+            type: "select",
+            efSource: "materials",
+            efLayer: 5,
+            placeholder: "Select Layer 5",
+          },
+          {
             name: "composition_percent",
             label:
               "% material composition of total component weight percentage",
@@ -1789,6 +1805,14 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             efLayer: 4,
             placeholder: "Select Layer 4",
           },
+          {
+            name: "layer5",
+            label: "Layer 5",
+            type: "select",
+            efSource: "packaging",
+            efLayer: 5,
+            placeholder: "Select Layer 5",
+          },
           // Merged from former Q61 — each packaging row is now self-contained
           // (type + treatment + weight + unit on one row) so the calculator
           // can compute Σ(weight × EF) across N packaging types per BOM.
@@ -1979,6 +2003,14 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             efSource: "waste",
             efLayer: 4,
             placeholder: "Select Layer 4",
+          },
+          {
+            name: "layer5",
+            label: "Layer 5",
+            type: "select",
+            efSource: "waste",
+            efLayer: 5,
+            placeholder: "Select Layer 5",
           },
           {
             name: "weight",
@@ -2177,6 +2209,14 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             efSource: "vehicle",
             efLayer: 4,
             placeholder: "Select Layer 4",
+          },
+          {
+            name: "layer5",
+            label: "Layer 5",
+            type: "select",
+            efSource: "vehicle",
+            efLayer: 5,
+            placeholder: "Select Layer 5",
           },
           {
             name: "weight",

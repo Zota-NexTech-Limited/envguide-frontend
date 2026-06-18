@@ -30,10 +30,13 @@ import {
   getEmissionFactorStats,
   importEmissionFactorsCsv,
   listEmissionFactors,
+  listEmissionFactorUnits,
+  listEmissionFactorCountries,
 } from "../../lib/emissionFactorService";
 import type {
   EmissionFactor,
   EmissionFactorStats,
+  EmissionFactorCountry,
   ImportValidationError,
 } from "../../lib/emissionFactorService";
 
@@ -60,8 +63,10 @@ const EmissionFactorsTable: React.FC = () => {
   // Filters
   const [search, setSearch] = useState("");
   const [countryCode, setCountryCode] = useState<string | undefined>();
+  const [countryOptions, setCountryOptions] = useState<EmissionFactorCountry[]>([]);
   const [unitKind, setUnitKind] = useState<string | undefined>();
-  const [sourceDb, setSourceDb] = useState<string | undefined>();
+  const [unit, setUnit] = useState<string | undefined>();
+  const [unitOptions, setUnitOptions] = useState<string[]>([]);
 
   // Stats
   const [stats, setStats] = useState<EmissionFactorStats | null>(null);
@@ -93,7 +98,7 @@ const EmissionFactorsTable: React.FC = () => {
         search: search.trim() || undefined,
         country_code: countryCode,
         unit_kind: unitKind,
-        source_db: sourceDb,
+        unit,
       });
       if (mySeq !== fetchSeq.current) return; // stale — newer request already issued
       setRows(resp.data || []);
@@ -106,7 +111,7 @@ const EmissionFactorsTable: React.FC = () => {
     } finally {
       if (mySeq === fetchSeq.current) setLoading(false);
     }
-  }, [page, pageSize, search, countryCode, unitKind, sourceDb, reloadKey]);
+  }, [page, pageSize, search, countryCode, unitKind, unit, reloadKey]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -125,6 +130,15 @@ const EmissionFactorsTable: React.FC = () => {
     fetchStats();
   }, [fetchStats]);
 
+  useEffect(() => {
+    listEmissionFactorUnits()
+      .then(setUnitOptions)
+      .catch(() => setUnitOptions([]));
+    listEmissionFactorCountries()
+      .then(setCountryOptions)
+      .catch(() => setCountryOptions([]));
+  }, []);
+
   const onSearchChange = (val: string) => {
     setSearch(val);
     if (lastSearchDebounce.current) window.clearTimeout(lastSearchDebounce.current);
@@ -141,7 +155,7 @@ const EmissionFactorsTable: React.FC = () => {
     setSearch("");
     setCountryCode(undefined);
     setUnitKind(undefined);
-    setSourceDb(undefined);
+    setUnit(undefined);
     setPage(1);
     // Force a fresh fetch even if nothing actually changed (e.g. user clicked
     // Reset when no filters were applied) — guarantees the table refills.
@@ -428,35 +442,33 @@ const EmissionFactorsTable: React.FC = () => {
           />
           <Select
             allowClear
-            placeholder="Country code"
+            showSearch
+            placeholder="Country"
             value={countryCode}
             onChange={(v) => { setCountryCode(v); setPage(1); }}
-            style={{ width: 160 }}
-          >
-            {["CH", "RER", "GLO", "RoW", "US", "IN", "DE"].map((c) => (
-              <Option key={c} value={c}>{c}</Option>
-            ))}
-          </Select>
+            style={{ width: 200 }}
+            filterOption={(input, option) =>
+              ((option?.label as string) ?? "").toLowerCase().includes(input.toLowerCase()) ||
+              ((option?.value as string) ?? "").toLowerCase().includes(input.toLowerCase())
+            }
+            options={countryOptions.map((c) => ({
+              value: c.country_code,
+              label: c.country_name || c.country_code,
+            }))}
+          />
           <Select
             allowClear
-            placeholder="Unit family"
-            value={unitKind}
-            onChange={(v) => { setUnitKind(v); setPage(1); }}
+            showSearch
+            placeholder="Unit"
+            value={unit}
+            onChange={(v) => { setUnit(v); setPage(1); }}
             style={{ width: 160 }}
+            filterOption={(input, option) =>
+              (option?.value as string ?? "").toLowerCase().includes(input.toLowerCase())
+            }
           >
-            {["mass", "count", "energy", "area", "volume", "freight", "passenger"].map((u) => (
+            {unitOptions.map((u) => (
               <Option key={u} value={u}>{u}</Option>
-            ))}
-          </Select>
-          <Select
-            allowClear
-            placeholder="Source DB"
-            value={sourceDb}
-            onChange={(v) => { setSourceDb(v); setPage(1); }}
-            style={{ width: 160 }}
-          >
-            {["BAFU:2025"].map((s) => (
-              <Option key={s} value={s}>{s}</Option>
             ))}
           </Select>
           <Button onClick={resetFilters}>Reset</Button>

@@ -36,6 +36,7 @@ export interface ListEmissionFactorsParams {
   search?: string;
   country_code?: string;
   unit_kind?: string;
+  unit?: string;
   source_db?: string;
 }
 
@@ -95,6 +96,7 @@ export async function listEmissionFactors(
   if (params.search) qs.set("search", params.search);
   if (params.country_code) qs.set("country_code", params.country_code);
   if (params.unit_kind) qs.set("unit_kind", params.unit_kind);
+  if (params.unit) qs.set("unit", params.unit);
   if (params.source_db) qs.set("source_db", params.source_db);
 
   const url = `${API_BASE_URL}/api/emission-factors/list${qs.toString() ? `?${qs}` : ""}`;
@@ -117,6 +119,35 @@ export async function getEmissionFactorById(efId: string): Promise<EmissionFacto
   }
   const json = await res.json();
   return json.data;
+}
+
+export interface EmissionFactorCountry {
+  country_code: string;
+  country_name: string | null;
+}
+
+export async function listEmissionFactorCountries(): Promise<EmissionFactorCountry[]> {
+  const res = await fetch(`${API_BASE_URL}/api/emission-factors/meta/countries`, {
+    headers: buildAuthHeaders(),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || `Request failed: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as EmissionFactorCountry[];
+}
+
+export async function listEmissionFactorUnits(): Promise<string[]> {
+  const res = await fetch(`${API_BASE_URL}/api/emission-factors/meta/units`, {
+    headers: buildAuthHeaders(),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || `Request failed: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as string[];
 }
 
 export async function getEmissionFactorStats(): Promise<EmissionFactorStats> {

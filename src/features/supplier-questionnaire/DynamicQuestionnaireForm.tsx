@@ -19,6 +19,7 @@ interface EmissionFactorRow {
   layer2?: string;
   layer3?: string;
   layer4?: string;
+  layer5?: string;
   region?: string;
   ef_value?: number;
   unit?: string;
@@ -1259,11 +1260,12 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         // after onChange writes to form (Form.List doesn't always
                         // re-render the dependent cells on its own).
                         void distanceTick;
-                        const layerKeys: ("layer1" | "layer2" | "layer3" | "layer4")[] = [
+                        const layerKeys: ("layer1" | "layer2" | "layer3" | "layer4" | "layer5")[] = [
                           "layer1",
                           "layer2",
                           "layer3",
                           "layer4",
+                          "layer5",
                         ];
                         const myLayerKey = layerKeys[col.efLayer - 1];
 

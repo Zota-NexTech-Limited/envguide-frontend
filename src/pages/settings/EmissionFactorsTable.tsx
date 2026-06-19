@@ -64,7 +64,6 @@ const EmissionFactorsTable: React.FC = () => {
   const [search, setSearch] = useState("");
   const [countryCode, setCountryCode] = useState<string | undefined>();
   const [countryOptions, setCountryOptions] = useState<EmissionFactorCountry[]>([]);
-  const [unitKind, setUnitKind] = useState<string | undefined>();
   const [unit, setUnit] = useState<string | undefined>();
   const [unitOptions, setUnitOptions] = useState<string[]>([]);
 
@@ -97,7 +96,6 @@ const EmissionFactorsTable: React.FC = () => {
         limit: pageSize,
         search: search.trim() || undefined,
         country_code: countryCode,
-        unit_kind: unitKind,
         unit,
       });
       if (mySeq !== fetchSeq.current) return; // stale — newer request already issued
@@ -111,7 +109,7 @@ const EmissionFactorsTable: React.FC = () => {
     } finally {
       if (mySeq === fetchSeq.current) setLoading(false);
     }
-  }, [page, pageSize, search, countryCode, unitKind, unit, reloadKey]);
+  }, [page, pageSize, search, countryCode, unit, reloadKey]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -154,7 +152,6 @@ const EmissionFactorsTable: React.FC = () => {
     }
     setSearch("");
     setCountryCode(undefined);
-    setUnitKind(undefined);
     setUnit(undefined);
     setPage(1);
     // Force a fresh fetch even if nothing actually changed (e.g. user clicked
@@ -247,14 +244,9 @@ const EmissionFactorsTable: React.FC = () => {
           <span className="whitespace-normal break-words leading-snug">{v}</span>
         ),
       },
-      wrapCol("Material", "material", 200),
-      wrapCol("Process", "process", 220),
-      wrapCol("Activity Type", "activity_type", 170),
       wrapCol("Category", "category", 170),
-      wrapCol("Sub Category 1", "sub_category_1", 190),
-      wrapCol("Sub Category 2", "sub_category_2", 190),
-      wrapCol("Sub Category 3", "sub_category_3", 210),
-      wrapCol("Sub Category 4", "sub_category_4", 210),
+      wrapCol("Process", "sub_category_1", 200),
+      wrapCol("Sub-category 2", "sub_category_2", 200),
       {
         title: "Country Code",
         dataIndex: "country_code",
@@ -264,46 +256,12 @@ const EmissionFactorsTable: React.FC = () => {
           v ? <Tag color="blue">{v}</Tag> : <span className="text-gray-300">-</span>,
       },
       wrapCol("Country Name", "country_name", 180),
-      wrapCol("Region", "region", 130),
-      wrapCol("Geo Fallback Chain", "geo_fallback_chain", 280),
       {
         title: "Unit",
         dataIndex: "unit",
         key: "unit",
         width: 90,
         render: (v: string | null) => v || <span className="text-gray-300">-</span>,
-      },
-      {
-        title: "Unit Kind",
-        dataIndex: "unit_kind",
-        key: "unit_kind",
-        width: 110,
-        render: (v: string | null) =>
-          v ? <Tag>{v}</Tag> : <span className="text-gray-300">-</span>,
-      },
-      {
-        title: "Recycled",
-        dataIndex: "recycled_content",
-        key: "recycled_content",
-        width: 100,
-        render: (v: string | null) =>
-          v ? (
-            <Tag color={v.toLowerCase() === "yes" ? "green" : "default"}>{v}</Tag>
-          ) : (
-            <span className="text-gray-300">-</span>
-          ),
-      },
-      {
-        title: "Factor Suitability",
-        dataIndex: "factor_suitability",
-        key: "factor_suitability",
-        width: 260,
-        render: (v: string | null) =>
-          v ? (
-            <span className="whitespace-normal break-words leading-snug">{v}</span>
-          ) : (
-            <span className="text-gray-300">-</span>
-          ),
       },
       {
         title: "kgCO₂e / unit",
@@ -414,7 +372,7 @@ const EmissionFactorsTable: React.FC = () => {
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-100">
             <Ruler className="w-4 h-4 text-amber-600" />
             <span className="text-xs font-semibold text-amber-700 tabular-nums">
-              {stats?.unit_kind_count ?? "-"}
+              {stats?.unit_count ?? "-"}
             </span>
             <span className="text-xs text-amber-600/80">unit families</span>
           </div>
@@ -435,7 +393,7 @@ const EmissionFactorsTable: React.FC = () => {
           <Input
             allowClear
             prefix={<Search size={14} />}
-            placeholder="Search any column (material, process, country, unit, source…)"
+            placeholder="Search any column (product, category, process, country, unit…)"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             style={{ width: 440, flex: "1 1 320px", maxWidth: 560 }}

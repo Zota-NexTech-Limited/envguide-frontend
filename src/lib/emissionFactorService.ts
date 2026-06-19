@@ -6,22 +6,12 @@ const API_BASE_URL = getApiBaseUrl();
 export interface EmissionFactor {
   ef_id: string;
   product: string;
-  material: string | null;
-  process: string | null;
-  activity_type: string | null;
   category: string | null;
   sub_category_1: string | null;
   sub_category_2: string | null;
-  sub_category_3: string | null;
-  sub_category_4: string | null;
   country_code: string | null;
   country_name: string | null;
-  region: string | null;
-  geo_fallback_chain: string | null;
   unit: string | null;
-  unit_kind: string | null;
-  recycled_content: string | null;
-  factor_suitability: string | null;
   kgco2e_per_unit: number | string | null;
   reference_year: number | null;
   source_db: string | null;
@@ -35,9 +25,7 @@ export interface ListEmissionFactorsParams {
   limit?: number;
   search?: string;
   country_code?: string;
-  unit_kind?: string;
   unit?: string;
-  source_db?: string;
 }
 
 export interface ListEmissionFactorsResponse {
@@ -50,7 +38,7 @@ export interface EmissionFactorStats {
   total: number;
   source_db_count: number;
   country_count: number;
-  unit_kind_count: number;
+  unit_count: number;
   last_updated: string | null;
 }
 
@@ -95,9 +83,7 @@ export async function listEmissionFactors(
   if (params.limit) qs.set("limit", String(params.limit));
   if (params.search) qs.set("search", params.search);
   if (params.country_code) qs.set("country_code", params.country_code);
-  if (params.unit_kind) qs.set("unit_kind", params.unit_kind);
   if (params.unit) qs.set("unit", params.unit);
-  if (params.source_db) qs.set("source_db", params.source_db);
 
   const url = `${API_BASE_URL}/api/emission-factors/list${qs.toString() ? `?${qs}` : ""}`;
   const res = await fetch(url, { headers: buildAuthHeaders() });
@@ -124,6 +110,64 @@ export async function getEmissionFactorById(efId: string): Promise<EmissionFacto
 export interface EmissionFactorCountry {
   country_code: string;
   country_name: string | null;
+}
+
+export interface MatchEmissionFactorInput {
+  category: string;
+  sub_category_1?: string | null;
+  sub_category_2?: string | null;
+  country_code: string;
+  country_name?: string | null;
+  year: number;
+  unit: string;
+}
+
+export interface MatchEmissionFactorResult {
+  matched: boolean;
+  ef_id?: string;
+  kgco2e_per_unit?: number | string;
+  unit?: string;
+  country_code?: string;
+  country_name?: string;
+  matched_step?: string;
+  matched_embedding?: string;
+  supplier_embedding: string;
+  tried_steps: string[];
+}
+
+export async function matchEmissionFactor(
+  input: MatchEmissionFactorInput,
+): Promise<MatchEmissionFactorResult> {
+  const res = await fetch(`${API_BASE_URL}/api/emission-factors/match`, {
+    method: "POST",
+    headers: buildAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || `Request failed: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as MatchEmissionFactorResult;
+}
+
+export interface EmissionFactorLayerTriple {
+  id: string;
+  layer1: string;
+  layer2: string | null;
+  layer3: string | null;
+}
+
+export async function listEmissionFactorLayerTriples(): Promise<EmissionFactorLayerTriple[]> {
+  const res = await fetch(`${API_BASE_URL}/api/emission-factors/meta/layer-triples`, {
+    headers: buildAuthHeaders(),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || `Request failed: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as EmissionFactorLayerTriple[];
 }
 
 export async function listEmissionFactorCountries(): Promise<EmissionFactorCountry[]> {

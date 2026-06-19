@@ -6,11 +6,10 @@ import { QUESTIONNAIRE_OPTIONS } from '../../config/questionnaireConfig';
 import { PlusOutlined, DeleteOutlined, UploadOutlined, QuestionCircleOutlined, CheckCircleOutlined, InfoCircleOutlined, LoadingOutlined, FileOutlined } from '@ant-design/icons';
 import type { QuestionnaireSection, QuestionnaireField, ApiDropdownType } from '../../config/questionnaireSchema';
 import questionnaireDropdownService, { type DropdownItem } from '../../lib/questionnaireDropdownService';
-// EF cascading dropdowns were wired to the 6 legacy ECOInvent EF tables (now
-// removed). The questionnaire is being rebuilt in Phase 2 against the new
-// BAFU 2025 emission_factors master + AI matching engine, so this file's EF
-// lookups are intentionally stubbed for now. The cascade dropdowns will appear
-// empty until the new EF source is wired in.
+// EF cascading dropdowns hit the BAFU 2025 emission_factors master table.
+// One endpoint returns every distinct (category, sub_category_1, sub_category_2)
+// triple — the renderer filters them per row based on parent-layer selections.
+// efSource on schema fields is now metadata-only (we no longer scope by source).
 type EfGroup = 'materials' | 'electricity' | 'fuel' | 'packaging' | 'vehicle' | 'waste';
 interface EmissionFactorRow {
   id: string;
@@ -18,15 +17,68 @@ interface EmissionFactorRow {
   layer1?: string;
   layer2?: string;
   layer3?: string;
-  layer4?: string;
-  layer5?: string;
   region?: string;
   ef_value?: number;
   unit?: string;
   scope?: string;
 }
+
+import { listEmissionFactorLayerTriples } from '../../lib/emissionFactorService';
+
+// Per-question Category whitelist. Layer 1 dropdown is filtered to only these
+// categories for each efSource. Values match BAFU's lowercased `category` column
+// exactly. Borderline categories that could plausibly apply are included; the
+// list is intentionally broader rather than narrower so suppliers aren't stuck
+// when their material doesn't fit a tight bucket.
+const EF_SOURCE_CATEGORIES: Record<EfGroup, string[]> = {
+  electricity: [
+    "electricity", "electricity by fuel", "heat", "natural gas", "fuels",
+    "energy supply, kbob recommendation", "photovoltaic", "wind power",
+    "heat pumps", "power plants", "compressed air", "energy, obsolete",
+    "nuclear waste",
+  ],
+  fuel: [
+    "fuels", "oil", "natural gas", "heat", "electricity by fuel",
+  ],
+  materials: [
+    "metals", "plastics", "chemicals", "wood", "minerals", "glass",
+    "ceramics", "textiles", "paper+ board", "cardboard",
+    "construction materials", "insulation materials", "biomass",
+    "agricultural", "electronics", "building components",
+    "material, obsolete", "others",
+  ],
+  packaging: [
+    "paper+ board", "cardboard", "plastics", "glass", "wood",
+  ],
+  waste: [
+    "waste management", "waste", "waste treatment, obsolete", "landfill",
+    "incineration", "recycling", "wastewater treatment", "construction waste",
+    "electronics waste", "transport waste", "landfarming",
+    "underground deposit", "impoundment",
+  ],
+  vehicle: [
+    "transport systems", "pipeline",
+  ],
+};
+
+let _layerTriplesCache: EmissionFactorRow[] | null = null;
+let _layerTriplesInflight: Promise<EmissionFactorRow[]> | null = null;
+
 async function listCategorizedEfRows(_group: EfGroup): Promise<EmissionFactorRow[]> {
-  return [];
+  if (_layerTriplesCache) return _layerTriplesCache;
+  if (_layerTriplesInflight) return _layerTriplesInflight;
+  _layerTriplesInflight = listEmissionFactorLayerTriples()
+    .then((triples) => {
+      _layerTriplesCache = triples.map((t) => ({
+        id: t.id,
+        layer1: t.layer1,
+        layer2: t.layer2 ?? undefined,
+        layer3: t.layer3 ?? undefined,
+      }));
+      return _layerTriplesCache;
+    })
+    .finally(() => { _layerTriplesInflight = null; });
+  return _layerTriplesInflight;
 }
 import supplierQuestionnaireService from '../../lib/supplierQuestionnaireService';
 import LocationAutocomplete from '../../components/LocationAutocomplete';
@@ -1260,17 +1312,23 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         // after onChange writes to form (Form.List doesn't always
                         // re-render the dependent cells on its own).
                         void distanceTick;
-                        const layerKeys: ("layer1" | "layer2" | "layer3" | "layer4" | "layer5")[] = [
+                        const layerKeys: ("layer1" | "layer2" | "layer3")[] = [
                           "layer1",
                           "layer2",
                           "layer3",
-                          "layer4",
-                          "layer5",
                         ];
                         const myLayerKey = layerKeys[col.efLayer - 1];
 
-                        const allRows: EmissionFactorRow[] = efRowsByGroup[col.efSource] || [];
+                        const rawAllRows: EmissionFactorRow[] = efRowsByGroup[col.efSource] || [];
                         const isLoading = !efLoadedGroups.has(col.efSource);
+
+                        // Whitelist Layer 1 to categories relevant to this question
+                        // (electricity Q6 shows energy categories, materials Q7 shows
+                        // material families, packaging Q8 shows packaging-relevant, etc).
+                        const allowedCats = EF_SOURCE_CATEGORIES[col.efSource as EfGroup] || [];
+                        const allRows: EmissionFactorRow[] = allowedCats.length > 0
+                          ? rawAllRows.filter((r) => r.layer1 && allowedCats.includes(r.layer1.toLowerCase()))
+                          : rawAllRows;
 
                         const rowValues = form.getFieldValue([...fieldPath, fieldRecord.name]) || {};
                         // Filter EF rows by all earlier layer selections in this row
@@ -1299,15 +1357,27 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         const parentLayerKey = col.efLayer > 1 ? layerKeys[col.efLayer - 2] : null;
                         const parentValue = parentLayerKey ? rowValues[parentLayerKey] : "ready";
                         const hasNoData = !isLoading && allRows.length === 0;
+                        // BAFU rows often have no value for the deepest layer when
+                        // a Process has no Sub-category 2 (e.g. cardboard/unspecified).
+                        // Detect this: parent picked, but no options exist for this layer.
+                        // Mark as "not applicable" so supplier moves on instead of being stuck.
+                        const isNotApplicable = !isLoading
+                          && !hasNoData
+                          && !!parentValue
+                          && options.length === 0
+                          && col.efLayer > 1;
                         const efSourceLabel = String(col.efSource).charAt(0).toUpperCase() + String(col.efSource).slice(1);
 
-                        let placeholder = col.placeholder || `Select Layer ${col.efLayer}`;
+                        void efSourceLabel;
+                        let placeholder = col.placeholder || `Select ${col.label}`;
                         if (isLoading) {
                           placeholder = "Loading…";
                         } else if (hasNoData) {
-                          placeholder = `No ${efSourceLabel} EF data — import on the EF page`;
+                          placeholder = "No EF data — please import the BAFU dataset";
                         } else if (!parentValue) {
-                          placeholder = `Select Layer ${col.efLayer - 1} first`;
+                          placeholder = `Select ${col.efLayer === 2 ? "Category" : "Process"} first`;
+                        } else if (isNotApplicable) {
+                          placeholder = "Not applicable";
                         }
 
                         return (
@@ -1315,8 +1385,10 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                             name={[fieldRecord.name, col.name]}
                             rules={[
                               {
-                                required: col.required,
-                                message: col.required
+                                // "Not applicable" rows have no options in BAFU for the
+                                // chosen Category/Process combo — don't block submit.
+                                required: col.required && !isNotApplicable,
+                                message: col.required && !isNotApplicable
                                   ? `Please fill in "${col.label}" for this row. This field is required.`
                                   : undefined,
                               },
@@ -1326,7 +1398,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                             <Select
                               placeholder={placeholder}
                               style={{ minWidth: 140, width: '100%' }}
-                              disabled={isLoading || hasNoData || !parentValue}
+                              disabled={isLoading || hasNoData || !parentValue || isNotApplicable}
                               loading={isLoading}
                               allowClear
                               showSearch={options.length > 5}

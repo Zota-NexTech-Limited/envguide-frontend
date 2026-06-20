@@ -94,6 +94,7 @@ const SupplierQuestionnaire: React.FC = () => {
 
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, any>>({});
+
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [questionnaireId, setQuestionnaireId] = useState<string | null>(
@@ -127,7 +128,7 @@ const SupplierQuestionnaire: React.FC = () => {
   // client-uploaded BOM. Used as the option list for every MPN dropdown so
   // suppliers cannot lose options by deleting/re-adding rows.
   const [bomComponents, setBomComponents] = useState<
-    Array<{ bom_id: string; material_number: string; component_name: string }>
+    Array<{ bom_id: string; material_number: string; component_name: string; detail_description?: string; weight_gms?: number }>
   >([]);
 
   useEffect(() => {

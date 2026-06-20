@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dayjs from 'dayjs';
 import { Form, Input, Select, Checkbox, Radio, InputNumber, Button, Table, Space, Typography, Tooltip, Badge, Empty, Tag, Spin, Upload, message, DatePicker } from 'antd';
 import type { UploadFile, UploadProps } from 'antd';
@@ -23,7 +23,7 @@ interface EmissionFactorRow {
   scope?: string;
 }
 
-import { listEmissionFactorLayerTriples } from '../../lib/emissionFactorService';
+import { listEmissionFactorLayerTriples, resolveMaterialComposition, listPackagingTypes } from '../../lib/emissionFactorService';
 
 // Per-question Category whitelist. Layer 1 dropdown is filtered to only these
 // categories for each efSource. Values match BAFU's lowercased `category` column
@@ -182,6 +182,8 @@ interface DynamicQuestionnaireFormProps {
     bom_id: string;
     material_number: string;
     component_name: string;
+    detail_description?: string;
+    weight_gms?: number;
   }>;
 }
 
@@ -222,6 +224,108 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
   // sourced from the ECOInvent EF pages.
   const [efRowsByGroup, setEfRowsByGroup] = useState<Record<string, EmissionFactorRow[]>>({});
   const [efLoadedGroups, setEfLoadedGroups] = useState<Set<string>>(new Set());
+
+  // Watch the Q5 products table so the BOM weight/unit lock re-runs the moment
+  // its rows load (whether from a saved draft via setFieldsValue or freshly
+  // auto-populated) — the rows are not present on first render.
+  const productsManufacturedWatch = Form.useWatch(['product_details', 'products_manufactured'], form);
+
+  // Track which composition tables we've already auto-resolved (per field name)
+  // so the effect doesn't re-run and clobber the supplier's manual edits.
+  const autoResolvedRef = useRef<Set<string>>(new Set());
+
+  // Auto-populate Q7 materials from the BOM the moment the supplier opens the
+  // section: for each BOM component that carries a "Description of Material",
+  // resolve it into element rows (Material / BAFU layers / averaged %) and fill
+  // the table. One row per element, grouped by component (MPN). Runs once per
+  // table while it is still empty; the supplier can edit everything afterwards.
+  useEffect(() => {
+    if (!section?.fields) return;
+    const tables = section.fields.filter(
+      (f) => f.type === 'table' && f.compositionAutoFill,
+    );
+    if (tables.length === 0) return;
+
+    const components = (bomComponents || []).filter((c) => (c.detail_description || '').trim());
+    if (components.length === 0) return;
+
+    tables.forEach((field) => {
+      if (autoResolvedRef.current.has(field.name)) return;
+      const path = field.name.split('.');
+      const existing = form.getFieldValue(path) || [];
+      // Only skip when rows already carry a resolved Material name — that means
+      // we (or the supplier) already populated the composition. Generic
+      // MPN-only rows, or stale category-only rows, do NOT count, so the BOM
+      // description still drives the auto-fill on first open.
+      const hasMaterials = Array.isArray(existing) && existing.some((r: any) => (r?.material || '').toString().trim());
+      if (hasMaterials) { autoResolvedRef.current.add(field.name); return; }
+
+      autoResolvedRef.current.add(field.name); // claim immediately to avoid re-entry
+      (async () => {
+        const allRows: any[] = [];
+        for (const comp of components) {
+          try {
+            const result = await resolveMaterialComposition(comp.detail_description!.trim());
+            for (const r of result.rows) {
+              allRows.push({
+                mpn: comp.material_number || undefined,
+                material: r.element,
+                layer1: r.bafu_category || undefined,
+                layer2: r.bafu_process || undefined,
+                layer3: r.bafu_sub2 || undefined,
+                composition_percent: Number(((r.min_pct + r.max_pct) / 2).toFixed(2)),
+              });
+            }
+          } catch {
+            // Skip this component; supplier can fill it manually.
+          }
+        }
+        if (allRows.length > 0) {
+          form.setFieldValue(path, allRows);
+          message.success(`Auto-filled ${allRows.length} material rows from the BOM. Edit if needed.`);
+        }
+      })();
+    });
+  }, [section, bomComponents, form]);
+
+  // Lock Weight + Unit from the authoritative BOM (Q5). For every row whose MPN
+  // matches a BOM component, overwrite weight_per_unit (BOM grams -> kg) and
+  // unit (-> Kg) and keep them read-only. The BOM is the single source of truth
+  // for weight, so this runs on both fresh tables and saved drafts. The
+  // value-equality guard makes it idempotent (no render loop).
+  useEffect(() => {
+    if (!section?.fields) return;
+    const tables = section.fields.filter(
+      (f) => f.type === 'table' && (f.columns || []).some((c: any) => c.lockedFromBom),
+    );
+    if (tables.length === 0) return;
+    const comps = bomComponents || [];
+    if (comps.length === 0) return;
+
+    tables.forEach((field) => {
+      const path = field.name.split('.');
+      const rows = form.getFieldValue(path);
+      if (!Array.isArray(rows) || rows.length === 0) return;
+      let changed = false;
+      const newRows = rows.map((r: any) => {
+        const mpn = r?.material_number || r?.mpn;
+        // Match by MPN or by bom_id (drafts may store either reliably).
+        const bom = comps.find(
+          (b) => (mpn && b.material_number === mpn) || (r?.bom_id && b.bom_id === r.bom_id),
+        );
+        if (!bom || bom.weight_gms == null || Number.isNaN(Number(bom.weight_gms))) return r;
+        const weightKg = Number((Number(bom.weight_gms) / 1000).toFixed(4));
+        const updated = { ...r };
+        if (updated.weight_per_unit !== weightKg) { updated.weight_per_unit = weightKg; changed = true; }
+        if (updated.unit !== 'Kg') { updated.unit = 'Kg'; changed = true; }
+        return updated;
+      });
+      if (changed) form.setFieldValue(path, newRows);
+    });
+    // Re-runs when the draft loads (initialValues) and whenever the Q5 rows
+    // actually change (productsManufacturedWatch) — the rows aren't present on
+    // first render, so depending on the watched value is what makes it fire.
+  }, [section, bomComponents, form, initialValues, productsManufacturedWatch]);
 
   // ---- Haversine + correction factor — pure frontend, synchronous, instant ----
   const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -350,6 +454,20 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
           // Set bom_id if available
           if (product.bom_id) {
             row.bom_id = product.bom_id;
+          }
+
+          // Lock weight + unit from the authoritative BOM (Q5, fresh tables).
+          // The BOM stores grams; convert to kg and lock the unit to Kg.
+          const lockedCols = (field.columns || []).filter((c: any) => c.lockedFromBom);
+          if (lockedCols.length && materialNumber) {
+            const bom = (bomComponents || []).find((b) => b.material_number === materialNumber);
+            if (bom && bom.weight_gms != null && !Number.isNaN(Number(bom.weight_gms))) {
+              const weightKg = Number((Number(bom.weight_gms) / 1000).toFixed(4));
+              for (const col of lockedCols) {
+                if (col.name === 'weight_per_unit') row.weight_per_unit = weightKg;
+                else if (col.name === 'unit') row.unit = 'Kg';
+              }
+            }
           }
 
           return row;
@@ -547,6 +665,10 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
               break;
             case 'packagingTreatmentType':
               data = await questionnaireDropdownService.getPackagingTreatmentTypeDropdown();
+              break;
+            case 'packagingType':
+              // BAFU-backed packaging types (drives the packaging EF).
+              data = await listPackagingTypes();
               break;
           }
 
@@ -1168,7 +1290,7 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
             )}
           </div>
         </div>
-        
+
         <div className="p-4">
           <Form.Item
             noStyle
@@ -1555,6 +1677,8 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                               style={{ minWidth: 120, width: '100%' }}
                               mode={col.mode}
                               loading={isLoadingApi}
+                              // Locked when the value is sourced from the BOM (Q5 unit).
+                              disabled={!!col.lockedFromBom && !!form.getFieldValue([...fieldPath, fieldRecord.name, col.name])}
                               showSearch={apiOptions.length > 5}
                               filterOption={(input, option) =>
                                 (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
@@ -1721,6 +1845,8 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                               style={{ minWidth: 120, width: '100%' }}
                               mode={col.mode}
                               loading={isLoadingApi}
+                              // Locked when the value is sourced from the BOM (Q5 unit).
+                              disabled={!!col.lockedFromBom && !!form.getFieldValue([...fieldPath, fieldRecord.name, col.name])}
                               showSearch={apiOptions.length > 5}
                               filterOption={(input, option) =>
                                 (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
@@ -1976,6 +2102,8 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                               style={{ width: '100%' }}
                               min={col.min}
                               max={col.max}
+                              // Locked when the value is sourced from the BOM (Q5 weight).
+                              disabled={!!col.lockedFromBom && form.getFieldValue([...fieldPath, fieldRecord.name, col.name]) != null && form.getFieldValue([...fieldPath, fieldRecord.name, col.name]) !== ''}
                               parser={(value) => {
                                 if (!value) return '' as any;
                                 const cleaned = String(value).replace(/[^\d.\-]/g, '');

@@ -151,6 +151,89 @@ export async function matchEmissionFactor(
   return json.data as MatchEmissionFactorResult;
 }
 
+// ── Material/alloy composition (Q7 auto-fill) ────────────────────────────────
+
+export interface CompositionRow {
+  element: string;
+  min_pct: number;
+  max_pct: number;
+  bafu_category: string;
+  bafu_process: string;
+  bafu_sub2: string;
+}
+
+export interface MaterialCompositionResult {
+  alloy: string | null;
+  rows: CompositionRow[];
+  source: string;
+}
+
+// Resolve a material/alloy description into its constituent materials + % +
+// BAFU layer mapping, to auto-populate the raw-materials question. Returns an
+// empty rows array (not an error) when nothing could be resolved.
+export async function resolveMaterialComposition(
+  description: string,
+): Promise<MaterialCompositionResult> {
+  const res = await fetch(`${API_BASE_URL}/api/emission-factors/material-composition`, {
+    method: "POST",
+    headers: buildAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ description }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || `Request failed: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as MaterialCompositionResult;
+}
+
+// Full PCF calculation from the raw questionnaire data object.
+export interface PcfCalcResult {
+  input: any;
+  result: {
+    sections: {
+      raw_materials: { total: number; rows: any[] };
+      production: { total: number; detail: any };
+      packaging: { total: number; rows: any[] };
+      transport: { total: number; legs: any[] };
+      waste: { total: number; detail: any };
+    };
+    pcf_total: number;
+  };
+}
+
+export async function calculatePcfFromQuestionnaire(data: any): Promise<PcfCalcResult> {
+  const res = await fetch(`${API_BASE_URL}/api/emission-factors/pcf-from-questionnaire`, {
+    method: "POST",
+    headers: buildAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || `Request failed: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as PcfCalcResult;
+}
+
+// Packaging types for the Q8 dropdown (each maps to a BAFU product).
+export interface PackagingType {
+  id: string;
+  name: string;
+}
+
+export async function listPackagingTypes(): Promise<PackagingType[]> {
+  const res = await fetch(`${API_BASE_URL}/api/emission-factors/meta/packaging-types`, {
+    headers: buildAuthHeaders(),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || `Request failed: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as PackagingType[];
+}
+
 export interface EmissionFactorLayerTriple {
   id: string;
   layer1: string;

@@ -1089,6 +1089,9 @@ class SupplierQuestionnaireService {
                       ...(item.layer4 && { layer4: item.layer4 }),
                       ...(item.ef_code && { ef_code: item.ef_code })
                   })),
+              // Q6.1 — total weight of all products produced at the factory (kg).
+              // Denominator for production-energy allocation; previously dropped here.
+              total_weight_of_all_products_produced_kg: data.scope_2?.total_factory_weight_produced_kg ?? null,
               do_you_acquired_standardized_re_certificates: this.convertToBoolean(data.scope_2?.standardized_re_certificates || false),
               scope_two_indirect_emissions_certificates_questions: this.ensureArray(data.scope_2?.certificates)
                   .filter(item => item.name && item.serial_id)

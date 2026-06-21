@@ -296,12 +296,12 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
           try {
             const result = await resolveMaterialComposition(comp.detail_description!.trim());
             for (const r of result.rows) {
+              // Only seed the Material name + % composition. Category/Process
+              // (layer1/layer2) are intentionally left EMPTY — the supplier must
+              // pick those themselves; we don't fill their classification.
               allRows.push({
                 mpn: comp.material_number || undefined,
                 material: r.element,
-                layer1: r.bafu_category || undefined,
-                layer2: r.bafu_process || undefined,
-                layer3: r.bafu_sub2 || undefined,
                 composition_percent: Number(((r.min_pct + r.max_pct) / 2).toFixed(2)),
               });
             }
@@ -317,10 +317,10 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
     });
   }, [section, bomComponents, form]);
 
-  // Auto-populate the waste table (Q68) with TWO rows per component on first
-  // open: Production waste (10% of component weight) and Packaging waste (10% of
-  // packaging weight), each with its BAFU Category/Process pre-filled. Runs once
-  // per table while empty; the supplier can edit everything afterwards.
+  // Add TWO empty waste rows per component (production + packaging) on first
+  // open, with ONLY the MPN filled. The supplier fills Category/Process/Weight
+  // themselves — we never pre-fill their classification or numbers. Runs once
+  // per table while empty.
   useEffect(() => {
     if (!section?.fields) return;
     const tables = section.fields.filter(
@@ -331,51 +331,33 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
     const components = bomComponents || [];
     if (components.length === 0) return;
 
-    // Sum the packaging weight (kg) entered in Q60 per MPN, so packaging waste =
-    // 10% of it. Empty until Q60 is filled — then the supplier re-opens Q68 or
-    // edits the weight; production waste is always known from the BOM.
-    const packagingRows: any[] = form.getFieldValue(['scope_3', 'packaging', 'materials_used']) || [];
-    const packagingWeightByMpn = new Map<string, number>();
-    for (const pr of packagingRows) {
-      const mpn = pr?.mpn || pr?.material_number;
-      const w = parseFloat(pr?.packagin_weight);
-      if (mpn && Number.isFinite(w)) {
-        packagingWeightByMpn.set(mpn, (packagingWeightByMpn.get(mpn) || 0) + w);
-      }
-    }
-
     tables.forEach((field) => {
       if (wasteAutoRef.current.has(field.name)) return;
       const path = field.name.split('.');
       const existing = form.getFieldValue(path) || [];
-      // Skip if the supplier already has real waste rows (a Category set).
-      const hasRows = Array.isArray(existing) && existing.some((r: any) => (r?.layer1 || '').toString().trim());
+      // Skip if the supplier already filled any waste detail (Category or Weight).
+      const hasRows = Array.isArray(existing) && existing.some((r: any) => (r?.layer1 || '').toString().trim() || r?.weight);
       if (hasRows) { wasteAutoRef.current.add(field.name); return; }
 
       wasteAutoRef.current.add(field.name);
       const rows: any[] = [];
       for (const comp of components) {
         const mpn = comp.material_number || '';
-        const componentWeightKg = comp.weight_gms != null && !Number.isNaN(Number(comp.weight_gms))
-          ? Number(comp.weight_gms) / 1000
-          : 0;
-        const packagingWeightKg = packagingWeightByMpn.get(mpn) || 0;
-        for (const cfg of WASTE_AUTO_ROWS) {
-          const base = cfg.weightSource === 'component' ? componentWeightKg : packagingWeightKg;
+        // Add exactly TWO empty rows per component (one for production waste,
+        // one for packaging waste) with ONLY the MPN filled. Category, Process,
+        // Sub-category, Weight and Unit are left EMPTY — the supplier fills all
+        // of those themselves; we never pre-fill their data.
+        for (let i = 0; i < WASTE_AUTO_ROWS.length; i++) {
           rows.push({
             mpn: mpn || undefined,
             material_number: mpn || undefined,
             bom_id: comp.bom_id,
-            layer1: cfg.layer1,
-            layer2: cfg.layer2,
-            weight: Number(((base * cfg.pct) / 100).toFixed(6)),
-            unit: 'Kilograms (kg)',
           });
         }
       }
       if (rows.length > 0) {
         form.setFieldValue(path, rows);
-        message.success(`Auto-filled ${rows.length} waste rows (production + packaging). Edit if needed.`);
+        message.success(`Added ${rows.length} waste rows (production + packaging). Please fill in the details.`);
       }
     });
   }, [section, bomComponents, form]);

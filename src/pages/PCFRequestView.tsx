@@ -49,9 +49,6 @@ import {
   Loader2,
   Leaf,
   Truck,
-  Ship,
-  Train,
-  Plane,
   PieChart,
   Scale,
   Factory,
@@ -1870,8 +1867,13 @@ const PCFRequestView: React.FC = () => {
                         <tbody className="bg-white divide-y divide-gray-100">
                           {(requestData?.bom_list || []).map(
                             (item: any, index: number) => {
-                              const transportDetails =
-                                item.transportation_details || [];
+                              const transportDetails = [
+                                ...(item.transportation_details || []),
+                              ].sort((a: any, b: any) =>
+                                String(a.motuft_id || "").localeCompare(
+                                  String(b.motuft_id || ""),
+                                ),
+                              );
                               // logistic_emission_calculation is now an array of per-leg records
                               const logisticCalcArr = Array.isArray(item.logistic_emission_calculation)
                                 ? item.logistic_emission_calculation
@@ -1954,50 +1956,6 @@ const PCFRequestView: React.FC = () => {
                                                     }
                                                   >
                                                     <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm min-w-[160px]">
-                                                      <div className="flex items-center gap-2 mb-2">
-                                                        {leg.mode_of_transport
-                                                          ?.toLowerCase()
-                                                          .includes("ship") ||
-                                                        leg.mode_of_transport
-                                                          ?.toLowerCase()
-                                                          .includes("sea") ? (
-                                                          <Ship
-                                                            size={20}
-                                                            className="text-green-600"
-                                                          />
-                                                        ) : leg.mode_of_transport
-                                                            ?.toLowerCase()
-                                                            .includes("rail") ||
-                                                          leg.mode_of_transport
-                                                            ?.toLowerCase()
-                                                            .includes("train") ? (
-                                                          <Train
-                                                            size={20}
-                                                            className="text-green-600"
-                                                          />
-                                                        ) : leg.mode_of_transport
-                                                            ?.toLowerCase()
-                                                            .includes("plane") ||
-                                                          leg.mode_of_transport
-                                                            ?.toLowerCase()
-                                                            .includes("air") ||
-                                                          leg.mode_of_transport
-                                                            ?.toLowerCase()
-                                                            .includes("flight") ? (
-                                                          <Plane
-                                                            size={20}
-                                                            className="text-green-600"
-                                                          />
-                                                        ) : (
-                                                          <Truck
-                                                            size={20}
-                                                            className="text-green-600"
-                                                          />
-                                                        )}
-                                                        <span className="text-sm font-medium text-gray-900">
-                                                          {leg.mode_of_transport || "N/A"}
-                                                        </span>
-                                                      </div>
                                                       <div className="text-xs text-gray-500 mb-1">
                                                         {leg.source_point} →{" "}
                                                         {leg.drop_point}

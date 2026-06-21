@@ -373,7 +373,7 @@ const PCFRequest: React.FC = () => {
             !isLoading ? (
               <Download
                 size={16}
-                className="flex items-center justify-center mt-[5px]"
+                className="flex items-center justify-center"
               />
             ) : undefined
           }
@@ -447,7 +447,7 @@ const PCFRequest: React.FC = () => {
                 icon={
                   <Pencil
                     size={16}
-                    className="flex items-center justify-center mt-[5px]"
+                    className="flex items-center justify-center"
                   />
                 }
               >
@@ -460,7 +460,7 @@ const PCFRequest: React.FC = () => {
                 icon={
                   <Eye
                     size={16}
-                    className="flex items-center justify-center mt-[5px]"
+                    className="flex items-center justify-center"
                   />
                 }
               >
@@ -480,7 +480,7 @@ const PCFRequest: React.FC = () => {
                     !isPublishing ? (
                       <Send
                         size={16}
-                        className="flex items-center justify-center mt-[5px]"
+                        className="flex items-center justify-center"
                       />
                     ) : undefined
                   }

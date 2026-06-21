@@ -25,7 +25,7 @@ const Header: React.FC<HeaderProps> = ({ children }) => {
               Welcome back!
             </h2>
             <p className="text-xs text-gray-500">
-              Manage your environmental data
+              Manage your carbon, product &amp; compliance data
             </p>
           </div>
         </div>

@@ -94,6 +94,11 @@ export interface QuestionnaireField {
   // Show the "auto-fill materials from a description" box above the table (Q7).
   // Resolves an alloy/material description into element rows via the backend.
   compositionAutoFill?: boolean;
+  // Auto-populate the waste table (Q68) with TWO rows per component —
+  // Production waste (10% of component weight) and Packaging waste (10% of
+  // packaging weight) — with their BAFU Category/Process pre-filled. The
+  // supplier can edit everything afterwards.
+  wasteAutoPopulate?: boolean;
   // Column value is sourced from the uploaded BOM (authoritative) and locked
   // read-only once populated — the supplier cannot edit it (e.g. Q5 weight/unit).
   lockedFromBom?: boolean;
@@ -1770,15 +1775,11 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             placeholder: "Select MPN",
           },
           {
-            // Packaging type drives the EF (maps to a specific BAFU product),
-            // the same way the Material name drives raw-material EFs.
-            name: "packaging_type",
-            label: "Packaging Type",
-            type: "select",
-            apiDropdown: "packagingType",
-            placeholder: "Select packaging type",
-          },
-          {
+            // Packaging EF now comes from the BAFU cascade below
+            // (Category -> Process -> Sub-category 2), the same way materials
+            // resolve. The former standalone "Packaging Type" dropdown (a small
+            // hardcoded material_ef_mapping list) was removed so the supplier
+            // selects packaging directly from the full BAFU taxonomy.
             name: "layer1",
             label: "Category",
             type: "select",
@@ -1951,7 +1952,7 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
         type: "table",
         addButtonLabel: "Add Row",
         required: true,
-        autoPopulateFromProducts: true,
+        wasteAutoPopulate: true,
         columns: [
           {
             name: "mpn",

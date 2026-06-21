@@ -117,6 +117,7 @@ export interface SupplierQuestionnaireData {
       quantity: number;
       unit: string;
     }[];
+    total_factory_weight_produced_kg?: number | null;
     standardized_re_certificates: boolean;
     certificates?: {
       name: string;
@@ -656,6 +657,7 @@ interface SupplierQuestionnaireApiPayload {
             quantity: number;
             unit: string;
         }[];
+        total_weight_of_all_products_produced_kg?: number | null;
         do_you_acquired_standardized_re_certificates: boolean;
         scope_two_indirect_emissions_certificates_questions: {
             certificate_name: string;

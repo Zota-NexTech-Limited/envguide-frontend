@@ -30,10 +30,13 @@ import {
   getEmissionFactorStats,
   importEmissionFactorsCsv,
   listEmissionFactors,
+  listEmissionFactorUnits,
+  listEmissionFactorCountries,
 } from "../../lib/emissionFactorService";
 import type {
   EmissionFactor,
   EmissionFactorStats,
+  EmissionFactorCountry,
   ImportValidationError,
 } from "../../lib/emissionFactorService";
 
@@ -60,8 +63,9 @@ const EmissionFactorsTable: React.FC = () => {
   // Filters
   const [search, setSearch] = useState("");
   const [countryCode, setCountryCode] = useState<string | undefined>();
-  const [unitKind, setUnitKind] = useState<string | undefined>();
-  const [sourceDb, setSourceDb] = useState<string | undefined>();
+  const [countryOptions, setCountryOptions] = useState<EmissionFactorCountry[]>([]);
+  const [unit, setUnit] = useState<string | undefined>();
+  const [unitOptions, setUnitOptions] = useState<string[]>([]);
 
   // Stats
   const [stats, setStats] = useState<EmissionFactorStats | null>(null);
@@ -92,8 +96,7 @@ const EmissionFactorsTable: React.FC = () => {
         limit: pageSize,
         search: search.trim() || undefined,
         country_code: countryCode,
-        unit_kind: unitKind,
-        source_db: sourceDb,
+        unit,
       });
       if (mySeq !== fetchSeq.current) return; // stale — newer request already issued
       setRows(resp.data || []);
@@ -106,7 +109,7 @@ const EmissionFactorsTable: React.FC = () => {
     } finally {
       if (mySeq === fetchSeq.current) setLoading(false);
     }
-  }, [page, pageSize, search, countryCode, unitKind, sourceDb, reloadKey]);
+  }, [page, pageSize, search, countryCode, unit, reloadKey]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -125,6 +128,15 @@ const EmissionFactorsTable: React.FC = () => {
     fetchStats();
   }, [fetchStats]);
 
+  useEffect(() => {
+    listEmissionFactorUnits()
+      .then(setUnitOptions)
+      .catch(() => setUnitOptions([]));
+    listEmissionFactorCountries()
+      .then(setCountryOptions)
+      .catch(() => setCountryOptions([]));
+  }, []);
+
   const onSearchChange = (val: string) => {
     setSearch(val);
     if (lastSearchDebounce.current) window.clearTimeout(lastSearchDebounce.current);
@@ -140,8 +152,7 @@ const EmissionFactorsTable: React.FC = () => {
     }
     setSearch("");
     setCountryCode(undefined);
-    setUnitKind(undefined);
-    setSourceDb(undefined);
+    setUnit(undefined);
     setPage(1);
     // Force a fresh fetch even if nothing actually changed (e.g. user clicked
     // Reset when no filters were applied) — guarantees the table refills.
@@ -233,14 +244,9 @@ const EmissionFactorsTable: React.FC = () => {
           <span className="whitespace-normal break-words leading-snug">{v}</span>
         ),
       },
-      wrapCol("Material", "material", 200),
-      wrapCol("Process", "process", 220),
-      wrapCol("Activity Type", "activity_type", 170),
       wrapCol("Category", "category", 170),
-      wrapCol("Sub Category 1", "sub_category_1", 190),
-      wrapCol("Sub Category 2", "sub_category_2", 190),
-      wrapCol("Sub Category 3", "sub_category_3", 210),
-      wrapCol("Sub Category 4", "sub_category_4", 210),
+      wrapCol("Process", "sub_category_1", 200),
+      wrapCol("Sub-category 2", "sub_category_2", 200),
       {
         title: "Country Code",
         dataIndex: "country_code",
@@ -250,46 +256,12 @@ const EmissionFactorsTable: React.FC = () => {
           v ? <Tag color="blue">{v}</Tag> : <span className="text-gray-300">-</span>,
       },
       wrapCol("Country Name", "country_name", 180),
-      wrapCol("Region", "region", 130),
-      wrapCol("Geo Fallback Chain", "geo_fallback_chain", 280),
       {
         title: "Unit",
         dataIndex: "unit",
         key: "unit",
         width: 90,
         render: (v: string | null) => v || <span className="text-gray-300">-</span>,
-      },
-      {
-        title: "Unit Kind",
-        dataIndex: "unit_kind",
-        key: "unit_kind",
-        width: 110,
-        render: (v: string | null) =>
-          v ? <Tag>{v}</Tag> : <span className="text-gray-300">-</span>,
-      },
-      {
-        title: "Recycled",
-        dataIndex: "recycled_content",
-        key: "recycled_content",
-        width: 100,
-        render: (v: string | null) =>
-          v ? (
-            <Tag color={v.toLowerCase() === "yes" ? "green" : "default"}>{v}</Tag>
-          ) : (
-            <span className="text-gray-300">-</span>
-          ),
-      },
-      {
-        title: "Factor Suitability",
-        dataIndex: "factor_suitability",
-        key: "factor_suitability",
-        width: 260,
-        render: (v: string | null) =>
-          v ? (
-            <span className="whitespace-normal break-words leading-snug">{v}</span>
-          ) : (
-            <span className="text-gray-300">-</span>
-          ),
       },
       {
         title: "kgCO₂e / unit",
@@ -400,7 +372,7 @@ const EmissionFactorsTable: React.FC = () => {
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-100">
             <Ruler className="w-4 h-4 text-amber-600" />
             <span className="text-xs font-semibold text-amber-700 tabular-nums">
-              {stats?.unit_kind_count ?? "-"}
+              {stats?.unit_count ?? "-"}
             </span>
             <span className="text-xs text-amber-600/80">unit families</span>
           </div>
@@ -421,42 +393,40 @@ const EmissionFactorsTable: React.FC = () => {
           <Input
             allowClear
             prefix={<Search size={14} />}
-            placeholder="Search any column (material, process, country, unit, source…)"
+            placeholder="Search any column (product, category, process, country, unit…)"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             style={{ width: 440, flex: "1 1 320px", maxWidth: 560 }}
           />
           <Select
             allowClear
-            placeholder="Country code"
+            showSearch
+            placeholder="Country"
             value={countryCode}
             onChange={(v) => { setCountryCode(v); setPage(1); }}
-            style={{ width: 160 }}
-          >
-            {["CH", "RER", "GLO", "RoW", "US", "IN", "DE"].map((c) => (
-              <Option key={c} value={c}>{c}</Option>
-            ))}
-          </Select>
+            style={{ width: 200 }}
+            filterOption={(input, option) =>
+              ((option?.label as string) ?? "").toLowerCase().includes(input.toLowerCase()) ||
+              ((option?.value as string) ?? "").toLowerCase().includes(input.toLowerCase())
+            }
+            options={countryOptions.map((c) => ({
+              value: c.country_code,
+              label: c.country_name || c.country_code,
+            }))}
+          />
           <Select
             allowClear
-            placeholder="Unit family"
-            value={unitKind}
-            onChange={(v) => { setUnitKind(v); setPage(1); }}
+            showSearch
+            placeholder="Unit"
+            value={unit}
+            onChange={(v) => { setUnit(v); setPage(1); }}
             style={{ width: 160 }}
+            filterOption={(input, option) =>
+              (option?.value as string ?? "").toLowerCase().includes(input.toLowerCase())
+            }
           >
-            {["mass", "count", "energy", "area", "volume", "freight", "passenger"].map((u) => (
+            {unitOptions.map((u) => (
               <Option key={u} value={u}>{u}</Option>
-            ))}
-          </Select>
-          <Select
-            allowClear
-            placeholder="Source DB"
-            value={sourceDb}
-            onChange={(v) => { setSourceDb(v); setPage(1); }}
-            style={{ width: 160 }}
-          >
-            {["BAFU:2025"].map((s) => (
-              <Option key={s} value={s}>{s}</Option>
             ))}
           </Select>
           <Button onClick={resetFilters}>Reset</Button>

@@ -47,7 +47,8 @@ export type ApiDropdownType =
   | "packingUnit" // Q60, Q62 - Packing units
   | "materialType" // Q52 - Material/Material Type
   | "packingType" // Q60 - Packing type
-  | "packagingTreatmentType"; // Q60 - Packaging treatment type
+  | "packagingTreatmentType" // Q60 - Packaging treatment type
+  | "packagingType"; // Q8 - Packaging Type (BAFU-backed, drives the packaging EF)
 
 export interface QuestionnaireField {
   name: string; // Data key (path in the data object)
@@ -90,6 +91,12 @@ export interface QuestionnaireField {
   efLayer?: 1 | 2 | 3 | 4;
   // Auto-populate table rows from products_manufactured (Q15)
   autoPopulateFromProducts?: boolean;
+  // Show the "auto-fill materials from a description" box above the table (Q7).
+  // Resolves an alloy/material description into element rows via the backend.
+  compositionAutoFill?: boolean;
+  // Column value is sourced from the uploaded BOM (authoritative) and locked
+  // read-only once populated — the supplier cannot edit it (e.g. Q5 weight/unit).
+  lockedFromBom?: boolean;
   // For file uploads - allow multiple files
   multiple?: boolean;
   // For read-only fields (e.g., auto-calculated distance)
@@ -413,6 +420,7 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             label: "Weight per Component/ Product",
             type: "number",
             placeholder: "0.00",
+            lockedFromBom: true,
           },
           {
             name: "unit",
@@ -420,6 +428,7 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             type: "select",
             apiDropdown: "productUnit",
             placeholder: "Select unit",
+            lockedFromBom: true,
           },
           {
             name: "price",
@@ -661,35 +670,27 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
         columns: [
           {
             name: "layer1",
-            label: "Layer 1",
+            label: "Category",
             type: "select",
             efSource: "electricity",
             efLayer: 1,
-            placeholder: "Select Layer 1",
+            placeholder: "Select Category",
           },
           {
             name: "layer2",
-            label: "Layer 2",
+            label: "Process",
             type: "select",
             efSource: "electricity",
             efLayer: 2,
-            placeholder: "Select Layer 2",
+            placeholder: "Select Process",
           },
           {
             name: "layer3",
-            label: "Layer 3",
+            label: "Sub-category 2",
             type: "select",
             efSource: "electricity",
             efLayer: 3,
-            placeholder: "Select Layer 3",
-          },
-          {
-            name: "layer4",
-            label: "Layer 4",
-            type: "select",
-            efSource: "electricity",
-            efLayer: 4,
-            placeholder: "Select Layer 4",
+            placeholder: "Select Sub-category 2",
           },
           {
             name: "quantity",
@@ -705,6 +706,18 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             placeholder: "Select unit",
           },
         ],
+      },
+      {
+        // Factory-level total production weight — used to allocate the factory's
+        // purchased energy (Q6) down to a single component for production
+        // emissions: (component_weight / factory_weight) × factory_energy × EF.
+        name: "scope_2.total_factory_weight_produced_kg",
+        label:
+          "22.1 Total weight of all products produced at your factory during the reporting period (kg)",
+        type: "number",
+        required: true,
+        placeholder: "e.g. 50000",
+        min: 0,
       },
       {
         name: "scope_2.standardized_re_certificates",
@@ -1552,6 +1565,7 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
         addButtonLabel: "Add Row",
         required: true,
         autoPopulateFromProducts: true,
+        compositionAutoFill: true,
         columns: [
           {
             name: "mpn",
@@ -1561,36 +1575,34 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             placeholder: "Select MPN",
           },
           {
+            name: "material",
+            label: "Material",
+            type: "text",
+            placeholder: "e.g. Aluminium",
+          },
+          {
             name: "layer1",
-            label: "Layer 1",
+            label: "Category",
             type: "select",
             efSource: "materials",
             efLayer: 1,
-            placeholder: "Select Layer 1",
+            placeholder: "Select Category",
           },
           {
             name: "layer2",
-            label: "Layer 2",
+            label: "Process",
             type: "select",
             efSource: "materials",
             efLayer: 2,
-            placeholder: "Select Layer 2",
+            placeholder: "Select Process",
           },
           {
             name: "layer3",
-            label: "Layer 3",
+            label: "Sub-category 2",
             type: "select",
             efSource: "materials",
             efLayer: 3,
-            placeholder: "Select Layer 3",
-          },
-          {
-            name: "layer4",
-            label: "Layer 4",
-            type: "select",
-            efSource: "materials",
-            efLayer: 4,
-            placeholder: "Select Layer 4",
+            placeholder: "Select Sub-category 2",
           },
           {
             name: "composition_percent",
@@ -1758,36 +1770,37 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
             placeholder: "Select MPN",
           },
           {
+            // Packaging type drives the EF (maps to a specific BAFU product),
+            // the same way the Material name drives raw-material EFs.
+            name: "packaging_type",
+            label: "Packaging Type",
+            type: "select",
+            apiDropdown: "packagingType",
+            placeholder: "Select packaging type",
+          },
+          {
             name: "layer1",
-            label: "Layer 1",
+            label: "Category",
             type: "select",
             efSource: "packaging",
             efLayer: 1,
-            placeholder: "Select Layer 1",
+            placeholder: "Select Category",
           },
           {
             name: "layer2",
-            label: "Layer 2",
+            label: "Process",
             type: "select",
             efSource: "packaging",
             efLayer: 2,
-            placeholder: "Select Layer 2",
+            placeholder: "Select Process",
           },
           {
             name: "layer3",
-            label: "Layer 3",
+            label: "Sub-category 2",
             type: "select",
             efSource: "packaging",
             efLayer: 3,
-            placeholder: "Select Layer 3",
-          },
-          {
-            name: "layer4",
-            label: "Layer 4",
-            type: "select",
-            efSource: "packaging",
-            efLayer: 4,
-            placeholder: "Select Layer 4",
+            placeholder: "Select Sub-category 2",
           },
           // Merged from former Q61 — each packaging row is now self-contained
           // (type + treatment + weight + unit on one row) so the calculator
@@ -1950,35 +1963,27 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
           },
           {
             name: "layer1",
-            label: "Layer 1",
+            label: "Category",
             type: "select",
             efSource: "waste",
             efLayer: 1,
-            placeholder: "Select Layer 1",
+            placeholder: "Select Category",
           },
           {
             name: "layer2",
-            label: "Layer 2",
+            label: "Process",
             type: "select",
             efSource: "waste",
             efLayer: 2,
-            placeholder: "Select Layer 2",
+            placeholder: "Select Process",
           },
           {
             name: "layer3",
-            label: "Layer 3",
+            label: "Sub-category 2",
             type: "select",
             efSource: "waste",
             efLayer: 3,
-            placeholder: "Select Layer 3",
-          },
-          {
-            name: "layer4",
-            label: "Layer 4",
-            type: "select",
-            efSource: "waste",
-            efLayer: 4,
-            placeholder: "Select Layer 4",
+            placeholder: "Select Sub-category 2",
           },
           {
             name: "weight",
@@ -2148,35 +2153,27 @@ const _FULL_QUESTIONNAIRE_SCHEMA: QuestionnaireSection[] = [
           },
           {
             name: "layer1",
-            label: "Layer 1",
+            label: "Category",
             type: "select",
             efSource: "vehicle",
             efLayer: 1,
-            placeholder: "Select Layer 1",
+            placeholder: "Select Category",
           },
           {
             name: "layer2",
-            label: "Layer 2",
+            label: "Process",
             type: "select",
             efSource: "vehicle",
             efLayer: 2,
-            placeholder: "Select Layer 2",
+            placeholder: "Select Process",
           },
           {
             name: "layer3",
-            label: "Layer 3",
+            label: "Sub-category 2",
             type: "select",
             efSource: "vehicle",
             efLayer: 3,
-            placeholder: "Select Layer 3",
-          },
-          {
-            name: "layer4",
-            label: "Layer 4",
-            type: "select",
-            efSource: "vehicle",
-            efLayer: 4,
-            placeholder: "Select Layer 4",
+            placeholder: "Select Sub-category 2",
           },
           {
             name: "weight",
@@ -2376,8 +2373,9 @@ const KEPT_QUESTION_NAMES = new Set<string>([
   "product_details.any_co_product_have_economic_value",
   "product_details.co_products",
 
-  // Section 4 (Scope 2) — Q22
+  // Section 4 (Scope 2) — Q22, Q22.1 (factory total production weight)
   "scope_2.purchased_energy",
+  "scope_2.total_factory_weight_produced_kg",
 
   // Section 5 (Scope 3) — Q52, Q60 (now includes Q61 weight+unit), Q68, Q74.
   // Q61 (scope_3.packaging.weight_per_unit) was merged into Q60, so it's no
@@ -2401,6 +2399,7 @@ const LABEL_NUMBER_REMAP: Record<string, string> = {
   "15.1": "5.1",
   "15.2": "5.2",
   "22.": "6.",  // Q22 -> 6
+  "22.1": "6.1", // Q22.1 (factory total production weight) -> 6.1
   "52.": "7.",  // Q52 -> 7
   "60.": "8.",  // Q60 -> 8 (now includes weight & unit, formerly Q61)
   "68.": "9.",  // Q68 -> 9 (was 10 before Q61 was merged into Q60)

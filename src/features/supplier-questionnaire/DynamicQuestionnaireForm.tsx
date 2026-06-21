@@ -30,22 +30,26 @@ import { listEmissionFactorLayerTriples, resolveMaterialComposition, listPackagi
 // exactly. Borderline categories that could plausibly apply are included; the
 // list is intentionally broader rather than narrower so suppliers aren't stuck
 // when their material doesn't fit a tight bucket.
+// Per-question category whitelists — each questionnaire dropdown only shows the
+// EF categories that belong to that lifecycle stage (manager's grouping). Keeps
+// e.g. "construction materials" / "transport" aluminium rows OUT of the raw-
+// materials question. Kept lowercase to match the case-insensitive filter.
 const EF_SOURCE_CATEGORIES: Record<EfGroup, string[]> = {
   electricity: [
-    "electricity", "electricity by fuel", "heat", "natural gas", "fuels",
-    "energy supply, kbob recommendation", "photovoltaic", "wind power",
-    "heat pumps", "power plants", "compressed air", "energy, obsolete",
-    "nuclear waste",
+    "electricity", "electricity by fuel", "heat", "heating", "natural gas",
+    "fuels", "energy supply, kbob recommendation", "photovoltaic",
+    "wind power", "heat pumps", "power plants", "compressed air",
+    "energy, obsolete",
   ],
   fuel: [
     "fuels", "oil", "natural gas", "heat", "electricity by fuel",
   ],
+  // Raw materials = manager's "Raw Material Extraction & Material Production"
+  // list ONLY. No construction / electronics / building / manufacturing rows.
   materials: [
-    "metals", "plastics", "chemicals", "wood", "minerals", "glass",
-    "ceramics", "textiles", "paper+ board", "cardboard",
-    "construction materials", "insulation materials", "biomass",
-    "agricultural", "electronics", "building components",
-    "material, obsolete", "others",
+    "agricultural", "biomass", "cardboard", "ceramics", "chemicals", "glass",
+    "insulation materials", "metals", "minerals", "oil", "paper+ board",
+    "plastics", "textiles", "wood",
   ],
   packaging: [
     "paper+ board", "cardboard", "plastics", "glass", "wood",
@@ -54,7 +58,7 @@ const EF_SOURCE_CATEGORIES: Record<EfGroup, string[]> = {
     "waste management", "waste", "waste treatment, obsolete", "landfill",
     "incineration", "recycling", "wastewater treatment", "construction waste",
     "electronics waste", "transport waste", "landfarming",
-    "underground deposit", "impoundment",
+    "underground deposit", "nuclear waste",
   ],
   vehicle: [
     "transport systems", "pipeline",

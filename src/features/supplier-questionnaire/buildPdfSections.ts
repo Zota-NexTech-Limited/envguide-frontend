@@ -199,7 +199,11 @@ export const buildPdfSections = (
             if (col.apiDropdown && dropdownMaps[col.apiDropdown]) {
               return dropdownMaps[col.apiDropdown][String(val)] || String(val);
             }
-            if (typeof val === "number") return val.toLocaleString();
+            // Keep small decimals (e.g. transport weight 0.0002134 tons) — the
+            // default toLocaleString caps at 3 fraction digits and rounds tiny
+            // values to "0". Allow up to 8 so the supplier's entry is preserved.
+            if (typeof val === "number")
+              return val.toLocaleString(undefined, { maximumFractionDigits: 8 });
             return String(val);
           })
         );

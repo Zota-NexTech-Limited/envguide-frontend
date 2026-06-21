@@ -1530,8 +1530,20 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         // This whitelist is the DEFAULT view only — once the supplier
                         // types a search, we drop it and search the whole table.
                         const allowedCats = EF_SOURCE_CATEGORIES[col.efSource as EfGroup] || [];
+                        const rowValuesForScope = form.getFieldValue([...fieldPath, fieldRecord.name]) || {};
+                        // The supplier may pick a Category outside the scoped whitelist
+                        // by typing (search widens to the full BAFU table). Once picked,
+                        // the deeper layers (Process / Sub-category 2) must still see
+                        // every row for that Category — otherwise they revert to the
+                        // whitelist on blur, find zero rows, and lock as "Not applicable".
+                        // So keep whitelisted rows PLUS any row whose layer1 matches a
+                        // Category already selected on this row.
+                        const selectedLayer1 = (rowValuesForScope.layer1 || '').toString().toLowerCase();
                         const allRows: EmissionFactorRow[] = (allowedCats.length > 0 && !searchText)
-                          ? rawAllRows.filter((r) => r.layer1 && allowedCats.includes(r.layer1.toLowerCase()))
+                          ? rawAllRows.filter((r) => {
+                              const l1 = (r.layer1 || '').toLowerCase();
+                              return l1 && (allowedCats.includes(l1) || (selectedLayer1 && l1 === selectedLayer1));
+                            })
                           : rawAllRows;
 
                         const rowValues = form.getFieldValue([...fieldPath, fieldRecord.name]) || {};

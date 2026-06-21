@@ -65,6 +65,23 @@ const EF_SOURCE_CATEGORIES: Record<EfGroup, string[]> = {
   ],
 };
 
+// Q68 waste auto-populate config (manager's PCF logic). Two rows per component:
+//  • Production waste = 10% of the component weight  → treated as metals waste
+//  • Packaging waste  = 10% of the packaging weight  → treated as paper/board waste
+// layer1/layer2 are the BAFU Category/Process the row resolves its EF from. The
+// exact strings must match the BAFU emission_factors table (verify in pgAdmin);
+// the supplier can edit everything after auto-fill.
+const WASTE_AUTO_ROWS: Array<{
+  kind: "production" | "packaging";
+  layer1: string;
+  layer2: string;
+  weightSource: "component" | "packaging";
+  pct: number;
+}> = [
+  { kind: "production", layer1: "metals", layer2: "waste metals", weightSource: "component", pct: 10 },
+  { kind: "packaging", layer1: "paper+ board", layer2: "waste paper", weightSource: "packaging", pct: 10 },
+];
+
 let _layerTriplesCache: EmissionFactorRow[] | null = null;
 let _layerTriplesInflight: Promise<EmissionFactorRow[]> | null = null;
 
@@ -229,6 +246,11 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
   const [efRowsByGroup, setEfRowsByGroup] = useState<Record<string, EmissionFactorRow[]>>({});
   const [efLoadedGroups, setEfLoadedGroups] = useState<Set<string>>(new Set());
 
+  // Live search text for each EF cascade cell (keyed per row+layer). Empty =>
+  // show the small scoped/whitelisted list; non-empty => search the FULL BAFU
+  // table so the supplier can reach any category/process by typing.
+  const [efLayerSearch, setEfLayerSearch] = useState<Record<string, string>>({});
+
   // Watch the Q5 products table so the BOM weight/unit lock re-runs the moment
   // its rows load (whether from a saved draft via setFieldsValue or freshly
   // auto-populated) — the rows are not present on first render.
@@ -237,6 +259,9 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
   // Track which composition tables we've already auto-resolved (per field name)
   // so the effect doesn't re-run and clobber the supplier's manual edits.
   const autoResolvedRef = useRef<Set<string>>(new Set());
+
+  // Track which waste tables we've already auto-populated (per field name).
+  const wasteAutoRef = useRef<Set<string>>(new Set());
 
   // Auto-populate Q7 materials from the BOM the moment the supplier opens the
   // section: for each BOM component that carries a "Description of Material",
@@ -289,6 +314,69 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
           message.success(`Auto-filled ${allRows.length} material rows from the BOM. Edit if needed.`);
         }
       })();
+    });
+  }, [section, bomComponents, form]);
+
+  // Auto-populate the waste table (Q68) with TWO rows per component on first
+  // open: Production waste (10% of component weight) and Packaging waste (10% of
+  // packaging weight), each with its BAFU Category/Process pre-filled. Runs once
+  // per table while empty; the supplier can edit everything afterwards.
+  useEffect(() => {
+    if (!section?.fields) return;
+    const tables = section.fields.filter(
+      (f) => f.type === 'table' && f.wasteAutoPopulate,
+    );
+    if (tables.length === 0) return;
+
+    const components = bomComponents || [];
+    if (components.length === 0) return;
+
+    // Sum the packaging weight (kg) entered in Q60 per MPN, so packaging waste =
+    // 10% of it. Empty until Q60 is filled — then the supplier re-opens Q68 or
+    // edits the weight; production waste is always known from the BOM.
+    const packagingRows: any[] = form.getFieldValue(['scope_3', 'packaging', 'materials_used']) || [];
+    const packagingWeightByMpn = new Map<string, number>();
+    for (const pr of packagingRows) {
+      const mpn = pr?.mpn || pr?.material_number;
+      const w = parseFloat(pr?.packagin_weight);
+      if (mpn && Number.isFinite(w)) {
+        packagingWeightByMpn.set(mpn, (packagingWeightByMpn.get(mpn) || 0) + w);
+      }
+    }
+
+    tables.forEach((field) => {
+      if (wasteAutoRef.current.has(field.name)) return;
+      const path = field.name.split('.');
+      const existing = form.getFieldValue(path) || [];
+      // Skip if the supplier already has real waste rows (a Category set).
+      const hasRows = Array.isArray(existing) && existing.some((r: any) => (r?.layer1 || '').toString().trim());
+      if (hasRows) { wasteAutoRef.current.add(field.name); return; }
+
+      wasteAutoRef.current.add(field.name);
+      const rows: any[] = [];
+      for (const comp of components) {
+        const mpn = comp.material_number || '';
+        const componentWeightKg = comp.weight_gms != null && !Number.isNaN(Number(comp.weight_gms))
+          ? Number(comp.weight_gms) / 1000
+          : 0;
+        const packagingWeightKg = packagingWeightByMpn.get(mpn) || 0;
+        for (const cfg of WASTE_AUTO_ROWS) {
+          const base = cfg.weightSource === 'component' ? componentWeightKg : packagingWeightKg;
+          rows.push({
+            mpn: mpn || undefined,
+            material_number: mpn || undefined,
+            bom_id: comp.bom_id,
+            layer1: cfg.layer1,
+            layer2: cfg.layer2,
+            weight: Number(((base * cfg.pct) / 100).toFixed(6)),
+            unit: 'Kilograms (kg)',
+          });
+        }
+      }
+      if (rows.length > 0) {
+        form.setFieldValue(path, rows);
+        message.success(`Auto-filled ${rows.length} waste rows (production + packaging). Edit if needed.`);
+      }
     });
   }, [section, bomComponents, form]);
 
@@ -1448,11 +1536,19 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                         const rawAllRows: EmissionFactorRow[] = efRowsByGroup[col.efSource] || [];
                         const isLoading = !efLoadedGroups.has(col.efSource);
 
+                        // Per-cell search key + current typed text. When the supplier
+                        // types, we widen the source from the scoped whitelist to the
+                        // FULL BAFU table so any value is reachable.
+                        const searchKey = `${col.efSource}-${col.efLayer}-${fieldPath.join('.')}-${fieldRecord.name}`;
+                        const searchText = (efLayerSearch[searchKey] || '').trim();
+
                         // Whitelist Layer 1 to categories relevant to this question
                         // (electricity Q6 shows energy categories, materials Q7 shows
                         // material families, packaging Q8 shows packaging-relevant, etc).
+                        // This whitelist is the DEFAULT view only — once the supplier
+                        // types a search, we drop it and search the whole table.
                         const allowedCats = EF_SOURCE_CATEGORIES[col.efSource as EfGroup] || [];
-                        const allRows: EmissionFactorRow[] = allowedCats.length > 0
+                        const allRows: EmissionFactorRow[] = (allowedCats.length > 0 && !searchText)
                           ? rawAllRows.filter((r) => r.layer1 && allowedCats.includes(r.layer1.toLowerCase()))
                           : rawAllRows;
 
@@ -1527,7 +1623,16 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                               disabled={isLoading || hasNoData || !parentValue || isNotApplicable}
                               loading={isLoading}
                               allowClear
-                              showSearch={options.length > 5}
+                              showSearch
+                              // Typing widens the source to the full BAFU table (see
+                              // searchText above); store the input per-cell so the
+                              // options list recomputes from all rows while searching.
+                              onSearch={(val) => {
+                                setEfLayerSearch((prev) => {
+                                  if ((prev[searchKey] || '') === val) return prev;
+                                  return { ...prev, [searchKey]: val };
+                                });
+                              }}
                               filterOption={(input, option) =>
                                 (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
                               }
@@ -1555,6 +1660,22 @@ const DynamicQuestionnaireForm: React.FC<DynamicQuestionnaireFormProps> = ({
                                   form.setFieldValue(fieldPath, newItems);
                                   setDistanceTick((t) => t + 1);
                                 }, 0);
+                                // Reset this cell's search so it returns to the scoped
+                                // default list the next time it's opened.
+                                setEfLayerSearch((prev) => {
+                                  if (!(searchKey in prev)) return prev;
+                                  const next = { ...prev };
+                                  delete next[searchKey];
+                                  return next;
+                                });
+                              }}
+                              onBlur={() => {
+                                setEfLayerSearch((prev) => {
+                                  if (!(searchKey in prev)) return prev;
+                                  const next = { ...prev };
+                                  delete next[searchKey];
+                                  return next;
+                                });
                               }}
                             >
                               {options.map((v) => (

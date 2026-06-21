@@ -364,6 +364,7 @@ const PCFRequest: React.FC = () => {
       const button = (
         <Button
           type="text"
+          className="!px-0"
           disabled={!isCompleted || isLoading}
           loading={isLoading}
           onClick={() =>
@@ -443,6 +444,7 @@ const PCFRequest: React.FC = () => {
             {isDraft ? (
               <Button
                 type="text"
+                className="!px-0"
                 onClick={() => navigate(`/pcf-request/${record.id}/edit`)}
                 icon={
                   <Pencil
@@ -456,6 +458,7 @@ const PCFRequest: React.FC = () => {
             ) : (
               <Button
                 type="text"
+                className="!px-0"
                 onClick={() => navigate(`/pcf-request/${record.id}`)}
                 icon={
                   <Eye

@@ -16,18 +16,18 @@
   gap: 10px;
   border: none;
   cursor: pointer;
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, #16a34a, #15803d);
   color: #fff;
   border-radius: 999px;
   padding: 12px 18px;
-  box-shadow: 0 10px 25px rgba(5, 150, 105, 0.35);
+  box-shadow: 0 10px 25px rgba(22, 163, 74, 0.35);
   font-size: 14px;
   font-weight: 600;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .qa-launcher:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 30px rgba(5, 150, 105, 0.45);
+  box-shadow: 0 14px 30px rgba(22, 163, 74, 0.45);
 }
 .qa-launcher-emoji {
   font-size: 18px;
@@ -50,7 +50,7 @@
 }
 
 .qa-header {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, #16a34a, #15803d);
   color: #fff;
   padding: 14px 16px;
   display: flex;
@@ -117,7 +117,7 @@
   padding: 8px 10px;
   font-size: 13px;
   font-weight: 600;
-  color: #047857;
+  color: #15803d;
   border-radius: 8px 8px 0 0;
   display: flex;
   align-items: center;
@@ -164,7 +164,7 @@
   border-bottom-left-radius: 4px;
 }
 .qa-bubble-user {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, #16a34a, #15803d);
   color: #fff;
   border-bottom-right-radius: 4px;
 }
@@ -172,7 +172,7 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #d1fae5;
+  background: #dcfce7;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -188,9 +188,9 @@
   margin-top: 2px;
 }
 .qa-chip {
-  border: 1px solid #a7f3d0;
-  background: #ecfdf5;
-  color: #047857;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
   border-radius: 999px;
   padding: 5px 11px;
   font-size: 12px;
@@ -198,7 +198,7 @@
   transition: background 0.12s ease;
 }
 .qa-chip:hover {
-  background: #d1fae5;
+  background: #dcfce7;
 }
 
 /* Typing dots */
@@ -211,7 +211,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #10b981;
+  background: #16a34a;
   animation: qa-bounce 1.2s infinite ease-in-out;
 }
 .qa-typing i:nth-child(2) { animation-delay: 0.15s; }
@@ -241,11 +241,11 @@
   outline: none;
 }
 .qa-input:focus {
-  border-color: #10b981;
+  border-color: #16a34a;
 }
 .qa-send {
   border: none;
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, #16a34a, #15803d);
   color: #fff;
   width: 38px;
   height: 38px;
@@ -284,13 +284,13 @@
   border-radius: 50%;
   border: none;
   cursor: pointer;
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, #16a34a, #15803d);
   color: #fff;
   font-size: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 12px 30px rgba(5, 150, 105, 0.35);
+  box-shadow: 0 12px 30px rgba(22, 163, 74, 0.35);
   transition: transform 0.15s ease;
 }
 .qa-mic:hover { transform: scale(1.04); }
@@ -310,7 +310,7 @@
 .qa-voice-status {
   font-size: 14px;
   font-weight: 600;
-  color: #047857;
+  color: #15803d;
   min-height: 20px;
 }
 .qa-voice-hint {
@@ -333,7 +333,7 @@
 .qa-voice-label {
   font-size: 11px;
   font-weight: 700;
-  color: #059669;
+  color: #15803d;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   display: block;

@@ -270,6 +270,30 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         type: "checkbox",
         required: true,
       },
+      // Submission metadata (contact + completion). Lives in General
+      // Information per requirement. "Supplier / Company" and "Product this PCF
+      // refers to" from the doc header are omitted — they duplicate Q1 / Q2.
+      {
+        name: "contact.person",
+        label: "Contact person",
+        type: "text",
+        required: true,
+        placeholder: "Name of the person completing this form",
+      },
+      {
+        name: "contact.email",
+        label: "Contact e-mail",
+        type: "text",
+        required: true,
+        placeholder: "name@example.com",
+      },
+      {
+        name: "contact.date_completed",
+        label: "Date completed",
+        type: "date",
+        required: false,
+        placeholder: "Date this form was completed",
+      },
     ],
   },
 
@@ -282,30 +306,40 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
     fields: [
       {
         name: "company.legal_name",
-        label: "1. What is your company's full legal name?",
+        label:
+          "1. What is your company's full legal name and registration identifier? (Company legal name)",
         type: "text",
         required: true,
         placeholder: "Enter the registered company name",
       },
       {
-        // Generic company registration identifier — supplier picks whichever
-        // applies to their jurisdiction (DUNS / VAT / CIN / etc.). Optional
-        // per Word doc; BPN below is the mandatory Catena-X identifier.
+        // Generic company identifier — the supplier's own / internal company
+        // ID. Optional; BPNL below is the mandatory Catena-X identifier, and
+        // "Other" captures a jurisdiction-specific code (DUNS / VAT / CIN).
         name: "company.company_id",
-        label: "Company registration ID (DUNS / VAT / CIN / other) (optional)",
+        label: "Company ID (optional)",
         type: "text",
         required: false,
-        placeholder: "e.g. DUNS / VAT / CIN",
+        placeholder: "Your company / internal ID",
       },
       {
-        // Catena-X mandates BPN (Business Partner Number) on every supplier
-        // record. Must follow BPNL/BPNS/BPNA + 12 alphanumeric chars.
+        // Catena-X mandates BPNL (Business Partner Number — Legal Entity) on
+        // every supplier record. Must follow BPNL + 12 alphanumeric chars.
         name: "company.bpn",
-        label: "Business Partner Number (BPN)",
+        label: "Business Partner Number — Legal Entity (BPNL)",
         type: "text",
         required: true,
         placeholder: "BPNL000000000000",
         maxLength: 16,
+      },
+      {
+        // Q1 "Other — specify": jurisdiction-specific registration identifier
+        // (DUNS / VAT / CIN, etc.). Optional.
+        name: "company.other_identifier",
+        label: "Other — specify (DUNS / VAT / CIN) (optional)",
+        type: "text",
+        required: false,
+        placeholder: "e.g. DUNS / VAT / CIN",
       },
       {
         name: "product.name",
@@ -355,11 +389,21 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         // Absolute product mass per declared unit (kg). Feeds the carbon
         // content + intensity calcs in the formula engine.
         name: "product.declared_mass",
-        label: "Declared Mass (kg per declared unit)",
+        label: "Total product mass per declared unit (kg)",
         type: "number",
         required: true,
         min: 0,
         placeholder: "e.g. 2.5",
+      },
+      {
+        // Q3 — product price per declared unit. Used by the co-product
+        // economic allocation basis.
+        name: "product.price",
+        label: "Product Price",
+        type: "number",
+        required: true,
+        min: 0,
+        placeholder: "e.g. 12.50 (per declared unit)",
       },
       {
         name: "product.manufacturing_sites",
@@ -447,10 +491,12 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
     title: "Section C: Bill of Materials",
     fields: [
       {
-        // Q8 — one row per BOM component, pre-filled from the client-uploaded
-        // BOM file. MPN + Component Name are read-only display columns; supplier
-        // describes each component but cannot add / delete rows. "Clear" wipes
-        // the editable fields if the supplier wants to refill.
+        // Q8 — Bill of Materials. Rows pre-fill from the assigned BOM when one
+        // is present (autoPopulateFromBom seeds only when the table is empty);
+        // the supplier can also add / remove their own rows. Material is
+        // classified by a 4-level taxonomy (Category / Sub category / Group /
+        // Specific Type), free-text for now until the material/EF taxonomy
+        // dataset is wired.
         name: "bom.bill_of_materials",
         label:
           "8. List every material and component in one unit of the product, with its biogenic and recycled characteristics.",
@@ -458,19 +504,48 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         addButtonLabel: "Add Material / Component",
         required: true,
         autoPopulateFromBom: true,
-        lockAddRemove: true,
-        placeholder: "One row per BOM component (pre-filled from the BOM you were assigned).",
+        placeholder:
+          "One row per material / component. Pre-filled from your assigned BOM when available; add more rows as needed.",
         columns: [
-          { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN", readOnly: true },
-          { name: "component_name", label: "Component Name", type: "text", placeholder: "Component name", readOnly: true },
-          { name: "material", label: "Material", type: "select", options: MATERIALS, placeholder: "Select material" },
-          { name: "process", label: "Process", type: "select", options: PROCESSES, placeholder: "Select process" },
-          { name: "mass_percent", label: "Mass (%)", type: "number", required: true, min: 0, max: 100, placeholder: "0-100" },
+          { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN" },
+          { name: "material", label: "Category (Material)", type: "text", placeholder: "e.g. Metal" },
+          { name: "sub_category", label: "Sub category", type: "text", placeholder: "e.g. Steel" },
+          { name: "group", label: "Group", type: "text", placeholder: "e.g. Alloy steel" },
+          { name: "specific_type", label: "Specific Type", type: "text", placeholder: "e.g. 42CrMo4" },
+          { name: "mass_percent", label: "Mass of component (%)", type: "number", required: true, min: 0, max: 100, placeholder: "0-100" },
           { name: "carbon_percent", label: "Carbon (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
           { name: "biogenic", label: "Biogenic? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
-          { name: "biogenic_carbon_percent", label: "Biogenic C (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
+          { name: "biogenic_carbon_percent", label: "Biogenic carbon (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
+          { name: "biobased_mass_percent", label: "Bio-based mass (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
           { name: "recycled", label: "Recycled? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
           { name: "recycled_carbon_percent", label: "Recycled C (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
+        ],
+      },
+      {
+        // Q8a — does the supplier have a component- or material-specific
+        // emission factor to share? Optional ("if available"). Shown after Q8.
+        name: "bom.component_specific_ef_available",
+        label:
+          "8a. Can you provide a component-specific or material-specific emission factor? (if available)",
+        type: "radio",
+        options: YES_NO,
+        required: false,
+      },
+      {
+        // Q8a details — shown only when Q8a = Yes. One row per component /
+        // material with the supplier's own emission factor.
+        name: "bom.component_ef_details",
+        label: "8a.1 Component / material emission factors",
+        type: "table",
+        addButtonLabel: "Add Emission Factor",
+        required: false,
+        dependency: {
+          field: "bom.component_specific_ef_available",
+          value: "Yes",
+        },
+        columns: [
+          { name: "component_material_name", label: "Component / Material Name", type: "text", placeholder: "Component or material name" },
+          { name: "supplier_ef", label: "Supplier EF", type: "text", placeholder: "e.g. 2.5 kgCO₂e/kg" },
         ],
       },
       {
@@ -564,12 +639,15 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         addButtonLabel: "Add Row",
         required: false,
         placeholder:
-          "If this energy is already included in the Q10 electricity total, select 'Yes' under 'Already in Q10' to avoid double-counting.",
+          "If this energy is already included in the Q10 electricity total, select 'Yes' under 'Is it included in Q10?' to avoid double-counting.",
         columns: [
-          { name: "item", label: "Item", type: "text", placeholder: "e.g. QC lab, server room" },
+          { name: "category", label: "Category (Energy type)", type: "text", placeholder: "e.g. Electricity" },
+          { name: "sub_category", label: "Sub category", type: "text", placeholder: "e.g. Grid" },
+          { name: "group", label: "Group", type: "text", placeholder: "e.g. QC lab" },
+          { name: "specific_type", label: "Specific Type", type: "text", placeholder: "e.g. Server room" },
           { name: "value", label: "Value", type: "number", min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, placeholder: "Select unit" },
-          { name: "already_in_q10", label: "Already in Q10? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+          { name: "already_in_q10", label: "Is it included in Q10? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
         ],
       },
       {
@@ -580,10 +658,11 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         addButtonLabel: "Add Row",
         required: true,
         columns: [
-          { name: "product_id", label: "Product ID / MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
-          { name: "component_name", label: "Component name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
-          { name: "waste_type", label: "Waste Type", type: "select", options: WASTE_TYPES, placeholder: "Select type" },
-          { name: "treatment_type", label: "Treatment Type", type: "select", options: TREATMENT_TYPES, placeholder: "Select treatment" },
+          { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN" },
+          { name: "category", label: "Category (Waste)", type: "text", placeholder: "e.g. Metal scrap" },
+          { name: "sub_category", label: "Sub category", type: "text", placeholder: "e.g. Steel" },
+          { name: "group", label: "Group", type: "text", placeholder: "e.g. Off-cuts" },
+          { name: "specific_type", label: "Specific Type", type: "text", placeholder: "e.g. Turning chips" },
           { name: "quantity", label: "Quantity", type: "number", min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
           { name: "energy_recovered", label: "Energy recovered? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
@@ -615,10 +694,11 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         required: true,
         dependency: { field: "packaging.include_packaging", value: "Yes, include packaging" },
         columns: [
-          { name: "product_id", label: "Product ID / MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
-          { name: "component_name", label: "Component Name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
-          { name: "packaging_type", label: "Packaging Type", type: "select", options: PACKAGING_TYPES, placeholder: "Select type" },
-          { name: "process_type", label: "Process Type", type: "select", options: PROCESSES, placeholder: "Select process" },
+          { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN" },
+          { name: "category", label: "Category (Packaging)", type: "text", placeholder: "e.g. Paper & board" },
+          { name: "sub_category", label: "Sub category", type: "text", placeholder: "e.g. Corrugated" },
+          { name: "group", label: "Group", type: "text", placeholder: "e.g. Box" },
+          { name: "specific_type", label: "Specific Type", type: "text", placeholder: "e.g. Double-wall carton" },
           { name: "packaging_weight", label: "Packaging weight", type: "number", min: 0, placeholder: "0.00" },
           { name: "unit", label: "Units", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
           { name: "region", label: "Region", type: "select", options: REGIONS, placeholder: "Select region" },
@@ -637,9 +717,11 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         placeholder:
           "One row per packaging transport leg, from delivery notes or freight invoices. Distance in km. Select Mode = Air for any air-freighted packaging.",
         columns: [
-          { name: "product_id", label: "Packaging Product ID / MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
-          { name: "component_name", label: "Component Name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
-          { name: "transport_mode", label: "Transport Mode", type: "select", options: TRANSPORT_MODES, placeholder: "Select mode" },
+          { name: "product_id", label: "Packaging Product ID / MPN", type: "text", placeholder: "MPN" },
+          { name: "category", label: "Category (Pack Transport)", type: "text", placeholder: "e.g. Road" },
+          { name: "sub_category", label: "Sub category", type: "text", placeholder: "e.g. Truck" },
+          { name: "group", label: "Group", type: "text", placeholder: "e.g. Diesel HGV" },
+          { name: "specific_type", label: "Specific Type", type: "text", placeholder: "e.g. >32t Euro VI (Air for air-freight)" },
           { name: "weight", label: "Weight", type: "number", min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
           { name: "distance_km", label: "Distance (km)", type: "number", min: 0, placeholder: "0" },
@@ -653,10 +735,11 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         required: true,
         dependency: { field: "packaging.include_packaging", value: "Yes, include packaging" },
         columns: [
-          { name: "mpn_code", label: "MPN Code", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
-          { name: "component_name", label: "Component name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
-          { name: "packaging_waste_type", label: "Packaging waste type", type: "select", options: WASTE_TYPES, placeholder: "Select type" },
-          { name: "treatment_type", label: "Treatment Type", type: "select", options: TREATMENT_TYPES, placeholder: "Select treatment" },
+          { name: "mpn_code", label: "MPN Code", type: "text", placeholder: "MPN" },
+          { name: "category", label: "Category (Pack waste)", type: "text", placeholder: "e.g. Paper & board" },
+          { name: "sub_category", label: "Sub category", type: "text", placeholder: "e.g. Cardboard" },
+          { name: "group", label: "Group", type: "text", placeholder: "e.g. Off-cuts" },
+          { name: "specific_type", label: "Specific Type", type: "text", placeholder: "e.g. Mixed carton" },
           { name: "quantity", label: "Quantity", type: "number", min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
           { name: "energy_recovered", label: "Energy recovered? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
@@ -692,9 +775,11 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         placeholder:
           "One row per journey, from delivery notes or freight invoices. Weight in tonnes, distance in km.",
         columns: [
-          { name: "product_id", label: "Product ID / MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
-          { name: "component_name", label: "Component Name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
-          { name: "transport_mode", label: "Transport Mode", type: "select", options: TRANSPORT_MODES, placeholder: "Select mode" },
+          { name: "product_id", label: "Product ID / MPN", type: "text", placeholder: "MPN" },
+          { name: "category", label: "Category", type: "text", placeholder: "e.g. Road" },
+          { name: "sub_category", label: "Sub category", type: "text", placeholder: "e.g. Truck" },
+          { name: "group", label: "Group", type: "text", placeholder: "e.g. Diesel HGV" },
+          { name: "specific_type", label: "Specific Type", type: "text", placeholder: "e.g. >32t Euro VI" },
           { name: "source", label: "Source", type: "text", placeholder: "Origin" },
           { name: "destination", label: "Destination", type: "text", placeholder: "Destination" },
           { name: "weight", label: "Weight", type: "number", min: 0, placeholder: "0.00" },
@@ -733,6 +818,7 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         },
         columns: [
           { name: "feedstock", label: "Type of Biomass Feedstock", type: "select", options: BIOMASS_FEEDSTOCKS, placeholder: "Select feedstock" },
+          { name: "stage_used", label: "In which stage is the feedstock used?", type: "text", placeholder: "e.g. raw material, packaging" },
           { name: "quantity", label: "Quantity", type: "number", placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: QUANTITY_UNITS, placeholder: "Select unit" },
           { name: "biogenic_carbon_percent", label: "Biogenic Carbon Content (%)", type: "number", placeholder: "0-100" },
@@ -771,17 +857,6 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           value: "Yes, contains bio-based feedstock",
         },
       },
-      {
-        name: "biobased.luc_emission_factor",
-        label: "Known land-use-change emission factor (if any)",
-        type: "text",
-        required: false,
-        placeholder: "e.g. kgCO₂e per ha or per unit",
-        dependency: {
-          field: "biobased.contains_biobased",
-          value: "Yes, contains bio-based feedstock",
-        },
-      },
     ],
   },
 
@@ -803,11 +878,14 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         className: "",
       },
       {
+        // Fixed default (ISO 14067) seeded in SupplierQuestionnaire; disabled
+        // so the supplier does not change it.
         name: "methodology.cross_sectoral_standard",
         label: "Cross-sectoral standard(s)",
         type: "text",
         required: true,
-        placeholder: "e.g. ISO 14067, GHG Protocol Product Standard",
+        disabled: true,
+        placeholder: "ISO 14067",
       },
       {
         name: "methodology.product_sector_pcr",
@@ -817,18 +895,18 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         placeholder: "e.g. Catena-X PCF Rulebook v4",
       },
       {
-        // IPCC GWP version — supplier fills it. The §4.1 default text is
-        // shown as a placeholder hint, but the supplier types the actual
-        // value (e.g. "AR6 100-year GWP100y") themselves.
+        // Fixed default (AR6) seeded in SupplierQuestionnaire; disabled so the
+        // supplier does not change it.
         name: "methodology.ipcc_gwp_version",
         label: "IPCC GWP version",
         type: "text",
         required: true,
-        placeholder: "e.g. AR6 (100-year GWP100y)",
+        disabled: true,
+        placeholder: "AR6",
       },
       {
         name: "methodology.mass_balancing_used",
-        label: "22. Did you apply mass balancing? (Mass balancing used? Y/N)",
+        label: "Mass balancing used? (Y/N)",
         type: "radio",
         options: YES_NO,
         required: true,
@@ -1026,19 +1104,23 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         required: true,
       },
       {
+        // Fixed default (seeded in SupplierQuestionnaire); disabled.
         name: "verification.attestation_type",
         label: "Attestation type",
         type: "text",
         required: true,
-        placeholder: "e.g. self-declaration, 3rd-party verified",
+        disabled: true,
+        placeholder: "PCF Program Certification",
         dependency: { field: "verification.pcf_verified", value: "Yes" },
       },
       {
+        // Fixed default (seeded in SupplierQuestionnaire); disabled.
         name: "verification.conformant_standards",
         label: "Conformant standard(s) / PCR(s)",
         type: "text",
         required: true,
-        placeholder: "Standards / PCRs conformed to",
+        disabled: true,
+        placeholder: "Catena-X Product Carbon Footprint Rulebook v4",
         dependency: { field: "verification.pcf_verified", value: "Yes" },
       },
       {
@@ -1089,16 +1171,19 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         dependency: { field: "verification.pcf_verified", value: "Yes" },
       },
       {
+        // Q27 — the six volume types are pre-listed (fixed rows); the supplier
+        // only enters Volume and Share for each. Rows can't be added/removed.
         name: "verification.volumes",
         label: "27. Which production or product volumes are certified or verified? (optional)",
         type: "table",
-        addButtonLabel: "Add Volume",
         required: false,
-        placeholder: "One row per volume type.",
+        lockAddRemove: true,
+        prefillRows: VOLUME_TYPES.map((t) => ({ volume_type: t })),
+        placeholder: "Volume types are pre-listed; enter the volume and share for each.",
         columns: [
-          { name: "volume_type", label: "Volume type", type: "select", options: VOLUME_TYPES, placeholder: "Select type" },
-          { name: "volume", label: "Volume (units / tonnes)", type: "number", placeholder: "0.00" },
-          { name: "share_percent", label: "Share (%)", type: "number", placeholder: "0-100" },
+          { name: "volume_type", label: "Volume type", type: "text", readOnly: true },
+          { name: "volume", label: "Volume (units / tonnes)", type: "number", min: 0, placeholder: "0.00" },
+          { name: "share_percent", label: "Share (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
         ],
       },
     ],

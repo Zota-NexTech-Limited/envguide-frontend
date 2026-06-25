@@ -62,6 +62,7 @@ export interface SupplierQuestionnaireData {
       material_number?: string;
       product_name: string;
       production_period: string;
+      total_weight_factory_kg?: number;
       weight_per_unit: number;
       unit: string;
       price: number;
@@ -605,6 +606,7 @@ interface SupplierQuestionnaireApiPayload {
             mpn?: string;
             product_name: string;
             production_period: string;
+            total_weight_factory_kg?: number;
             weight_per_unit: number;
             unit: string;
             price: number;
@@ -1011,6 +1013,7 @@ class SupplierQuestionnaireService {
                       ...(item.mpn && { mpn: item.mpn }),
                       product_name: item.product_name || '',
                       production_period: item.production_period,
+                      total_weight_factory_kg: item.total_weight_factory_kg,
                       weight_per_unit: item.weight_per_unit,
                       unit: item.unit,
                       price: item.price,
@@ -1551,6 +1554,7 @@ class SupplierQuestionnaireService {
                   ...(item.mpn && { mpn: item.mpn }),
                   product_name: item.product_name,
                   production_period: item.production_period,
+                  total_weight_factory_kg: item.total_weight_factory_kg,
                   weight_per_unit: item.weight_per_unit,
                   unit: item.unit,
                   price: item.price,

@@ -119,11 +119,14 @@ export function mapV3FormToBackend(
         productIdOrMpn: str(b.product_id),
         componentName: str(b.component_name),
         material: str(b.material),
-        process: str(b.process),
+        subCategory: str(b.sub_category),
+        materialGroup: str(b.group),
+        specificType: str(b.specific_type),
         massPct: num(b.mass_percent),
         carbonPct: num(b.carbon_percent),
         biogenicYN: yesNoToBool(b.biogenic),
         biogenicCarbonPct: num(b.biogenic_carbon_percent),
+        biobasedMassPct: num(b.biobased_mass_percent),
         recycledYN: yesNoToBool(b.recycled),
         recycledCarbonPct: num(b.recycled_carbon_percent),
     }));
@@ -134,6 +137,12 @@ export function mapV3FormToBackend(
         coProductName: str(c.co_product_name),
         coProductPrice: num(c.co_product_price),
         isPrimaryProduct: yesNoToBool(c.is_primary),
+    }));
+
+    // Q8a — supplier-provided component/material-specific emission factors.
+    const componentEfDetails = arr(bomBlock.component_ef_details).map((e: any) => ({
+        componentMaterialName: str(e.component_material_name),
+        supplierEf: str(e.supplier_ef),
     }));
 
     const electricity = arr(energy.electricity).map((e: any) => ({
@@ -161,7 +170,10 @@ export function mapV3FormToBackend(
     }));
 
     const qcItEnergy = arr(energy.qc_it_energy).map((q: any) => ({
-        item: str(q.item),
+        category: str(q.category),
+        subCategory: str(q.sub_category),
+        materialGroup: str(q.group),
+        specificType: str(q.specific_type),
         value: num(q.value),
         unit: str(q.unit),
         alreadyInQ10: yesNoToBool(q.already_in_q10),
@@ -169,9 +181,10 @@ export function mapV3FormToBackend(
 
     const productionWaste = arr(energy.production_waste).map((w: any) => ({
         productIdOrMpn: str(w.product_id),
-        componentName: str(w.component_name),
-        wasteType: str(w.waste_type),
-        treatmentType: str(w.treatment_type),
+        category: str(w.category),
+        subCategory: str(w.sub_category),
+        materialGroup: str(w.group),
+        specificType: str(w.specific_type),
         quantity: num(w.quantity),
         unit: str(w.unit),
         energyRecovered: yesNoToBool(w.energy_recovered),
@@ -180,9 +193,10 @@ export function mapV3FormToBackend(
 
     const packagingMaterials = arr(packaging.materials_used).map((p: any) => ({
         productIdOrMpn: str(p.product_id),
-        componentName: str(p.component_name),
-        packagingType: str(p.packaging_type),
-        processType: str(p.process_type),
+        category: str(p.category),
+        subCategory: str(p.sub_category),
+        materialGroup: str(p.group),
+        specificType: str(p.specific_type),
         packagingWeight: num(p.packaging_weight),
         unit: str(p.unit),
         region: str(p.region),
@@ -193,8 +207,10 @@ export function mapV3FormToBackend(
 
     const packagingTransport = arr(packaging.transport).map((t: any) => ({
         packagingProductIdOrMpn: str(t.product_id),
-        componentName: str(t.component_name),
-        transportMode: str(t.transport_mode),
+        category: str(t.category),
+        subCategory: str(t.sub_category),
+        materialGroup: str(t.group),
+        specificType: str(t.specific_type),
         weight: num(t.weight),
         unit: str(t.unit),
         distanceKm: num(t.distance_km),
@@ -202,9 +218,10 @@ export function mapV3FormToBackend(
 
     const packagingWaste = arr(packaging.waste).map((w: any) => ({
         mpnCode: str(w.mpn_code),
-        componentName: str(w.component_name),
-        packagingWasteType: str(w.packaging_waste_type),
-        treatmentType: str(w.treatment_type),
+        category: str(w.category),
+        subCategory: str(w.sub_category),
+        materialGroup: str(w.group),
+        specificType: str(w.specific_type),
         quantity: num(w.quantity),
         unit: str(w.unit),
         energyRecovered: yesNoToBool(w.energy_recovered),
@@ -212,8 +229,10 @@ export function mapV3FormToBackend(
 
     const transportLegs = arr(transport.legs).map((t: any) => ({
         productIdOrMpn: str(t.product_id),
-        componentName: str(t.component_name),
-        transportMode: str(t.transport_mode),
+        category: str(t.category),
+        subCategory: str(t.sub_category),
+        materialGroup: str(t.group),
+        specificType: str(t.specific_type),
         source: str(t.source),
         destination: str(t.destination),
         weight: num(t.weight),
@@ -224,10 +243,18 @@ export function mapV3FormToBackend(
     }));
 
     const biomass = arr(biobased.details).map((d: any) => ({
-        biomassFeedstockType: str(d.feedstock_type ?? d.type),
+        biomassFeedstockType: str(d.feedstock ?? d.feedstock_type ?? d.type),
+        stageUsed: str(d.stage_used),
         quantity: num(d.quantity),
         unit: str(d.unit),
         biogenicCarbonContentPct: num(d.biogenic_carbon_percent),
+    }));
+
+    // Q27 — production / product volumes (fixed volume types).
+    const volumes = arr(verification.volumes).map((v: any) => ({
+        volumeType: str(v.volume_type),
+        volume: num(v.volume),
+        sharePct: num(v.share_percent),
     }));
 
     return {
@@ -237,12 +264,19 @@ export function mapV3FormToBackend(
         supplierId: ctx.supplierId,
         status: ctx.status ?? "draft",
 
-        // Q1 — Catena-X requires BPN as the canonical company identifier;
-        // the generic company_id (DUNS/VAT/CIN) is kept as a secondary record.
+        // Q1 — Catena-X requires BPNL as the canonical company identifier;
+        // company_id is the supplier's own ID and other_identifier captures a
+        // jurisdiction-specific code (DUNS/VAT/CIN).
         companyName: str(company.legal_name),
         companyIdUrn: str(company.bpn) ?? str(company.company_id),
         companyBpn: str(company.bpn),
         companyRegistrationId: str(company.company_id),
+        companyOtherIdentifier: str(company.other_identifier),
+
+        // Form header — contact + completion metadata
+        contactPerson: str(formData?.contact?.person),
+        contactEmail: str(formData?.contact?.email),
+        dateCompleted: str(formData?.contact?.date_completed),
 
         // Q2
         productNameCompany: str(product.name),
@@ -254,6 +288,7 @@ export function mapV3FormToBackend(
         declaredUnit: str(product.declared_unit),
         declaredUnitAmount: num(product.declared_unit_quantity),
         productMassPerDeclaredUnit: num(product.declared_mass),
+        productPrice: num(product.price),
 
         // Q5
         referencePeriodStart: str(sp.reference_start),
@@ -264,6 +299,9 @@ export function mapV3FormToBackend(
         // Q6 / Q7
         retroOrProspectivePcfType: str(sp.pcf_type),
         systemBoundary: str(sp.system_boundary),
+
+        // Q8a — supplier-provided component/material-specific EF available?
+        componentSpecificEfAvailable: yesNoToBool(bomBlock.component_specific_ef_available),
 
         // Q9 (co-products flag)
         coProductsProduced: yesNoToBool(bomBlock.co_products_produced),
@@ -277,12 +315,11 @@ export function mapV3FormToBackend(
         usesAgriForestryLand: yesNoToBool(biobased.uses_agri_forestry_land),
         landAreaHectares: num(biobased.land_area_hectares),
         forestConverted: yesNoToBool(biobased.forest_converted),
-        lucEmissionFactor: num(biobased.luc_emission_factor),
 
         // Q21
         crossSectoralStandards: str(methodology.cross_sectoral_standard),
         productOrSectorSpecificRules: str(methodology.product_sector_pcr),
-        ipccGwpVersion: str(methodology.gwp_version_info),
+        ipccGwpVersion: str(methodology.ipcc_gwp_version),
 
         // Q22
         massBalancingUsed: yesNoToBool(methodology.mass_balancing_used),
@@ -313,9 +350,11 @@ export function mapV3FormToBackend(
         certificateValidTo: str(verification.certificate_valid_to),
         pcfVerified: yesNoToBool(verification.pcf_verified),
         attestationType: str(verification.attestation_type),
+        conformantStandards: str(verification.conformant_standards),
         attestationSchemeStandard: str(verification.attestation_scheme_standard),
         attestationId: str(verification.attestation_id),
         attestationIssuer: str(verification.attestation_issuer),
+        issuerId: str(verification.issuer_id),
         attestationUrl: str(verification.attestation_url),
         attestationCompletedAt: str(verification.attestation_completed_at),
 
@@ -323,6 +362,7 @@ export function mapV3FormToBackend(
         sites,
         bom,
         coProducts,
+        componentEfDetails,
         electricity,
         fuels,
         processGases,
@@ -333,6 +373,7 @@ export function mapV3FormToBackend(
         packagingWaste,
         transportLegs,
         biomass,
+        volumes,
     };
 }
 

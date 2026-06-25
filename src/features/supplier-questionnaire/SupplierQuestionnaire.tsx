@@ -42,7 +42,9 @@ import productService from "../../lib/productService";
 import userManagementService from "../../lib/userManagementService";
 import type { SupplierOnboarding } from "../../types/userManagement";
 import { QUESTIONNAIRE_SCHEMA } from "../../config/questionnaireSchema";
-import DynamicQuestionnaireForm from "./DynamicQuestionnaireForm";
+import QuestionnaireCardForm from "./fullform/QuestionnaireCardForm";
+import { C } from "./fullform/theme";
+import { SECTION_META } from "./fullform/layout";
 import QuestionnaireAssistant from "./QuestionnaireAssistant";
 import QuestionnairePreviewModal from "./QuestionnairePreviewModal";
 import { buildPdfSections } from "./buildPdfSections";
@@ -112,6 +114,9 @@ const SupplierQuestionnaire: React.FC = () => {
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // The page is fixed-height; the content column is the scroll area, so step
+  // changes must scroll THIS element (not window) back to the top.
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
   const hasCalledStageUpdateRef = useRef<boolean>(false);
   const [autoPopulatedFields, setAutoPopulatedFields] = useState<Set<string>>(
     new Set(),
@@ -162,6 +167,8 @@ const SupplierQuestionnaire: React.FC = () => {
     setFormData((prev) => {
       const next = { ...prev };
       const sp = { ...(prev?.scope_period ?? {}) };
+      const methodology = { ...(prev?.methodology ?? {}) };
+      const verification = { ...(prev?.verification ?? {}) };
       let changed = false;
       if (!sp.pcf_type) {
         sp.pcf_type = "1: Retrospective PCF (historical / measured data)";
@@ -171,8 +178,34 @@ const SupplierQuestionnaire: React.FC = () => {
         sp.system_boundary = "Cradle-to-Gate (default, per Catena-X)";
         changed = true;
       }
+      // Q21 fixed defaults — supplier does not change these (disabled fields).
+      if (!methodology.cross_sectoral_standard) {
+        methodology.cross_sectoral_standard = "ISO 14067";
+        changed = true;
+      }
+      if (!methodology.ipcc_gwp_version) {
+        methodology.ipcc_gwp_version = "AR6";
+        changed = true;
+      }
+      // Q22 default — free attribution defaults to No (editable).
+      if (!methodology.free_attribution_used) {
+        methodology.free_attribution_used = "No";
+        changed = true;
+      }
+      // Q26 fixed defaults — attestation type + conformant standards (disabled).
+      if (!verification.attestation_type) {
+        verification.attestation_type = "PCF Program Certification";
+        changed = true;
+      }
+      if (!verification.conformant_standards) {
+        verification.conformant_standards =
+          "Catena-X Product Carbon Footprint Rulebook v4";
+        changed = true;
+      }
       if (!changed) return prev;
       next.scope_period = sp;
+      next.methodology = methodology;
+      next.verification = verification;
       return next;
     });
   }, []);
@@ -624,6 +657,13 @@ const SupplierQuestionnaire: React.FC = () => {
   useEffect(() => {
     form.setFieldsValue(formData);
   }, [currentStep, formData, form]);
+
+  // Scroll the content panel back to the top on every step change (Next /
+  // Previous / sidebar jump). The window doesn't scroll — the content column
+  // (contentScrollRef) is the overflow container.
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0 });
+  }, [currentStep]);
 
   // Deep merge utility to preserve nested values (especially file fields)
   // preserveTargetArrays: when true, keeps target arrays if source arrays are empty (for auto-save)
@@ -1513,137 +1553,371 @@ const SupplierQuestionnaire: React.FC = () => {
   }
 
   const currentSection = QUESTIONNAIRE_SCHEMA[currentStep];
-
-  const renderSidebar = () => {
-    const sidebarContent = (
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        {/* Progress Section */}
-        <div className="mb-6 pb-6 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Progress</span>
-            <span className="text-sm text-gray-500">
-              {currentStep + 1} of {QUESTIONNAIRE_SCHEMA.length}
-            </span>
-          </div>
-          <Progress
-            percent={progressPercentage}
-            showInfo={false}
-            strokeColor={{
-              "0%": "#52c41a",
-              "100%": "#73d13d",
-            }}
-            className="mb-2"
-          />
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>
-              {answeredCount} of {totalQuestionsCount} questions answered
-            </span>
-            <span>{progressPercentage}%</span>
-          </div>
-        </div>
-
-        {/* Steps */}
-        <style>{`
-          .questionnaire-sidebar .ant-steps-item-title {
-            white-space: normal !important;
-            overflow: visible !important;
-            text-overflow: unset !important;
-            line-height: 1.4 !important;
-          }
-        `}</style>
-        <Steps
-          direction="vertical"
-          current={currentStep}
-          onChange={handleStepJump}
-          className="questionnaire-sidebar"
-        >
-          {QUESTIONNAIRE_SCHEMA.map((section, index) => (
-            <Step
-              key={section.id}
-              title={
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-sm">{section.title}</span>
-                  {completedSteps.has(index) && (
-                    <CheckCircleOutlined className="text-green-500 ml-2" />
-                  )}
-                </div>
-              }
-              status={
-                completedSteps.has(index)
-                  ? "finish"
-                  : index === currentStep
-                    ? "process"
-                    : index < currentStep
-                      ? "finish"
-                      : "wait"
-              }
-            />
-          ))}
-        </Steps>
-      </div>
-    );
-
-    return sidebarContent;
+  const totalSteps = QUESTIONNAIRE_SCHEMA.length;
+  const isLastStep = currentStep === totalSteps - 1;
+  const sectionMeta = SECTION_META[currentSection?.id ?? ""] || {
+    blurb: currentSection?.description || "",
   };
 
+  const stepDot = (
+    status: "done" | "current" | "upcoming",
+  ): React.CSSProperties => {
+    const base: React.CSSProperties = {
+      flex: "none",
+      width: 24,
+      height: 24,
+      borderRadius: "50%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: 12,
+      fontWeight: 700,
+    };
+    if (status === "done")
+      return { ...base, background: "#16a34a", color: "#fff", fontSize: 13 };
+    if (status === "current")
+      return {
+        ...base,
+        background: "#16a34a",
+        color: "#fff",
+        boxShadow: "0 0 0 4px #dcfce7",
+      };
+    return { ...base, background: "#f1f5f9", color: "#94a3b8", fontWeight: 600 };
+  };
+
+  const renderSidebar = () => (
+    <div
+      className="ff-scroll"
+      style={{ height: "100%", overflowY: "auto", padding: "22px 18px" }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: ".06em",
+            textTransform: "uppercase",
+            color: "#64748b",
+          }}
+        >
+          Progress
+        </span>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>
+          {currentStep + 1} of {totalSteps}
+        </span>
+      </div>
+      <div
+        style={{
+          height: 7,
+          borderRadius: 99,
+          background: "#eef1f4",
+          overflow: "hidden",
+          marginBottom: 8,
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            borderRadius: 99,
+            background: "linear-gradient(90deg,#22c55e,#16a34a)",
+            width: `${progressPercentage}%`,
+            transition: "width .3s",
+          }}
+        />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: 12,
+          color: "#94a3b8",
+          marginBottom: 20,
+        }}
+      >
+        <span>
+          {answeredCount} of {totalQuestionsCount} answered
+        </span>
+        <span style={{ fontWeight: 600, color: "#64748b" }}>
+          {progressPercentage}%
+        </span>
+      </div>
+      {QUESTIONNAIRE_SCHEMA.map((s, index) => {
+        const isCur = index === currentStep;
+        const done = !isCur && (completedSteps.has(index) || index < currentStep);
+        const status: "done" | "current" | "upcoming" = isCur
+          ? "current"
+          : done
+            ? "done"
+            : "upcoming";
+        const canJump = index < currentStep || completedSteps.has(index);
+        return (
+          <div
+            key={s.id}
+            onClick={() => handleStepJump(index)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 11,
+              padding: "9px 10px",
+              borderRadius: 10,
+              marginBottom: 2,
+              cursor: canJump ? "pointer" : "default",
+              background: isCur ? "#f0fdf4" : "transparent",
+            }}
+          >
+            <div style={stepDot(status)}>{done ? "✓" : index + 1}</div>
+            <span
+              style={{
+                fontSize: 13.5,
+                lineHeight: 1.35,
+                fontWeight: isCur ? 650 : 500,
+                color: isCur ? "#0f1b24" : done ? "#475569" : "#94a3b8",
+              }}
+            >
+              {s.title}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              {/* Mobile Menu Button - Always show */}
-              <Button
-                icon={<MenuOutlined />}
-                type="text"
-                onClick={() => setSidebarVisible(true)}
-                className="lg:hidden mr-2"
+    <div
+      className="sq-fullform"
+      style={{
+        height: "100vh",
+        background: C.pageBg,
+        color: "#0f1b24",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      {/* Top bar */}
+      <div
+        style={{
+          height: 60,
+          flex: "none",
+          background: "#fff",
+          borderBottom: "1px solid #e9edf1",
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          padding: "0 16px",
+          zIndex: 10,
+        }}
+      >
+        <Button
+          icon={<MenuOutlined />}
+          type="text"
+          onClick={() => setSidebarVisible(true)}
+          className="lg:hidden"
+        />
+        {!isPublicRoute && (
+          <Button
+            icon={<ArrowLeftOutlined />}
+            type="text"
+            onClick={() => navigate("/dashboard")}
+            className="hidden lg:inline-flex"
+          />
+        )}
+        <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-.01em" }}>
+          {isClientMode
+            ? "Manufacturer Own Emissions Questionnaire"
+            : "Supplier Questionnaire"}
+        </span>
+        <span
+          className="hidden sm:inline"
+          style={{
+            fontSize: 12,
+            color: "#94a3b8",
+            fontWeight: 500,
+            borderLeft: "1px solid #e4e9ee",
+            paddingLeft: 14,
+          }}
+        >
+          Product Carbon Footprint · ISO 14067
+        </span>
+        <div
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+          }}
+        >
+          {isCreateMode && (lastSaved || autoSaveStatus !== "idle") && (
+            <span
+              className="hidden sm:flex"
+              style={{
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12.5,
+                color: "#16a34a",
+                fontWeight: 600,
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: autoSaveStatus === "saving" ? "#f59e0b" : "#22c55e",
+                }}
               />
-              {!isPublicRoute && (
+              {autoSaveStatus === "saving" ? "Saving…" : "Auto-saved"}
+            </span>
+          )}
+          {isCreateMode && (
+            <Button
+              icon={<SaveOutlined />}
+              onClick={handleSaveDraft}
+              loading={isSaving}
+            >
+              <span className="hidden sm:inline">Save draft</span>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        {/* Desktop sidebar */}
+        <div
+          className="hidden lg:block"
+          style={{
+            width: 292,
+            flex: "none",
+            background: "#fff",
+            borderRight: "1px solid #e9edf1",
+          }}
+        >
+          {renderSidebar()}
+        </div>
+
+        {/* Content */}
+        <div
+          ref={contentScrollRef}
+          className="ff-scroll"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflowY: "auto",
+            padding: "30px 24px 70px",
+          }}
+        >
+          <div style={{ maxWidth: 880, margin: "0 auto" }}>
+            <span
+              style={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                letterSpacing: ".08em",
+                textTransform: "uppercase",
+                color: "#16a34a",
+              }}
+            >
+              Step {currentStep + 1} of {totalSteps}
+            </span>
+            <h1
+              style={{
+                fontSize: 25,
+                fontWeight: 800,
+                letterSpacing: "-.02em",
+                margin: "5px 0 6px",
+              }}
+            >
+              {currentSection?.title}
+            </h1>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#64748b",
+                margin: "0 0 26px",
+                lineHeight: 1.5,
+              }}
+            >
+              {sectionMeta.blurb}
+            </p>
+
+            {currentSection && (
+              <QuestionnaireCardForm
+                section={currentSection}
+                initialValues={formData}
+                form={form}
+                bomComponents={bomComponents}
+                isClientMode={isClientMode}
+                formErrors={formErrors}
+                onValuesChange={(_changedValues, allValues) => {
+                  setFormData((prev) => deepMerge(prev, allValues, false, true));
+
+                  if (
+                    sup_id &&
+                    bom_pcf_id &&
+                    !hasCalledStageUpdateRef.current &&
+                    !isClientMode
+                  ) {
+                    hasCalledStageUpdateRef.current = true;
+                    supplierQuestionnaireService
+                      .updateDataCollectionQuestionStage(bom_pcf_id, sup_id)
+                      .then((result) => {
+                        if (!result.success) {
+                          console.warn(
+                            "Failed to update data collection stage:",
+                            result.message,
+                          );
+                        }
+                      })
+                      .catch((error) => {
+                        console.error(
+                          "Error updating data collection stage:",
+                          error,
+                        );
+                      });
+                  }
+                }}
+              />
+            )}
+
+            {/* Footer nav */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: 26,
+              }}
+            >
+              <Button
+                size="large"
+                onClick={handlePrev}
+                disabled={currentStep === 0}
+                icon={<ArrowLeftOutlined />}
+              >
+                Previous
+              </Button>
+              {!isLastStep ? (
+                <Button type="primary" size="large" onClick={handleNext}>
+                  Save &amp; continue →
+                </Button>
+              ) : (
                 <Button
-                  icon={<ArrowLeftOutlined />}
-                  type="text"
-                  onClick={() => navigate("/dashboard")}
-                  className="mr-2 hidden lg:inline-flex"
-                />
-              )}
-              <h1 className="text-xl font-bold text-gray-900">
-                {isClientMode ? "Manufacturer Own Emissions Questionnaire" : "Supplier Questionnaire"}
-              </h1>
-            </div>
-            <div className="flex items-center gap-3">
-              {/* Auto-save Status */}
-              {isCreateMode && (
-                <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500">
-                  {autoSaveStatus === "saving" && (
-                    <Tooltip title="Saving...">
-                      <ClockCircleOutlined className="animate-spin" />
-                    </Tooltip>
-                  )}
-                  {autoSaveStatus === "saved" && (
-                    <Tooltip
-                      title={`Saved at ${lastSaved?.toLocaleTimeString()}`}
-                    >
-                      <CheckCircleOutlined className="text-green-500" />
-                    </Tooltip>
-                  )}
-                  {lastSaved && autoSaveStatus === "idle" && (
-                    <Tooltip
-                      title={`Last saved: ${lastSaved.toLocaleTimeString()}`}
-                    >
-                      <span className="text-xs">Auto-saved</span>
-                    </Tooltip>
-                  )}
-                </div>
-              )}
-              {isCreateMode && (
-                <Button
-                  icon={<SaveOutlined />}
-                  onClick={handleSaveDraft}
-                  loading={isSaving}
+                  type="primary"
+                  size="large"
+                  icon={<EyeOutlined />}
+                  onClick={() => {
+                    const values = form.getFieldsValue();
+                    const updatedData = deepMerge(formData, values, false, true);
+                    setFormData(updatedData);
+                    setIsPreviewOpen(true);
+                  }}
                 >
-                  <span className="hidden sm:inline">Save Draft</span>
+                  Preview &amp; Submit
                 </Button>
               )}
             </div>
@@ -1651,128 +1925,7 @@ const SupplierQuestionnaire: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Desktop Sidebar - Always show */}
-          <div className="hidden lg:block lg:col-span-1">
-            <div className="sticky top-24">{renderSidebar()}</div>
-          </div>
-
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8 transition-all duration-300">
-              <DynamicQuestionnaireForm
-                section={currentSection}
-                initialValues={formData}
-                form={form}
-                bomComponents={bomComponents}
-                onFinish={() => {}}
-                onValuesChange={(changedValues, allValues) => {
-                  // Update formData when values change to trigger progress recalculation
-                  // Use deep merge to preserve nested structure (allValues has correct file values from DynamicQuestionnaireForm)
-                  setFormData((prev) => deepMerge(prev, allValues, false, true));
-
-                  // Call stage update API when supplier first inputs data (only for supplier mode)
-                  if (sup_id && bom_pcf_id && !hasCalledStageUpdateRef.current && !isClientMode) {
-                    hasCalledStageUpdateRef.current = true;
-                    supplierQuestionnaireService.updateDataCollectionQuestionStage(bom_pcf_id, sup_id)
-                      .then((result) => {
-                        if (result.success) {
-                          console.log("Data collection stage updated successfully");
-                        } else {
-                          console.warn("Failed to update data collection stage:", result.message);
-                        }
-                      })
-                      .catch((error) => {
-                        console.error("Error updating data collection stage:", error);
-                      });
-                  }
-                }}
-                autoPopulatedFields={autoPopulatedFields}
-                formErrors={formErrors}
-                isClientMode={isClientMode}
-              />
-
-              {/* Navigation Buttons */}
-              <div className="flex flex-col sm:flex-row justify-between gap-4 mt-8 pt-6 border-t border-gray-100">
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handlePrev}
-                    disabled={currentStep === 0}
-                    icon={<ArrowLeftOutlined />}
-                    size="large"
-                  >
-                    Previous
-                  </Button>
-                  {isCreateMode && !isPublicRoute && (
-                    <Button
-                      onClick={() => {
-                        Modal.confirm({
-                          title: "Save and Continue Later?",
-                          content:
-                            "Your progress will be saved and you can continue later.",
-                          onOk: () => {
-                            handleSaveDraft();
-                            navigate("/dashboard");
-                          },
-                        });
-                      }}
-                      size="large"
-                    >
-                      Save & Exit
-                    </Button>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  {currentStep < QUESTIONNAIRE_SCHEMA.length - 1 ? (
-                    <>
-                      <Button
-                        onClick={handleNext}
-                        type="primary"
-                        icon={<ArrowRightOutlined />}
-                        size="large"
-                      >
-                        Next
-                      </Button>
-                      <Tooltip title="Press Ctrl+Enter">
-                        <span className="text-xs text-gray-400 self-center hidden sm:inline">
-                          Ctrl+Enter
-                        </span>
-                      </Tooltip>
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        type="primary"
-                        onClick={() => {
-                          // Merge current form values before showing preview
-                          const values = form.getFieldsValue();
-                          const updatedData = deepMerge(formData, values, false, true);
-                          setFormData(updatedData);
-                          setIsPreviewOpen(true);
-                        }}
-                        icon={<EyeOutlined />}
-                        size="large"
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        Preview &amp; Submit
-                      </Button>
-                      <Tooltip title="Press Ctrl+Enter">
-                        <span className="text-xs text-gray-400 self-center hidden sm:inline">
-                          Ctrl+Enter
-                        </span>
-                      </Tooltip>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Sidebar Drawer - Always show */}
+      {/* Mobile sidebar drawer */}
       <Drawer
         title="Navigation"
         placement="left"
@@ -1801,7 +1954,7 @@ const SupplierQuestionnaire: React.FC = () => {
         <QuestionnaireAssistant
           section={currentSection}
           stepIndex={currentStep}
-          totalSteps={QUESTIONNAIRE_SCHEMA.length}
+          totalSteps={totalSteps}
         />
       )}
     </div>

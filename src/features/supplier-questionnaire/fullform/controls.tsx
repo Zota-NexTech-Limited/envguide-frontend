@@ -211,7 +211,8 @@ export const FieldControl: React.FC<FieldControlProps> = ({
   disabled,
   ...rest
 }) => {
-  const isDisabled = disabled ?? field.disabled;
+  // Fields pre-filled from the immutable client BOM are always locked.
+  const isDisabled = disabled ?? field.disabled ?? Boolean(field.autoPopulateFromBomField);
   switch (field.type) {
     case "textarea":
       return (

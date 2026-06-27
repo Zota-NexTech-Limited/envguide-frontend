@@ -323,13 +323,12 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         placeholder: "Your company / internal ID",
       },
       {
-        // Catena-X mandates BPNL (Business Partner Number — Legal Entity) on
-        // every supplier record. Must follow BPNL + 12 alphanumeric chars.
+        // Catena-X Business Partner Number (BPN) on every supplier record.
         name: "company.bpn",
-        label: "Business Partner Number — Legal Entity (BPNL)",
+        label: "Business Partner Number (BPN)",
         type: "text",
         required: true,
-        placeholder: "BPNL000000000000",
+        placeholder: "BPN000000000000",
         maxLength: 16,
       },
       {
@@ -347,6 +346,8 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         type: "text",
         required: true,
         placeholder: "Enter the product name",
+        // Auto-filled from the client-uploaded BOM (component name). Read-only.
+        autoPopulateFromBomField: "component_name",
       },
       {
         name: "product.product_id",
@@ -354,6 +355,8 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         type: "text",
         required: true,
         placeholder: "Enter the MPN or article number",
+        // Auto-filled from the BOM (material number / MPN). Read-only.
+        autoPopulateFromBomField: "material_number",
       },
       {
         name: "product.description",
@@ -361,6 +364,8 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         type: "textarea",
         required: false,
         placeholder: "Short description of the product",
+        // Auto-filled from the BOM (detail description). Read-only.
+        autoPopulateFromBomField: "detail_description",
       },
       {
         name: "product.classification",
@@ -384,6 +389,8 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         required: true,
         min: 0,
         placeholder: "e.g. 1",
+        // Auto-filled from the BOM (quantity). Read-only.
+        autoPopulateFromBomField: "quantity",
       },
       {
         // Absolute product mass per declared unit (kg). Feeds the carbon
@@ -404,6 +411,8 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         required: true,
         min: 0,
         placeholder: "e.g. 12.50 (per declared unit)",
+        // Auto-filled from the BOM (price). Read-only.
+        autoPopulateFromBomField: "price",
       },
       {
         name: "product.manufacturing_sites",

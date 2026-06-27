@@ -31,6 +31,9 @@ interface BomComponent {
   bom_id: string;
   material_number: string;
   component_name: string;
+  detail_description?: string | null;
+  quantity?: number | string | null;
+  price?: number | string | null;
 }
 
 interface Props {
@@ -179,6 +182,32 @@ const QuestionnaireCardForm: React.FC<Props> = ({
       }
     });
   }, [section, bomComponents, form, values, initialValues]);
+
+  // Q2/Q3 single fields (product identity): pre-fill from the supplier's FIRST
+  // BOM component and keep them locked (FieldControl disables any field with
+  // autoPopulateFromBomField). Product name / MPN / description / declared
+  // quantity / price all come from the immutable client-uploaded BOM.
+  const singleBomSeededRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!section || !Array.isArray(bomComponents) || bomComponents.length === 0)
+      return;
+    const first = bomComponents[0] as Record<string, any>;
+    section.fields.forEach((field) => {
+      if (field.type === "table" || !field.autoPopulateFromBomField) return;
+      const col = field.autoPopulateFromBomField;
+      const value = first[col];
+      if (value === undefined || value === null || value === "") return;
+      const key = `${section.id}:${field.name}:${first.bom_id}`;
+      if (singleBomSeededRef.current.has(key)) return;
+      const path = field.name.split(".");
+      // Numbers (quantity / price) come back as strings from PG — coerce so the
+      // InputNumber and the formula engine both get a real number.
+      const coerced =
+        field.type === "number" && typeof value === "string" ? Number(value) : value;
+      form.setFieldValue(path, coerced);
+      singleBomSeededRef.current.add(key);
+    });
+  }, [section, bomComponents, form, initialValues]);
 
   // Backfill component_name for bomMaterials rows saved before onChange wired it.
   useEffect(() => {

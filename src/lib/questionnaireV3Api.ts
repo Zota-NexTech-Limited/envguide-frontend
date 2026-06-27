@@ -38,8 +38,11 @@ const yesNoToBool = (v: any): boolean | undefined => {
     if (v === undefined || v === null || v === "") return undefined;
     if (typeof v === "boolean") return v;
     const s = String(v).toLowerCase().trim();
-    if (s === "yes" || s === "true" || s === "1" || s === "y") return true;
-    if (s === "no" || s === "false" || s === "0" || s === "n") return false;
+    // Some dropdowns use verbose labels like "Yes, include packaging" /
+    // "No, exclude packaging" / "No, the customer arranges it", so match on the
+    // leading yes/no token rather than requiring an exact "yes"/"no".
+    if (s === "true" || s === "1" || s === "y" || s.startsWith("yes")) return true;
+    if (s === "false" || s === "0" || s === "n" || s.startsWith("no")) return false;
     return undefined;
 };
 

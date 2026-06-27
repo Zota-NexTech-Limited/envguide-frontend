@@ -5,29 +5,20 @@ const API_BASE_URL = getApiBaseUrl();
 
 export interface EmissionFactor {
   ef_id: string;
-  product: string;
-  material: string | null;
-  process: string | null;
-  activity_type: string | null;
+  domain: string;
   category: string | null;
-  sub_category_1: string | null;
-  sub_category_2: string | null;
-  sub_category_3: string | null;
-  sub_category_4: string | null;
-  country_code: string | null;
-  country_name: string | null;
-  region: string | null;
-  geo_fallback_chain: string | null;
+  sub_category: string | null;
+  group_name: string | null;
+  specific_type: string | null;
+  dataset_name: string | null;
+  geography: string | null;
   unit: string | null;
-  unit_kind: string | null;
-  recycled_content: string | null;
-  factor_suitability: string | null;
-  kgco2e_per_unit: number | string | null;
-  reference_year: number | null;
+  gwp_100: number | string | null;
+  is_legacy: boolean | null;
+  search_text: string | null;
   source_db: string | null;
-  embedding_text: string | null;
-  created_date: string;
-  updated_date: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ListEmissionFactorsParams {

@@ -95,6 +95,16 @@ export interface QuestionnaireField {
   // BOM (bomComponents prop in DynamicQuestionnaireForm). Used by Q8 — supplier
   // describes each BOM line but cannot add or remove rows.
   autoPopulateFromBom?: boolean;
+  // Pre-fill a SINGLE field (Q2/Q3 product identity) from the supplier's first
+  // BOM component. Value is the bom column to read (e.g. "component_name",
+  // "material_number", "detail_description", "quantity", "price"). Fields with
+  // this flag are always rendered read-only — the supplier cannot edit them.
+  autoPopulateFromBomField?:
+    | "component_name"
+    | "material_number"
+    | "detail_description"
+    | "quantity"
+    | "price";
   // Hide the "Add Row" button AND replace the per-row Delete with a Clear button
   // (wipes editable columns, keeps readOnly columns + the row itself). Used by Q8
   // so the BOM structure can't be tampered with.

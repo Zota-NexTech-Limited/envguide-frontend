@@ -213,45 +213,40 @@ const EmissionFactorsTable: React.FC = () => {
       ),
   });
 
+  // Columns mirror the source CSV exactly, in the same order and with the same
+  // headers: Category, Sub-category, Group, Specific Type, Dataset Name,
+  // Geography, Unit, GWP 100 [kg CO₂e]. (EF ID is the row id, kept leftmost.)
   const columns: ColumnsType<EmissionFactor> = useMemo(
     () => [
       {
         title: "EF ID",
         dataIndex: "ef_id",
         key: "ef_id",
-        width: 110,
+        width: 80,
         fixed: "left",
         render: (v: string) => <code className="text-xs">{v}</code>,
       },
+      wrapCol("Category", "category", 180),
+      wrapCol("Sub-category", "sub_category", 180),
+      wrapCol("Group", "group_name", 240),
       {
-        title: "Product",
-        dataIndex: "product",
-        key: "product",
-        width: 280,
-        fixed: "left",
+        title: "Specific Type",
+        dataIndex: "specific_type",
+        key: "specific_type",
+        width: 300,
         render: (v: string) => (
           <span className="whitespace-normal break-words leading-snug">{v}</span>
         ),
       },
-      wrapCol("Material", "material", 200),
-      wrapCol("Process", "process", 220),
-      wrapCol("Activity Type", "activity_type", 170),
-      wrapCol("Category", "category", 170),
-      wrapCol("Sub Category 1", "sub_category_1", 190),
-      wrapCol("Sub Category 2", "sub_category_2", 190),
-      wrapCol("Sub Category 3", "sub_category_3", 210),
-      wrapCol("Sub Category 4", "sub_category_4", 210),
+      wrapCol("Dataset Name", "dataset_name", 320),
       {
-        title: "Country Code",
-        dataIndex: "country_code",
-        key: "country_code",
-        width: 130,
+        title: "Geography",
+        dataIndex: "geography",
+        key: "geography",
+        width: 120,
         render: (v: string | null) =>
           v ? <Tag color="blue">{v}</Tag> : <span className="text-gray-300">-</span>,
       },
-      wrapCol("Country Name", "country_name", 180),
-      wrapCol("Region", "region", 130),
-      wrapCol("Geo Fallback Chain", "geo_fallback_chain", 280),
       {
         title: "Unit",
         dataIndex: "unit",
@@ -260,42 +255,10 @@ const EmissionFactorsTable: React.FC = () => {
         render: (v: string | null) => v || <span className="text-gray-300">-</span>,
       },
       {
-        title: "Unit Kind",
-        dataIndex: "unit_kind",
-        key: "unit_kind",
-        width: 110,
-        render: (v: string | null) =>
-          v ? <Tag>{v}</Tag> : <span className="text-gray-300">-</span>,
-      },
-      {
-        title: "Recycled",
-        dataIndex: "recycled_content",
-        key: "recycled_content",
-        width: 100,
-        render: (v: string | null) =>
-          v ? (
-            <Tag color={v.toLowerCase() === "yes" ? "green" : "default"}>{v}</Tag>
-          ) : (
-            <span className="text-gray-300">-</span>
-          ),
-      },
-      {
-        title: "Factor Suitability",
-        dataIndex: "factor_suitability",
-        key: "factor_suitability",
-        width: 260,
-        render: (v: string | null) =>
-          v ? (
-            <span className="whitespace-normal break-words leading-snug">{v}</span>
-          ) : (
-            <span className="text-gray-300">-</span>
-          ),
-      },
-      {
-        title: "kgCO₂e / unit",
-        dataIndex: "kgco2e_per_unit",
-        key: "kgco2e_per_unit",
-        width: 140,
+        title: "GWP 100 [kg CO₂e]",
+        dataIndex: "gwp_100",
+        key: "gwp_100",
+        width: 170,
         align: "right",
         render: (v: number | string | null) => {
           const n = typeof v === "string" ? Number(v) : v;
@@ -306,34 +269,6 @@ const EmissionFactorsTable: React.FC = () => {
             </span>
           );
         },
-      },
-      {
-        title: "Year",
-        dataIndex: "reference_year",
-        key: "reference_year",
-        width: 80,
-        align: "right",
-        render: (v: number | null) => v ?? <span className="text-gray-300">-</span>,
-      },
-      {
-        title: "Source",
-        dataIndex: "source_db",
-        key: "source_db",
-        width: 130,
-        render: (v: string | null) =>
-          v ? <Tag>{v}</Tag> : <span className="text-gray-300">-</span>,
-      },
-      {
-        title: "Embedding Text",
-        dataIndex: "embedding_text",
-        key: "embedding_text",
-        width: 380,
-        render: (v: string | null) =>
-          v ? (
-            <span className="whitespace-normal break-words leading-snug text-gray-500">{v}</span>
-          ) : (
-            <span className="text-gray-300">-</span>
-          ),
       },
     ],
     []
@@ -395,14 +330,14 @@ const EmissionFactorsTable: React.FC = () => {
             <span className="text-xs font-semibold text-blue-700 tabular-nums">
               {stats?.country_count ?? "-"}
             </span>
-            <span className="text-xs text-blue-600/80">countries</span>
+            <span className="text-xs text-blue-600/80">geographies</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-100">
             <Ruler className="w-4 h-4 text-amber-600" />
             <span className="text-xs font-semibold text-amber-700 tabular-nums">
               {stats?.unit_kind_count ?? "-"}
             </span>
-            <span className="text-xs text-amber-600/80">unit families</span>
+            <span className="text-xs text-amber-600/80">domains</span>
           </div>
           {stats?.last_updated && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
@@ -421,30 +356,30 @@ const EmissionFactorsTable: React.FC = () => {
           <Input
             allowClear
             prefix={<Search size={14} />}
-            placeholder="Search any column (material, process, country, unit, source…)"
+            placeholder="Search any column (material, dataset, geography, category, unit, source…)"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             style={{ width: 440, flex: "1 1 320px", maxWidth: 560 }}
           />
           <Select
             allowClear
-            placeholder="Country code"
+            placeholder="Geography"
             value={countryCode}
             onChange={(v) => { setCountryCode(v); setPage(1); }}
             style={{ width: 160 }}
           >
-            {["CH", "RER", "GLO", "RoW", "US", "IN", "DE"].map((c) => (
+            {["RER", "GLO", "RoW", "CH", "US", "IN", "DE"].map((c) => (
               <Option key={c} value={c}>{c}</Option>
             ))}
           </Select>
           <Select
             allowClear
-            placeholder="Unit family"
+            placeholder="Domain"
             value={unitKind}
             onChange={(v) => { setUnitKind(v); setPage(1); }}
             style={{ width: 160 }}
           >
-            {["mass", "count", "energy", "area", "volume", "freight", "passenger"].map((u) => (
+            {["material", "manufacturing", "transport", "waste", "packaging"].map((u) => (
               <Option key={u} value={u}>{u}</Option>
             ))}
           </Select>
@@ -455,7 +390,7 @@ const EmissionFactorsTable: React.FC = () => {
             onChange={(v) => { setSourceDb(v); setPage(1); }}
             style={{ width: 160 }}
           >
-            {["BAFU:2025"].map((s) => (
+            {["BAFU 2025"].map((s) => (
               <Option key={s} value={s}>{s}</Option>
             ))}
           </Select>
@@ -470,7 +405,7 @@ const EmissionFactorsTable: React.FC = () => {
           dataSource={rows}
           columns={columns}
           loading={loading}
-          scroll={{ x: 4000 }}
+          scroll={{ x: 1700 }}
           pagination={{
             current: page,
             pageSize,
@@ -529,10 +464,11 @@ const EmissionFactorsTable: React.FC = () => {
             {pendingFile ? pendingFile.name : "Click or drag a CSV file here"}
           </p>
           <p className="ant-upload-hint text-xs text-gray-500">
-            Expected columns (22, in this order): EF_ID, Product, Material, Process,
-            Activity_Type, Category, Sub_Category_1..4, Country_Code, Country_Name, Region,
-            Geo_Fallback_Chain, Unit, Unit_Kind, Recycled_Content, Factor_Suitability,
-            kgCO2e_per_unit, Reference_Year, Source_DB, Embedding_Text.
+            Required columns (8): Category, Sub-category, Group, Specific Type, Dataset Name,
+            Geography, Unit, GWP 100. Upload the standard Main DB file (10,305 rows) and the
+            domain is filled in automatically by section. Optionally add a <strong>Domain</strong>{" "}
+            column (material / manufacturing / packaging / transport / waste) to set it per row.
+            Column order and exact spacing/punctuation don't matter — headers match flexibly.
           </p>
         </Upload.Dragger>
 

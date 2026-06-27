@@ -1960,7 +1960,14 @@ class SupplierQuestionnaireService {
   ): Promise<{
     success: boolean;
     message: string;
-    data: Array<{ bom_id: string; material_number: string; component_name: string }>;
+    data: Array<{
+      bom_id: string;
+      material_number: string;
+      component_name: string;
+      detail_description?: string | null;
+      quantity?: number | string | null;
+      price?: number | string | null;
+    }>;
   }> {
     try {
       const response = await fetch(

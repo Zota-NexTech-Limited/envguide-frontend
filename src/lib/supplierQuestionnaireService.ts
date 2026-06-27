@@ -62,6 +62,7 @@ export interface SupplierQuestionnaireData {
       material_number?: string;
       product_name: string;
       production_period: string;
+      total_weight_factory_kg?: number;
       weight_per_unit: number;
       unit: string;
       price: number;
@@ -117,7 +118,6 @@ export interface SupplierQuestionnaireData {
       quantity: number;
       unit: string;
     }[];
-    total_factory_weight_produced_kg?: number | null;
     standardized_re_certificates: boolean;
     certificates?: {
       name: string;
@@ -606,6 +606,7 @@ interface SupplierQuestionnaireApiPayload {
             mpn?: string;
             product_name: string;
             production_period: string;
+            total_weight_factory_kg?: number;
             weight_per_unit: number;
             unit: string;
             price: number;
@@ -657,7 +658,6 @@ interface SupplierQuestionnaireApiPayload {
             quantity: number;
             unit: string;
         }[];
-        total_weight_of_all_products_produced_kg?: number | null;
         do_you_acquired_standardized_re_certificates: boolean;
         scope_two_indirect_emissions_certificates_questions: {
             certificate_name: string;
@@ -1013,6 +1013,7 @@ class SupplierQuestionnaireService {
                       ...(item.mpn && { mpn: item.mpn }),
                       product_name: item.product_name || '',
                       production_period: item.production_period,
+                      total_weight_factory_kg: item.total_weight_factory_kg,
                       weight_per_unit: item.weight_per_unit,
                       unit: item.unit,
                       price: item.price,
@@ -1091,9 +1092,6 @@ class SupplierQuestionnaireService {
                       ...(item.layer4 && { layer4: item.layer4 }),
                       ...(item.ef_code && { ef_code: item.ef_code })
                   })),
-              // Q6.1 — total weight of all products produced at the factory (kg).
-              // Denominator for production-energy allocation; previously dropped here.
-              total_weight_of_all_products_produced_kg: data.scope_2?.total_factory_weight_produced_kg ?? null,
               do_you_acquired_standardized_re_certificates: this.convertToBoolean(data.scope_2?.standardized_re_certificates || false),
               scope_two_indirect_emissions_certificates_questions: this.ensureArray(data.scope_2?.certificates)
                   .filter(item => item.name && item.serial_id)
@@ -1556,6 +1554,7 @@ class SupplierQuestionnaireService {
                   ...(item.mpn && { mpn: item.mpn }),
                   product_name: item.product_name,
                   production_period: item.production_period,
+                  total_weight_factory_kg: item.total_weight_factory_kg,
                   weight_per_unit: item.weight_per_unit,
                   unit: item.unit,
                   price: item.price,
@@ -1961,7 +1960,14 @@ class SupplierQuestionnaireService {
   ): Promise<{
     success: boolean;
     message: string;
-    data: Array<{ bom_id: string; material_number: string; component_name: string }>;
+    data: Array<{
+      bom_id: string;
+      material_number: string;
+      component_name: string;
+      detail_description?: string | null;
+      quantity?: number | string | null;
+      price?: number | string | null;
+    }>;
   }> {
     try {
       const response = await fetch(

@@ -11,7 +11,6 @@ import {
   Drawer,
   Badge,
   Tooltip,
-  Alert,
   Input,
   Select,
   Row,
@@ -33,12 +32,20 @@ import {
 } from "@ant-design/icons";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import supplierQuestionnaireService from "../../lib/supplierQuestionnaireService";
+import {
+  saveV3Questionnaire,
+  submitV3Questionnaire,
+  downloadV3Pdf,
+} from "../../lib/questionnaireV3Api";
 import authService from "../../lib/authService";
 import productService from "../../lib/productService";
 import userManagementService from "../../lib/userManagementService";
 import type { SupplierOnboarding } from "../../types/userManagement";
 import { QUESTIONNAIRE_SCHEMA } from "../../config/questionnaireSchema";
-import DynamicQuestionnaireForm from "./DynamicQuestionnaireForm";
+import QuestionnaireCardForm from "./fullform/QuestionnaireCardForm";
+import { C } from "./fullform/theme";
+import { SECTION_META } from "./fullform/layout";
+import QuestionnaireAssistant from "./QuestionnaireAssistant";
 import QuestionnairePreviewModal from "./QuestionnairePreviewModal";
 import { buildPdfSections } from "./buildPdfSections";
 import {
@@ -94,7 +101,6 @@ const SupplierQuestionnaire: React.FC = () => {
 
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, any>>({});
-
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [questionnaireId, setQuestionnaireId] = useState<string | null>(
@@ -108,6 +114,9 @@ const SupplierQuestionnaire: React.FC = () => {
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // The page is fixed-height; the content column is the scroll area, so step
+  // changes must scroll THIS element (not window) back to the top.
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
   const hasCalledStageUpdateRef = useRef<boolean>(false);
   const [autoPopulatedFields, setAutoPopulatedFields] = useState<Set<string>>(
     new Set(),
@@ -115,6 +124,8 @@ const SupplierQuestionnaire: React.FC = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [submittedSgiqId, setSubmittedSgiqId] = useState<string | null>(null);
+  // V3 (28-question) backend response id — captured after the first save, reused for subsequent upserts + submit.
+  const [v3ResponseId, setV3ResponseId] = useState<string | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   // Supplier onboarding state
@@ -128,7 +139,7 @@ const SupplierQuestionnaire: React.FC = () => {
   // client-uploaded BOM. Used as the option list for every MPN dropdown so
   // suppliers cannot lose options by deleting/re-adding rows.
   const [bomComponents, setBomComponents] = useState<
-    Array<{ bom_id: string; material_number: string; component_name: string; detail_description?: string; weight_gms?: number }>
+    Array<{ bom_id: string; material_number: string; component_name: string }>
   >([]);
 
   useEffect(() => {
@@ -147,6 +158,128 @@ const SupplierQuestionnaire: React.FC = () => {
       cancelled = true;
     };
   }, [sup_id, bom_pcf_id, isClientMode]);
+
+  // V3 hard-coded defaults: Q6 PCF type and Q7 system boundary are fixed per
+  // Catena-X policy and the corresponding fields are disabled in the schema.
+  // We seed them into formData once so they are persisted and submitted even
+  // if the supplier never visits Section B.
+  useEffect(() => {
+    setFormData((prev) => {
+      const next = { ...prev };
+      const sp = { ...(prev?.scope_period ?? {}) };
+      const methodology = { ...(prev?.methodology ?? {}) };
+      const verification = { ...(prev?.verification ?? {}) };
+      let changed = false;
+      if (!sp.pcf_type) {
+        sp.pcf_type = "1: Retrospective PCF (historical / measured data)";
+        changed = true;
+      }
+      if (!sp.system_boundary) {
+        sp.system_boundary = "Cradle-to-Gate (default, per Catena-X)";
+        changed = true;
+      }
+      // Q21 fixed defaults — supplier does not change these (disabled fields).
+      if (!methodology.cross_sectoral_standard) {
+        methodology.cross_sectoral_standard = "ISO 14067";
+        changed = true;
+      }
+      if (!methodology.ipcc_gwp_version) {
+        methodology.ipcc_gwp_version = "AR6";
+        changed = true;
+      }
+      // Q22 default — free attribution defaults to No (editable).
+      if (!methodology.free_attribution_used) {
+        methodology.free_attribution_used = "No";
+        changed = true;
+      }
+      // Q26 fixed defaults — attestation type + conformant standards (disabled).
+      if (!verification.attestation_type) {
+        verification.attestation_type = "PCF Program Certification";
+        changed = true;
+      }
+      if (!verification.conformant_standards) {
+        verification.conformant_standards =
+          "Catena-X Product Carbon Footprint Rulebook v4";
+        changed = true;
+      }
+      if (!changed) return prev;
+      next.scope_period = sp;
+      next.methodology = methodology;
+      next.verification = verification;
+      return next;
+    });
+  }, []);
+
+  // BACKFILL component_name for every Form.List row that has an MPN selected
+  // (saved before the bomMaterials onChange started writing component_name).
+  // This is the parent-level backfill — it mutates formData directly so the
+  // values arrive at DynamicQuestionnaireForm already filled and the readOnly
+  // Component Name cell renders correctly on first paint.
+  //
+  // CRITICAL: the effect depends on BOTH bomComponents AND formData. Without
+  // formData in the dep array the backfill misses the common case: bomComponents
+  // arrives from /api/bom-components quickly, but the draft formData arrives a
+  // few hundred ms later from /api/questionnaire/:id. If we only ran on
+  // bomComponents change, the backfill would scan an empty formData and do
+  // nothing, then the draft would arrive (without component_name) and never get
+  // backfilled. With formData also as a dep, the effect re-runs the moment the
+  // draft lands. The functional setState returning `prev` when nothing
+  // changes prevents an infinite re-render loop.
+  useEffect(() => {
+    if (!Array.isArray(bomComponents) || bomComponents.length === 0) return;
+    // Known table paths in the V3 schema whose rows use bomMaterials. If any
+    // new table with bomMaterials is added, append its [parentKey, childKey]
+    // pair here. The function below applies the same backfill rule (look up
+    // material_number → component_name) to every row in each list.
+    // Verified against questionnaireSchemaV3.ts — every `type: "table"` field
+    // that uses `apiDropdown: "bomMaterials"` in any of its columns.
+    const listPaths: Array<[string, string]> = [
+      ["bom", "co_products"],            // Q9.1
+      ["energy", "production_waste"],    // Q14
+      ["packaging", "materials_used"],   // Q16
+      ["packaging", "transport"],        // Q16.1
+      ["packaging", "waste"],            // Q17
+      ["transport", "legs"],             // Q19
+    ];
+    setFormData((prev) => {
+      if (!prev || typeof prev !== "object") return prev;
+      let mutated = false;
+      const next: any = { ...prev };
+      for (const [parent, child] of listPaths) {
+        const parentObj = next[parent];
+        if (!parentObj || typeof parentObj !== "object") continue;
+        const arr = parentObj[child];
+        if (!Array.isArray(arr) || arr.length === 0) continue;
+        let rowMutated = false;
+        const newArr = arr.map((row: any) => {
+          if (!row || typeof row !== "object") return row;
+          if (row.component_name && row.product_name) return row;
+          // The dropdown column may be named "mpn" OR "product_id" depending
+          // on table — check both.
+          const mpnVal =
+            row.mpn ?? row.product_id ?? row.material_number ?? row.mpn_code;
+          if (!mpnVal) return row;
+          const bom = bomComponents.find(
+            (b) => b.material_number === mpnVal
+          );
+          if (!bom) return row;
+          rowMutated = true;
+          return {
+            ...row,
+            bom_id: row.bom_id || bom.bom_id,
+            material_number: row.material_number || bom.material_number,
+            component_name: row.component_name || bom.component_name,
+            product_name: row.product_name || bom.component_name,
+          };
+        });
+        if (rowMutated) {
+          mutated = true;
+          next[parent] = { ...parentObj, [child]: newArr };
+        }
+      }
+      return mutated ? next : prev;
+    });
+  }, [bomComponents, formData]);
 
   // Check supplier onboarding status first (only for supplier mode with sup_id)
   useEffect(() => {
@@ -525,15 +658,38 @@ const SupplierQuestionnaire: React.FC = () => {
     form.setFieldsValue(formData);
   }, [currentStep, formData, form]);
 
+  // Scroll the content panel back to the top on every step change (Next /
+  // Previous / sidebar jump). The window doesn't scroll — the content column
+  // (contentScrollRef) is the overflow container.
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0 });
+  }, [currentStep]);
+
   // Deep merge utility to preserve nested values (especially file fields)
   // preserveTargetArrays: when true, keeps target arrays if source arrays are empty (for auto-save)
   // when false, source always wins (for draft loading)
   // mergeArrayItems: when true, merges each array item (object spread) so hidden fields like bom_id
   //   that exist in target but not source are preserved instead of being silently dropped.
+  // dayjs / Date / File / Blob must be treated as opaque primitives by deepMerge,
+  // otherwise their prototypes (and internal $d / lastModified / etc.) get stripped
+  // and methods like toISOString() throw later during JSON.stringify or render.
+  const isOpaqueValue = (v: any): boolean => {
+    if (v === null || typeof v !== 'object') return false;
+    if (v instanceof Date) return true;
+    if (typeof File !== 'undefined' && v instanceof File) return true;
+    if (typeof Blob !== 'undefined' && v instanceof Blob) return true;
+    // dayjs duck-typing — has internal $d + format() method
+    if (typeof (v as any).format === 'function' && (v as any).$d !== undefined) return true;
+    return false;
+  };
+
   const deepMerge = (target: any, source: any, preserveTargetArrays = false, mergeArrayItems = false): any => {
     const result = { ...target };
     for (const key in source) {
-      if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      if (isOpaqueValue(source[key])) {
+        // dayjs / Date / File — copy reference as-is, no spread.
+        result[key] = source[key];
+      } else if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
         // Recursively merge nested objects
         result[key] = deepMerge(result[key] || {}, source[key], preserveTargetArrays, mergeArrayItems);
       } else if (Array.isArray(source[key])) {
@@ -824,29 +980,13 @@ const SupplierQuestionnaire: React.FC = () => {
     } catch (error: any) {
       console.error("Validation failed:", error);
 
-      // Extract and display field errors
-      if (error.errorFields) {
-        const errors: Record<string, string[]> = {};
-        error.errorFields.forEach((field: any) => {
-          const fieldName = field.name.join(".");
-          if (!errors[fieldName]) {
-            errors[fieldName] = [];
-          }
-          errors[fieldName].push(field.errors[0]);
-        });
-        setFormErrors(errors);
-      }
-
-      const errorCount = error.errorFields?.length || 0;
-      if (errorCount > 0) {
-        message.error({
-          content: `Please complete ${errorCount} required ${errorCount === 1 ? "field" : "fields"} before continuing.`,
-          duration: 4,
-        });
-      } else {
-        message.error("Please fill in all required fields before continuing.");
-      }
-      // Scroll to first error
+      // Keep it simple: one gentle prompt, then scroll to the first unfilled
+      // question. Ant Design already marks each required field inline, so we
+      // don't surface a separate error summary.
+      message.warning({
+        content: "Please fill in the required questions before continuing.",
+        duration: 3,
+      });
       const firstErrorField = document.querySelector(
         ".ant-form-item-has-error",
       );
@@ -900,12 +1040,22 @@ const SupplierQuestionnaire: React.FC = () => {
       const updatedData = deepMerge(formData, values, false, true);
       setFormData(updatedData);
 
-      supplierQuestionnaireService.saveDraft(
-        updatedData,
-        currentStep,
-        sup_id,
-        bom_pcf_id,
-      );
+      if (!sup_id || !bom_pcf_id) {
+        throw new Error("Missing supplier or PCF identifiers — cannot save draft.");
+      }
+
+      const v3Result = await saveV3Questionnaire(updatedData, {
+        bomPcfRequestId: bom_pcf_id,
+        supplierId: sup_id,
+        responseId: v3ResponseId ?? undefined,
+        status: "draft",
+      });
+      if (!v3Result?.status) {
+        throw new Error(v3Result?.message || "Draft save failed");
+      }
+      const newId = v3Result?.data?.responseId;
+      if (newId && newId !== v3ResponseId) setV3ResponseId(newId);
+
       setLastSaved(new Date());
       setAutoSaveStatus("saved");
       message.success({
@@ -926,169 +1076,78 @@ const SupplierQuestionnaire: React.FC = () => {
     }
   };
 
-  // Walks the form payload and back-fills bom_id / material_number on sub-table
-  // rows whenever they have been dropped but the row still has identifying info
-  // (mpn / material_number / component_name). Source of truth is the user's
-  // products_manufactured list (Q5), which always has correct bom_ids.
-  const backfillBomLinksInPlace = (data: any) => {
-    const products = data?.product_details?.products_manufactured;
-    if (!Array.isArray(products) || products.length === 0) return;
-
-    const byMaterial = new Map<string, { bom_id: string; material_number: string; component_name: string }>();
-    const byComponent = new Map<string, { bom_id: string; material_number: string; component_name: string }>();
-    products.forEach((p: any) => {
-      if (!p) return;
-      const entry = {
-        bom_id: p.bom_id || "",
-        material_number: p.material_number || p.mpn || "",
-        component_name: p.product_name || "",
-      };
-      if (entry.material_number) byMaterial.set(String(entry.material_number).trim(), entry);
-      if (entry.component_name)  byComponent.set(String(entry.component_name).trim(), entry);
-    });
-
-    const enrichRow = (row: any) => {
-      if (!row) return row;
-      if (row.bom_id) return row;
-      const mat = row.material_number || row.mpn;
-      const comp = row.component_name || row.product_name;
-      const match =
-        (mat && byMaterial.get(String(mat).trim())) ||
-        (comp && byComponent.get(String(comp).trim()));
-      if (match) {
-        if (!row.bom_id && match.bom_id) row.bom_id = match.bom_id;
-        if (!row.material_number && match.material_number) row.material_number = match.material_number;
-        if (!row.component_name && match.component_name) row.component_name = match.component_name;
-      }
-      return row;
-    };
-
-    const enrichArrayAt = (path: string[]) => {
-      let node = data;
-      for (const key of path.slice(0, -1)) {
-        node = node?.[key];
-        if (!node) return;
-      }
-      const arr = node?.[path[path.length - 1]];
-      if (Array.isArray(arr)) arr.forEach(enrichRow);
-    };
-
-    enrichArrayAt(["scope_3", "packaging", "materials_used"]);
-    enrichArrayAt(["scope_3", "packaging", "weight_per_unit"]);
-    enrichArrayAt(["scope_3", "packaging", "size"]);
-    enrichArrayAt(["scope_3", "materials", "raw_materials_used"]);
-    enrichArrayAt(["scope_3", "materials", "recycled_materials_used"]);
-    enrichArrayAt(["scope_3", "waste_disposal", "types_and_weight"]);
-    enrichArrayAt(["scope_3", "transport", "transport_modes"]);
-    enrichArrayAt(["scope_3", "by_products"]);
-  };
-
   const handleSubmit = async () => {
     try {
-      console.log("Submitting questionnaire with formData:", formData);
       const values = await form.validateFields();
       const finalData = deepMerge(formData, values, false, true);
 
-      // Back-fill bom_id / material_number on any sub-table rows that lost them
-      // (Ant Design hidden Form.Item registration sometimes drops these for rows
-      // beyond the first). Source of truth is products_manufactured (Q5).
-      backfillBomLinksInPlace(finalData);
+      if (!sup_id || !bom_pcf_id) {
+        throw new Error("Missing supplier or PCF identifiers — cannot submit.");
+      }
 
       setIsSaving(true);
       setFormErrors({});
 
-      let result;
-      if (questionnaireId) {
-        result = await supplierQuestionnaireService.updateQuestionnaire(
-          questionnaireId,
-          finalData,
-        );
-      } else if (isClientMode && client_id && product_id && bom_pcf_id) {
-        // Client mode - use client-specific endpoint
-        console.log("Submitting client questionnaire with:", { client_id, product_id, bom_pcf_id });
-        result = await supplierQuestionnaireService.createClientQuestionnaire(
-          finalData,
-          client_id,
-          product_id,
-          bom_pcf_id,
-        );
-      } else {
-        // Supplier mode - use supplier endpoint
-        result = await supplierQuestionnaireService.createQuestionnaire(
-          finalData,
-          sup_id || undefined,
-          bom_pcf_id || undefined,
-        );
-      }
-
-      if (result.success) {
-        supplierQuestionnaireService.clearDraft(sup_id, bom_pcf_id);
-
-        // Capture the new sgiq_id for PDF reference
-        const newSgiqId =
-          result.data?.general_info?.sgiq_id ||
-          result.data?.sgiq_id ||
-          questionnaireId;
-        if (newSgiqId) {
-          setSubmittedSgiqId(newSgiqId);
-        }
-
-        // For supplier mode (public route) or client mode, show thank you page instead of navigating
-        if (isPublicRoute || isClientMode) {
-          setIsCompleted(true);
-        } else {
-          message.success({
-            content:
-              "Questionnaire submitted successfully! Thank you for completing the form.",
-            duration: 4,
-          });
-
-          // Navigate to DQR or list
-          const newId =
-            result.data?.general_info?.sgiq_id ||
-            result.data?.sgiq_id ||
-            questionnaireId;
-          if (newId) {
-            // Optional: Redirect to view or DQR
-            navigate("/supplier-questionnaire");
-          }
-        }
-      } else {
+      const v3Save = await saveV3Questionnaire(finalData, {
+        bomPcfRequestId: bom_pcf_id,
+        supplierId: sup_id,
+        responseId: v3ResponseId ?? undefined,
+        status: "submitted",
+      });
+      if (!v3Save?.status) {
         message.error({
-          content: result.message
-            ? `Submission failed: ${result.message}. Please review your answers and try again.`
-            : "Unable to submit the questionnaire. Please check your internet connection and try again. If the problem persists, contact support.",
+          content: v3Save?.message
+            ? `Submission failed: ${v3Save.message}`
+            : "Unable to submit the questionnaire. Please try again.",
           duration: 6,
         });
+        return;
+      }
+
+      const v3Id = v3Save?.data?.responseId ?? v3ResponseId;
+      if (!v3Id) {
+        throw new Error("Backend did not return a response id.");
+      }
+      setV3ResponseId(v3Id);
+      setSubmittedSgiqId(v3Id);
+
+      const v3Submit = await submitV3Questionnaire(v3Id);
+      if (!v3Submit?.status) {
+        const validationErrors =
+          (v3Submit?.data as any)?.errors as Array<{ field: string; message: string }> | undefined;
+        if (validationErrors?.length) {
+          const errMap: Record<string, string[]> = {};
+          validationErrors.forEach((e) => {
+            errMap[e.field] = [...(errMap[e.field] ?? []), e.message];
+          });
+          setFormErrors(errMap);
+        }
+        message.error({
+          content: v3Submit?.message ?? "Submission validation failed.",
+          duration: 6,
+        });
+        return;
+      }
+
+      if (isPublicRoute || isClientMode) {
+        setIsCompleted(true);
+      } else {
+        message.success({
+          content:
+            "Questionnaire submitted successfully! Thank you for completing the form.",
+          duration: 4,
+        });
+        navigate("/supplier-questionnaire");
       }
     } catch (error: any) {
       console.error("Submit error:", error);
 
-      // Extract and display field errors
-      if (error.errorFields) {
-        const errors: Record<string, string[]> = {};
-        error.errorFields.forEach((field: any) => {
-          const fieldName = field.name.join(".");
-          if (!errors[fieldName]) {
-            errors[fieldName] = [];
-          }
-          errors[fieldName].push(field.errors[0]);
-        });
-        setFormErrors(errors);
-      }
-
-      const errorCount = error.errorFields?.length || 0;
-      if (errorCount > 0) {
-        message.error({
-          content: `Cannot submit: ${errorCount} required ${errorCount === 1 ? "field" : "fields"} ${errorCount === 1 ? "is" : "are"} incomplete. Please review and complete all required fields.`,
-          duration: 5,
-        });
-      } else {
-        message.error(
-          "Please fix all validation errors before submitting the questionnaire.",
-        );
-      }
-      // Scroll to first error
+      // Same gentle prompt as Next: required fields are marked inline, so just
+      // nudge the supplier and scroll to the first one.
+      message.warning({
+        content: "Please fill in the required questions before submitting.",
+        duration: 3,
+      });
       const firstErrorField = document.querySelector(
         ".ant-form-item-has-error",
       );
@@ -1107,63 +1166,33 @@ const SupplierQuestionnaire: React.FC = () => {
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
     try {
-      const [
-        fuelTypes,
-        subFuelTypes,
-        energySources,
-        energyTypes,
-        refrigerantTypes,
-        processSpecificEnergy,
-        transportModes,
-      ] = await Promise.all([
-        getFuelTypeDropdown().catch(() => [] as DropdownItem[]),
-        getSubFuelTypeDropdown().catch(() => [] as DropdownItem[]),
-        getEnergySourceDropdown().catch(() => [] as DropdownItem[]),
-        getEnergyTypeDropdown().catch(() => [] as DropdownItem[]),
-        getRefrigerantTypeDropdown().catch(() => [] as DropdownItem[]),
-        getProcessSpecificEnergyDropdown().catch(() => [] as DropdownItem[]),
-        getTransportModeDropdown().catch(() => [] as DropdownItem[]),
-      ]);
+      // V3 form uses static option lists, not API-backed dropdown IDs — empty maps are fine.
+      const sections = buildPdfSections(formData, {});
 
-      const buildMap = (items: DropdownItem[]) => {
-        const map: Record<string, string> = {};
-        items.forEach((item) => {
-          map[item.id] = item.name;
-        });
-        return map;
-      };
-
-      const dropdownMaps: Record<string, Record<string, string>> = {
-        fuelType: buildMap(fuelTypes),
-        subFuelType: buildMap(subFuelTypes),
-        subFuelTypeByFuel: buildMap(subFuelTypes),
-        energySource: buildMap(energySources),
-        energyType: buildMap(energyTypes),
-        energyTypeBySource: buildMap(energyTypes),
-        refrigerantType: buildMap(refrigerantTypes),
-        processSpecificEnergy: buildMap(processSpecificEnergy),
-        transportMode: buildMap(transportModes),
-      };
-
-      const sections = buildPdfSections(formData, dropdownMaps);
       const supplierName =
-        formData?.organization_details?.organization_name ||
+        formData?.company?.legal_name ||
         formData?.supplier_company_name ||
         "Supplier";
 
-      const result = await supplierQuestionnaireService.downloadQuestionnairePdf({
+      const result = await downloadV3Pdf({
         sections,
         supplier_name: supplierName,
         submission_date: new Date().toISOString(),
-        reference_id: submittedSgiqId || undefined,
+        reference_id: submittedSgiqId || v3ResponseId || undefined,
         bom_pcf_id: bom_pcf_id || undefined,
       });
 
-      if (result.success) {
-        message.success({
-          content: "PDF report downloaded successfully!",
-          duration: 3,
-        });
+      if (result.success && result.blob) {
+        const sanitized = String(supplierName).replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_");
+        const url = URL.createObjectURL(result.blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Supplier_Questionnaire_${sanitized}_${new Date().toISOString().split("T")[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        message.success({ content: "PDF report downloaded successfully!", duration: 3 });
       } else {
         message.error({
           content: result.message || "Failed to generate PDF. Please try again.",
@@ -1524,137 +1553,371 @@ const SupplierQuestionnaire: React.FC = () => {
   }
 
   const currentSection = QUESTIONNAIRE_SCHEMA[currentStep];
-
-  const renderSidebar = () => {
-    const sidebarContent = (
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        {/* Progress Section */}
-        <div className="mb-6 pb-6 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Progress</span>
-            <span className="text-sm text-gray-500">
-              {currentStep + 1} of {QUESTIONNAIRE_SCHEMA.length}
-            </span>
-          </div>
-          <Progress
-            percent={progressPercentage}
-            showInfo={false}
-            strokeColor={{
-              "0%": "#52c41a",
-              "100%": "#73d13d",
-            }}
-            className="mb-2"
-          />
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>
-              {answeredCount} of {totalQuestionsCount} questions answered
-            </span>
-            <span>{progressPercentage}%</span>
-          </div>
-        </div>
-
-        {/* Steps */}
-        <style>{`
-          .questionnaire-sidebar .ant-steps-item-title {
-            white-space: normal !important;
-            overflow: visible !important;
-            text-overflow: unset !important;
-            line-height: 1.4 !important;
-          }
-        `}</style>
-        <Steps
-          direction="vertical"
-          current={currentStep}
-          onChange={handleStepJump}
-          className="questionnaire-sidebar"
-        >
-          {QUESTIONNAIRE_SCHEMA.map((section, index) => (
-            <Step
-              key={section.id}
-              title={
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-sm">{section.title}</span>
-                  {completedSteps.has(index) && (
-                    <CheckCircleOutlined className="text-green-500 ml-2" />
-                  )}
-                </div>
-              }
-              status={
-                completedSteps.has(index)
-                  ? "finish"
-                  : index === currentStep
-                    ? "process"
-                    : index < currentStep
-                      ? "finish"
-                      : "wait"
-              }
-            />
-          ))}
-        </Steps>
-      </div>
-    );
-
-    return sidebarContent;
+  const totalSteps = QUESTIONNAIRE_SCHEMA.length;
+  const isLastStep = currentStep === totalSteps - 1;
+  const sectionMeta = SECTION_META[currentSection?.id ?? ""] || {
+    blurb: currentSection?.description || "",
   };
 
+  const stepDot = (
+    status: "done" | "current" | "upcoming",
+  ): React.CSSProperties => {
+    const base: React.CSSProperties = {
+      flex: "none",
+      width: 24,
+      height: 24,
+      borderRadius: "50%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: 12,
+      fontWeight: 700,
+    };
+    if (status === "done")
+      return { ...base, background: "#16a34a", color: "#fff", fontSize: 13 };
+    if (status === "current")
+      return {
+        ...base,
+        background: "#16a34a",
+        color: "#fff",
+        boxShadow: "0 0 0 4px #dcfce7",
+      };
+    return { ...base, background: "#f1f5f9", color: "#94a3b8", fontWeight: 600 };
+  };
+
+  const renderSidebar = () => (
+    <div
+      className="ff-scroll"
+      style={{ height: "100%", overflowY: "auto", padding: "22px 18px" }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: ".06em",
+            textTransform: "uppercase",
+            color: "#64748b",
+          }}
+        >
+          Progress
+        </span>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>
+          {currentStep + 1} of {totalSteps}
+        </span>
+      </div>
+      <div
+        style={{
+          height: 7,
+          borderRadius: 99,
+          background: "#eef1f4",
+          overflow: "hidden",
+          marginBottom: 8,
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            borderRadius: 99,
+            background: "linear-gradient(90deg,#22c55e,#16a34a)",
+            width: `${progressPercentage}%`,
+            transition: "width .3s",
+          }}
+        />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: 12,
+          color: "#94a3b8",
+          marginBottom: 20,
+        }}
+      >
+        <span>
+          {answeredCount} of {totalQuestionsCount} answered
+        </span>
+        <span style={{ fontWeight: 600, color: "#64748b" }}>
+          {progressPercentage}%
+        </span>
+      </div>
+      {QUESTIONNAIRE_SCHEMA.map((s, index) => {
+        const isCur = index === currentStep;
+        const done = !isCur && (completedSteps.has(index) || index < currentStep);
+        const status: "done" | "current" | "upcoming" = isCur
+          ? "current"
+          : done
+            ? "done"
+            : "upcoming";
+        const canJump = index < currentStep || completedSteps.has(index);
+        return (
+          <div
+            key={s.id}
+            onClick={() => handleStepJump(index)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 11,
+              padding: "9px 10px",
+              borderRadius: 10,
+              marginBottom: 2,
+              cursor: canJump ? "pointer" : "default",
+              background: isCur ? "#f0fdf4" : "transparent",
+            }}
+          >
+            <div style={stepDot(status)}>{done ? "✓" : index + 1}</div>
+            <span
+              style={{
+                fontSize: 13.5,
+                lineHeight: 1.35,
+                fontWeight: isCur ? 650 : 500,
+                color: isCur ? "#0f1b24" : done ? "#475569" : "#94a3b8",
+              }}
+            >
+              {s.title}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              {/* Mobile Menu Button - Always show */}
-              <Button
-                icon={<MenuOutlined />}
-                type="text"
-                onClick={() => setSidebarVisible(true)}
-                className="lg:hidden mr-2"
+    <div
+      className="sq-fullform"
+      style={{
+        height: "100vh",
+        background: C.pageBg,
+        color: "#0f1b24",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      {/* Top bar */}
+      <div
+        style={{
+          height: 60,
+          flex: "none",
+          background: "#fff",
+          borderBottom: "1px solid #e9edf1",
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          padding: "0 16px",
+          zIndex: 10,
+        }}
+      >
+        <Button
+          icon={<MenuOutlined />}
+          type="text"
+          onClick={() => setSidebarVisible(true)}
+          className="lg:hidden"
+        />
+        {!isPublicRoute && (
+          <Button
+            icon={<ArrowLeftOutlined />}
+            type="text"
+            onClick={() => navigate("/dashboard")}
+            className="hidden lg:inline-flex"
+          />
+        )}
+        <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-.01em" }}>
+          {isClientMode
+            ? "Manufacturer Own Emissions Questionnaire"
+            : "Supplier Questionnaire"}
+        </span>
+        <span
+          className="hidden sm:inline"
+          style={{
+            fontSize: 12,
+            color: "#94a3b8",
+            fontWeight: 500,
+            borderLeft: "1px solid #e4e9ee",
+            paddingLeft: 14,
+          }}
+        >
+          Product Carbon Footprint · ISO 14067
+        </span>
+        <div
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+          }}
+        >
+          {isCreateMode && (lastSaved || autoSaveStatus !== "idle") && (
+            <span
+              className="hidden sm:flex"
+              style={{
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12.5,
+                color: "#16a34a",
+                fontWeight: 600,
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: autoSaveStatus === "saving" ? "#f59e0b" : "#22c55e",
+                }}
               />
-              {!isPublicRoute && (
+              {autoSaveStatus === "saving" ? "Saving…" : "Auto-saved"}
+            </span>
+          )}
+          {isCreateMode && (
+            <Button
+              icon={<SaveOutlined />}
+              onClick={handleSaveDraft}
+              loading={isSaving}
+            >
+              <span className="hidden sm:inline">Save draft</span>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        {/* Desktop sidebar */}
+        <div
+          className="hidden lg:block"
+          style={{
+            width: 292,
+            flex: "none",
+            background: "#fff",
+            borderRight: "1px solid #e9edf1",
+          }}
+        >
+          {renderSidebar()}
+        </div>
+
+        {/* Content */}
+        <div
+          ref={contentScrollRef}
+          className="ff-scroll"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflowY: "auto",
+            padding: "30px 24px 70px",
+          }}
+        >
+          <div style={{ maxWidth: 880, margin: "0 auto" }}>
+            <span
+              style={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                letterSpacing: ".08em",
+                textTransform: "uppercase",
+                color: "#16a34a",
+              }}
+            >
+              Step {currentStep + 1} of {totalSteps}
+            </span>
+            <h1
+              style={{
+                fontSize: 25,
+                fontWeight: 800,
+                letterSpacing: "-.02em",
+                margin: "5px 0 6px",
+              }}
+            >
+              {currentSection?.title}
+            </h1>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#64748b",
+                margin: "0 0 26px",
+                lineHeight: 1.5,
+              }}
+            >
+              {sectionMeta.blurb}
+            </p>
+
+            {currentSection && (
+              <QuestionnaireCardForm
+                section={currentSection}
+                initialValues={formData}
+                form={form}
+                bomComponents={bomComponents}
+                isClientMode={isClientMode}
+                formErrors={formErrors}
+                onValuesChange={(_changedValues, allValues) => {
+                  setFormData((prev) => deepMerge(prev, allValues, false, true));
+
+                  if (
+                    sup_id &&
+                    bom_pcf_id &&
+                    !hasCalledStageUpdateRef.current &&
+                    !isClientMode
+                  ) {
+                    hasCalledStageUpdateRef.current = true;
+                    supplierQuestionnaireService
+                      .updateDataCollectionQuestionStage(bom_pcf_id, sup_id)
+                      .then((result) => {
+                        if (!result.success) {
+                          console.warn(
+                            "Failed to update data collection stage:",
+                            result.message,
+                          );
+                        }
+                      })
+                      .catch((error) => {
+                        console.error(
+                          "Error updating data collection stage:",
+                          error,
+                        );
+                      });
+                  }
+                }}
+              />
+            )}
+
+            {/* Footer nav */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: 26,
+              }}
+            >
+              <Button
+                size="large"
+                onClick={handlePrev}
+                disabled={currentStep === 0}
+                icon={<ArrowLeftOutlined />}
+              >
+                Previous
+              </Button>
+              {!isLastStep ? (
+                <Button type="primary" size="large" onClick={handleNext}>
+                  Save &amp; continue →
+                </Button>
+              ) : (
                 <Button
-                  icon={<ArrowLeftOutlined />}
-                  type="text"
-                  onClick={() => navigate("/dashboard")}
-                  className="mr-2 hidden lg:inline-flex"
-                />
-              )}
-              <h1 className="text-xl font-bold text-gray-900">
-                {isClientMode ? "Manufacturer Own Emissions Questionnaire" : "Supplier Questionnaire"}
-              </h1>
-            </div>
-            <div className="flex items-center gap-3">
-              {/* Auto-save Status */}
-              {isCreateMode && (
-                <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500">
-                  {autoSaveStatus === "saving" && (
-                    <Tooltip title="Saving...">
-                      <ClockCircleOutlined className="animate-spin" />
-                    </Tooltip>
-                  )}
-                  {autoSaveStatus === "saved" && (
-                    <Tooltip
-                      title={`Saved at ${lastSaved?.toLocaleTimeString()}`}
-                    >
-                      <CheckCircleOutlined className="text-green-500" />
-                    </Tooltip>
-                  )}
-                  {lastSaved && autoSaveStatus === "idle" && (
-                    <Tooltip
-                      title={`Last saved: ${lastSaved.toLocaleTimeString()}`}
-                    >
-                      <span className="text-xs">Auto-saved</span>
-                    </Tooltip>
-                  )}
-                </div>
-              )}
-              {isCreateMode && (
-                <Button
-                  icon={<SaveOutlined />}
-                  onClick={handleSaveDraft}
-                  loading={isSaving}
+                  type="primary"
+                  size="large"
+                  icon={<EyeOutlined />}
+                  onClick={() => {
+                    const values = form.getFieldsValue();
+                    const updatedData = deepMerge(formData, values, false, true);
+                    setFormData(updatedData);
+                    setIsPreviewOpen(true);
+                  }}
                 >
-                  <span className="hidden sm:inline">Save Draft</span>
+                  Preview &amp; Submit
                 </Button>
               )}
             </div>
@@ -1662,204 +1925,7 @@ const SupplierQuestionnaire: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Desktop Sidebar - Always show */}
-          <div className="hidden lg:block lg:col-span-1">
-            <div className="sticky top-24">{renderSidebar()}</div>
-          </div>
-
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8 transition-all duration-300">
-              {/* Error Summary */}
-              {Object.keys(formErrors).length > 0 && (
-                <Alert
-                  message={
-                    <span className="font-semibold">
-                      {Object.keys(formErrors).length}{" "}
-                      {Object.keys(formErrors).length === 1
-                        ? "Error"
-                        : "Errors"}{" "}
-                      Found
-                    </span>
-                  }
-                  description={
-                    <div className="mt-2">
-                      <p className="text-sm mb-2 text-gray-700">
-                        Please review and fix the following{" "}
-                        {Object.keys(formErrors).length === 1
-                          ? "error"
-                          : "errors"}{" "}
-                        before continuing:
-                      </p>
-                      <ul className="list-disc list-inside mt-2 space-y-1">
-                        {Object.entries(formErrors).map(([field, errors]) => {
-                          // Try to get the field label from the current section
-                          const fieldConfig = currentSection?.fields.find(
-                            (f) => f.name === field,
-                          );
-                          const fieldLabel =
-                            fieldConfig?.label ||
-                            field.split(".").pop() ||
-                            field;
-                          const questionNumber =
-                            fieldLabel.match(/^\d+\./)?.[0] || "";
-
-                          return (
-                            <li key={field} className="text-sm text-gray-800">
-                              <span className="font-medium">
-                                {questionNumber ? `${questionNumber} ` : ""}
-                                {fieldLabel.replace(/^\d+\.\s*/, "")}:
-                              </span>{" "}
-                              <span className="text-red-600">
-                                {errors.join(", ")}
-                              </span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  }
-                  type="error"
-                  showIcon
-                  closable
-                  onClose={() => setFormErrors({})}
-                  className="mb-6"
-                  action={
-                    <Button
-                      size="small"
-                      type="text"
-                      onClick={() => {
-                        const firstErrorField = document.querySelector(
-                          ".ant-form-item-has-error",
-                        );
-                        if (firstErrorField) {
-                          firstErrorField.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center",
-                          });
-                        }
-                      }}
-                    >
-                      Go to first error
-                    </Button>
-                  }
-                />
-              )}
-
-              <DynamicQuestionnaireForm
-                section={currentSection}
-                initialValues={formData}
-                form={form}
-                bomComponents={bomComponents}
-                onFinish={() => {}}
-                onValuesChange={(changedValues, allValues) => {
-                  // Update formData when values change to trigger progress recalculation
-                  // Use deep merge to preserve nested structure (allValues has correct file values from DynamicQuestionnaireForm)
-                  setFormData((prev) => deepMerge(prev, allValues, false, true));
-
-                  // Call stage update API when supplier first inputs data (only for supplier mode)
-                  if (sup_id && bom_pcf_id && !hasCalledStageUpdateRef.current && !isClientMode) {
-                    hasCalledStageUpdateRef.current = true;
-                    supplierQuestionnaireService.updateDataCollectionQuestionStage(bom_pcf_id, sup_id)
-                      .then((result) => {
-                        if (result.success) {
-                          console.log("Data collection stage updated successfully");
-                        } else {
-                          console.warn("Failed to update data collection stage:", result.message);
-                        }
-                      })
-                      .catch((error) => {
-                        console.error("Error updating data collection stage:", error);
-                      });
-                  }
-                }}
-                autoPopulatedFields={autoPopulatedFields}
-                formErrors={formErrors}
-                isClientMode={isClientMode}
-              />
-
-              {/* Navigation Buttons */}
-              <div className="flex flex-col sm:flex-row justify-between gap-4 mt-8 pt-6 border-t border-gray-100">
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handlePrev}
-                    disabled={currentStep === 0}
-                    icon={<ArrowLeftOutlined />}
-                    size="large"
-                  >
-                    Previous
-                  </Button>
-                  {isCreateMode && !isPublicRoute && (
-                    <Button
-                      onClick={() => {
-                        Modal.confirm({
-                          title: "Save and Continue Later?",
-                          content:
-                            "Your progress will be saved and you can continue later.",
-                          onOk: () => {
-                            handleSaveDraft();
-                            navigate("/dashboard");
-                          },
-                        });
-                      }}
-                      size="large"
-                    >
-                      Save & Exit
-                    </Button>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  {currentStep < QUESTIONNAIRE_SCHEMA.length - 1 ? (
-                    <>
-                      <Button
-                        onClick={handleNext}
-                        type="primary"
-                        icon={<ArrowRightOutlined />}
-                        size="large"
-                      >
-                        Next
-                      </Button>
-                      <Tooltip title="Press Ctrl+Enter">
-                        <span className="text-xs text-gray-400 self-center hidden sm:inline">
-                          Ctrl+Enter
-                        </span>
-                      </Tooltip>
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        type="primary"
-                        onClick={() => {
-                          // Merge current form values before showing preview
-                          const values = form.getFieldsValue();
-                          const updatedData = deepMerge(formData, values, false, true);
-                          setFormData(updatedData);
-                          setIsPreviewOpen(true);
-                        }}
-                        icon={<EyeOutlined />}
-                        size="large"
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        Preview &amp; Submit
-                      </Button>
-                      <Tooltip title="Press Ctrl+Enter">
-                        <span className="text-xs text-gray-400 self-center hidden sm:inline">
-                          Ctrl+Enter
-                        </span>
-                      </Tooltip>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Sidebar Drawer - Always show */}
+      {/* Mobile sidebar drawer */}
       <Drawer
         title="Navigation"
         placement="left"
@@ -1882,6 +1948,15 @@ const SupplierQuestionnaire: React.FC = () => {
         }}
         isSubmitting={isSaving}
       />
+
+      {/* Eco AI guide — chat + voice help, aware of the current section */}
+      {currentSection && !isViewMode && (
+        <QuestionnaireAssistant
+          section={currentSection}
+          stepIndex={currentStep}
+          totalSteps={totalSteps}
+        />
+      )}
     </div>
   );
 };

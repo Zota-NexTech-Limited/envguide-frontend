@@ -10,10 +10,15 @@ import {
   User,
   Building2,
   Package,
+  CalendarRange,
+  Layers,
   Flame,
-  Cpu,
+  Box,
   Truck,
   Leaf,
+  BookOpen,
+  BadgeCheck,
+  StickyNote,
 } from "lucide-react";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import { QUESTIONNAIRE_SCHEMA } from "../../config/questionnaireSchema";
@@ -37,7 +42,7 @@ interface QuestionnairePreviewModalProps {
   isSubmitting?: boolean;
 }
 
-// Section config for icons and colors
+// Section config for icons and colors — V3 (28-question / CX-PCF Rulebook v4) section IDs.
 const SECTION_CONFIG: Record<
   string,
   { icon: React.ReactNode; color: string; bgColor: string }
@@ -47,35 +52,60 @@ const SECTION_CONFIG: Record<
     color: "text-green-600",
     bgColor: "bg-green-100",
   },
-  organization_details: {
+  section_a_company_product: {
     icon: <Building2 size={16} />,
     color: "text-blue-600",
     bgColor: "bg-blue-100",
   },
-  product_details: {
+  section_b_scope_period: {
+    icon: <CalendarRange size={16} />,
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-100",
+  },
+  section_c_bom: {
     icon: <Package size={16} />,
     color: "text-purple-600",
     bgColor: "bg-purple-100",
   },
-  scope_1: {
+  section_d_energy_process: {
     icon: <Flame size={16} />,
     color: "text-red-600",
     bgColor: "bg-red-100",
   },
-  scope_2: {
-    icon: <Cpu size={16} />,
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-100",
+  section_e_packaging: {
+    icon: <Box size={16} />,
+    color: "text-amber-600",
+    bgColor: "bg-amber-100",
   },
-  scope_3: {
+  section_f_transport: {
     icon: <Truck size={16} />,
     color: "text-orange-600",
     bgColor: "bg-orange-100",
   },
-  scope_4: {
+  section_g_biobased: {
     icon: <Leaf size={16} />,
     color: "text-teal-600",
     bgColor: "bg-teal-100",
+  },
+  section_h_methodology: {
+    icon: <BookOpen size={16} />,
+    color: "text-sky-600",
+    bgColor: "bg-sky-100",
+  },
+  section_i_boundary_dqr: {
+    icon: <Layers size={16} />,
+    color: "text-slate-600",
+    bgColor: "bg-slate-100",
+  },
+  section_j_verification: {
+    icon: <BadgeCheck size={16} />,
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-100",
+  },
+  section_k_other: {
+    icon: <StickyNote size={16} />,
+    color: "text-gray-600",
+    bgColor: "bg-gray-100",
   },
 };
 
@@ -85,6 +115,32 @@ const getNestedValue = (obj: any, path: string): any => {
     if (acc === null || acc === undefined) return undefined;
     return acc[part];
   }, obj);
+};
+
+// Safe stringifier — handles dayjs / Date / plain values without crashing.
+// dayjs objects can lose their internal $d Date after a deepMerge, which makes
+// the default toString throw `this.$d.toUTCString is not a function`.
+const safeToString = (val: any): string => {
+  if (val === null || val === undefined) return "";
+  if (val instanceof Date) {
+    try { return val.toISOString().split("T")[0]; } catch { return ""; }
+  }
+  if (typeof val === "object") {
+    const v: any = val;
+    if (typeof v.format === "function") {
+      try { return v.format("YYYY-MM-DD"); } catch { /* fall through */ }
+    }
+    if (typeof v.toISOString === "function") {
+      try { return v.toISOString().split("T")[0]; } catch { /* fall through */ }
+    }
+    if (typeof v.$d !== "undefined") {
+      const d = v.$d;
+      if (d instanceof Date) {
+        try { return d.toISOString().split("T")[0]; } catch { /* fall through */ }
+      }
+    }
+  }
+  try { return String(val); } catch { return ""; }
 };
 
 const QuestionnairePreviewModal: React.FC<QuestionnairePreviewModalProps> = ({
@@ -159,7 +215,7 @@ const QuestionnairePreviewModal: React.FC<QuestionnairePreviewModalProps> = ({
     field: QuestionnaireField
   ): string => {
     if (value === null || value === undefined || value === "") return "";
-    const strVal = String(value);
+    const strVal = safeToString(value);
     if (field.apiDropdown && dropdownMaps[field.apiDropdown]) {
       return dropdownMaps[field.apiDropdown][strVal] || strVal;
     }
@@ -239,14 +295,14 @@ const QuestionnairePreviewModal: React.FC<QuestionnairePreviewModalProps> = ({
         key: col.name,
         render: (val: any) => {
           if (val === undefined || val === null || val === "") return "-";
-          // Resolve dropdown values
           if (col.apiDropdown && dropdownMaps[col.apiDropdown]) {
-            return dropdownMaps[col.apiDropdown][String(val)] || String(val);
+            const key = safeToString(val);
+            return dropdownMaps[col.apiDropdown][key] || key;
           }
           if (typeof val === "number") {
             return val.toLocaleString(undefined, { maximumFractionDigits: 20 });
           }
-          return String(val);
+          return safeToString(val);
         },
       }));
 
@@ -317,7 +373,7 @@ const QuestionnairePreviewModal: React.FC<QuestionnairePreviewModalProps> = ({
     if (field.type === "textarea") {
       return (
         <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">
-          {String(value)}
+          {safeToString(value)}
         </div>
       );
     }
@@ -327,7 +383,7 @@ const QuestionnairePreviewModal: React.FC<QuestionnairePreviewModalProps> = ({
     if (typeof value === "number") {
       return value.toLocaleString(undefined, { maximumFractionDigits: 20 });
     }
-    return String(value);
+    return safeToString(value);
   };
 
   // Get a clean label — keep question numbers, only strip "(Optional)" suffix

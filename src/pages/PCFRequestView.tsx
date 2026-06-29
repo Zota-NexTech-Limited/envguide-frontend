@@ -34,7 +34,6 @@ import {
   Box,
   Cpu,
   Hash,
-  MessageSquare,
   ThumbsUp,
   ThumbsDown,
   Send,
@@ -94,12 +93,9 @@ const PCFRequestView: React.FC = () => {
   const { canUpdate } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [requestData, setRequestData] = useState<any>(null);
-  const [comments, setComments] = useState<any[]>([]);
-  const [commentLoading, setCommentLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [newComment, setNewComment] = useState("");
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [calculatingPCF, setCalculatingPCF] = useState(false);
@@ -337,10 +333,7 @@ const PCFRequestView: React.FC = () => {
   const fetchData = async (pcfId: string) => {
     setLoading(true);
     try {
-      const [requestResult, commentsResult] = await Promise.all([
-        pcfService.getPCFBOMById(pcfId),
-        pcfService.listPCFComments(pcfId),
-      ]);
+      const requestResult = await pcfService.getPCFBOMById(pcfId);
 
       if (requestResult.success && requestResult.data) {
         // Handle array response (API returns array of 1 item)
@@ -354,10 +347,6 @@ const PCFRequestView: React.FC = () => {
         message.error(
           requestResult.message || "Failed to load request details",
         );
-      }
-
-      if (commentsResult.success && commentsResult.data) {
-        setComments(commentsResult.data);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -422,28 +411,6 @@ const PCFRequestView: React.FC = () => {
     }
   };
 
-  const handleAddComment = async () => {
-    if (!id || !newComment.trim()) return;
-    setCommentLoading(true);
-    try {
-      const result = await pcfService.addPCFComment(id, newComment);
-      if (result.success) {
-        message.success("Comment added");
-        setNewComment("");
-        // Refresh comments
-        const commentsResult = await pcfService.listPCFComments(id);
-        if (commentsResult.success && commentsResult.data) {
-          setComments(commentsResult.data);
-        }
-      } else {
-        message.error(result.message || "Failed to add comment");
-      }
-    } catch (error) {
-      message.error("An error occurred");
-    } finally {
-      setCommentLoading(false);
-    }
-  };
 
   const handleCalculatePCF = async () => {
     if (!id) return;
@@ -619,15 +586,6 @@ const PCFRequestView: React.FC = () => {
   const primarySupplier =
     dataCollectionStages[0]?.supplier || bomList[0]?.supplier || null;
   const primarySupplierSubmitted = !!dataCollectionStages[0]?.is_submitted;
-  const currentUserObj: any = authService.getCurrentUser();
-  const currentUserInitial = String(
-    currentUserObj?.user_name ||
-      currentUserObj?.name ||
-      currentUserObj?.email ||
-      "U",
-  )
-    .charAt(0)
-    .toUpperCase();
 
   return (
     <div className="bg-[#F4F6F9] min-h-screen px-4 sm:px-6 lg:px-9 py-6 pb-14">
@@ -2709,74 +2667,6 @@ const PCFRequestView: React.FC = () => {
         </div>
       )}
 
-      {/* Comments Section */}
-      <div className="mb-5 bg-white border border-[#E6EAF0] rounded-[18px] shadow-sm p-6">
-        <div className="flex items-center gap-2.5 mb-5">
-          <MessageSquare size={20} className="text-[#16A34A]" />
-          <h2 className="m-0 text-[17px] font-extrabold text-gray-900">
-            Comments
-          </h2>
-        </div>
-
-        {comments.length > 0 ? (
-          <div className="space-y-4 mb-6">
-            {comments.map((item: any, idx: number) => (
-              <div key={item.id || idx} className="flex gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[#16A34A] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-                  {String(item.user_name || "U")
-                    .charAt(0)
-                    .toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-bold text-gray-800 text-sm">
-                      {item.user_name || "User"}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {formatDate(item.commented_at)}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1 whitespace-pre-wrap break-words">
-                    {item.comment}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Mail size={44} strokeWidth={1.7} className="text-gray-300 mb-2.5" />
-            <div className="text-sm text-gray-400 font-medium">
-              No comments yet
-            </div>
-          </div>
-        )}
-
-        {/* Add comment */}
-        <div className="flex gap-3 items-end pt-4 border-t border-[#EEF1F5]">
-          <div className="w-9 h-9 rounded-xl bg-[#16A34A] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-            {currentUserInitial}
-          </div>
-          <div className="flex-1">
-            <TextArea
-              rows={2}
-              placeholder="Add a comment..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              className="rounded-xl"
-            />
-          </div>
-          <Button
-            type="primary"
-            icon={<Send size={16} />}
-            onClick={handleAddComment}
-            loading={commentLoading}
-            className="!bg-[#16A34A] hover:!bg-[#15803D] !border-[#16A34A] !rounded-[11px] !font-bold !h-auto !py-2.5"
-          >
-            Comment
-          </Button>
-        </div>
-      </div>
 
       {/* Resend Supplier Email Modal */}
       <Modal

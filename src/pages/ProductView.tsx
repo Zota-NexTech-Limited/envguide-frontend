@@ -4176,7 +4176,7 @@ const ProductView: React.FC = () => {
           >
             <ArrowLeft size={16} />
             <span className="text-sm font-medium">
-              Back to Product Portfolio
+              Back to Product Hub
             </span>
           </button>
 

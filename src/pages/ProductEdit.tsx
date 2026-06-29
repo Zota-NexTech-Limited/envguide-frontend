@@ -379,7 +379,7 @@ const ProductEdit: React.FC = () => {
                             <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Documents</h3>
                                 <div className="mb-3">
-                                    <span className="text-gray-500 text-sm">Product documents can be managed via PCF requests in Document Master.</span>
+                                    <span className="text-gray-500 text-sm">Product documents can be managed via PCF requests in Evidence Vault.</span>
                                 </div>
                                 <Button
                                     type="default"
@@ -387,7 +387,7 @@ const ProductEdit: React.FC = () => {
                                     onClick={() => navigate("/document-master")}
                                     className="w-full"
                                 >
-                                    Go to Document Master
+                                    Go to Evidence Vault
                                 </Button>
                             </div>
 

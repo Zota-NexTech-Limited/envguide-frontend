@@ -28,7 +28,7 @@ interface ModuleCard {
 const moduleCards: ModuleCard[] = [
   {
     id: "pcf-request",
-    title: "PCF Request",
+    title: "Footprint Connect",
     description: "Manage Product Carbon Footprint requests and track environmental impact",
     path: "/pcf-request",
     icon: FileText,
@@ -37,7 +37,7 @@ const moduleCards: ModuleCard[] = [
   },
   {
     id: "product-portfolio",
-    title: "Product Portfolio",
+    title: "Product Hub",
     description: "View and manage your product catalog and specifications",
     path: "/product-portfolio/all-products",
     icon: Package,
@@ -46,7 +46,7 @@ const moduleCards: ModuleCard[] = [
   },
   {
     id: "components-master",
-    title: "Components Master",
+    title: "Components Catalog",
     description: "Manage component definitions and their environmental data",
     path: "/components-master",
     icon: Puzzle,
@@ -55,7 +55,7 @@ const moduleCards: ModuleCard[] = [
   },
   {
     id: "document-master",
-    title: "Document Master",
+    title: "Evidence Vault",
     description: "Organize and manage all your documents in one place",
     path: "/document-master",
     icon: FolderOpen,
@@ -64,7 +64,7 @@ const moduleCards: ModuleCard[] = [
   },
   {
     id: "task-management",
-    title: "Task Management",
+    title: "Workflow Center",
     description: "Track and manage tasks across your organization",
     path: "/task-management",
     icon: CheckSquare,
@@ -73,7 +73,7 @@ const moduleCards: ModuleCard[] = [
   },
   {
     id: "reports",
-    title: "Reports",
+    title: "Analytics Center",
     description: "Generate and view detailed reports and analytics",
     path: "/reports",
     icon: BarChart3,
@@ -82,7 +82,7 @@ const moduleCards: ModuleCard[] = [
   },
   {
     id: "data-quality-rating",
-    title: "Data Quality Rating",
+    title: "Data Trust Score",
     description: "Monitor and improve your data quality metrics",
     path: "/data-quality-rating",
     icon: Star,

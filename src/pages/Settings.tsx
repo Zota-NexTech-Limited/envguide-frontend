@@ -206,7 +206,7 @@ const Settings: React.FC = () => {
       action: () => navigate("/supplier-questionnaire"),
     },
     {
-      label: "Data Quality Rating",
+      label: "Data Trust Score",
       icon: Award,
       action: () => navigate("/data-quality-rating"),
     },

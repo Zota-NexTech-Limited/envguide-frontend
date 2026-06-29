@@ -23,6 +23,7 @@ import {
   Descriptions,
 } from "antd";
 import {
+  Check,
   CheckCircle,
   Clock,
   AlertTriangle,
@@ -33,7 +34,6 @@ import {
   Box,
   Cpu,
   Hash,
-  MessageSquare,
   ThumbsUp,
   ThumbsDown,
   Send,
@@ -56,7 +56,7 @@ import {
   Flame,
   Trash2,
   MapPin,
-  Route,
+  Activity,
   Weight,
   Banknote,
   TrendingUp,
@@ -93,12 +93,9 @@ const PCFRequestView: React.FC = () => {
   const { canUpdate } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [requestData, setRequestData] = useState<any>(null);
-  const [comments, setComments] = useState<any[]>([]);
-  const [commentLoading, setCommentLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [newComment, setNewComment] = useState("");
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [calculatingPCF, setCalculatingPCF] = useState(false);
@@ -336,10 +333,7 @@ const PCFRequestView: React.FC = () => {
   const fetchData = async (pcfId: string) => {
     setLoading(true);
     try {
-      const [requestResult, commentsResult] = await Promise.all([
-        pcfService.getPCFBOMById(pcfId),
-        pcfService.listPCFComments(pcfId),
-      ]);
+      const requestResult = await pcfService.getPCFBOMById(pcfId);
 
       if (requestResult.success && requestResult.data) {
         // Handle array response (API returns array of 1 item)
@@ -353,10 +347,6 @@ const PCFRequestView: React.FC = () => {
         message.error(
           requestResult.message || "Failed to load request details",
         );
-      }
-
-      if (commentsResult.success && commentsResult.data) {
-        setComments(commentsResult.data);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -421,47 +411,14 @@ const PCFRequestView: React.FC = () => {
     }
   };
 
-  const handleAddComment = async () => {
-    if (!id || !newComment.trim()) return;
-    setCommentLoading(true);
-    try {
-      const result = await pcfService.addPCFComment(id, newComment);
-      if (result.success) {
-        message.success("Comment added");
-        setNewComment("");
-        // Refresh comments
-        const commentsResult = await pcfService.listPCFComments(id);
-        if (commentsResult.success && commentsResult.data) {
-          setComments(commentsResult.data);
-        }
-      } else {
-        message.error(result.message || "Failed to add comment");
-      }
-    } catch (error) {
-      message.error("An error occurred");
-    } finally {
-      setCommentLoading(false);
-    }
-  };
 
   const handleCalculatePCF = async () => {
     if (!id) return;
     setCalculatingPCF(true);
-    try {
-      const result = await pcfService.calculatePCF(id);
-      if (result.success) {
-        message.success(
-          result.message || "PCF calculation initiated successfully",
-        );
-        fetchData(id); // Refresh data to update stages
-      } else {
-        message.error(result.message || "Failed to calculate PCF");
-      }
-    } catch (error) {
-      message.error("An error occurred while calculating PCF");
-    } finally {
-      setCalculatingPCF(false);
-    }
+    message.info(
+      "PCF calculation is being upgraded to the new emission-factor matching engine. This action is temporarily unavailable.",
+    );
+    setCalculatingPCF(false);
   };
 
   const handleSubmitInternally = async () => {
@@ -577,17 +534,70 @@ const PCFRequestView: React.FC = () => {
     { title: "Result Submitted", icon: <FileText size={16} /> },
   ];
 
+  // ---- D2 header-band metrics (computed from BOM list) ----
+  const bomList = requestData.bom_list || [];
+  const grandTotalEmission = bomList.reduce(
+    (sum: number, item: any) =>
+      sum + (Number(item.pcf_total_emission_calculation?.total_pcf_value) || 0),
+    0,
+  );
+  const totalWeightGms = bomList.reduce(
+    (sum: number, item: any) => sum + (Number(item.weight_gms) || 0),
+    0,
+  );
+  const totalCost = bomList.reduce(
+    (sum: number, item: any) => sum + (Number(item.price) || 0),
+    0,
+  );
+  const isPcfCalculated = !!requestData?.pcf_request_stages?.is_pcf_calculated;
+  const heroCurrentStep = getCurrentStep();
+  const isAllComplete = heroCurrentStep >= steps.length;
+  const heroStageLabel = isAllComplete
+    ? "Completed"
+    : steps[heroCurrentStep]?.title || "In Progress";
+  const completedStagesCount = Math.min(getCompletedStepsCount(), steps.length);
+  const formatWeight = (g: number) =>
+    Number.isInteger(g) ? g.toLocaleString("en-IN") : g.toFixed(2);
+  // Show only the region + state of a long address: drops the street, a trailing
+  // country (when 3+ segments), and postal codes — e.g.
+  // "Plot 45, Gachibowli, Hyderabad, Telangana 500032, India" -> "Hyderabad, Telangana".
+  const mainAddress = (addr: string) => {
+    let parts = String(addr || "")
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return String(addr || "-");
+    if (parts.length >= 3) parts = parts.slice(0, -1); // drop trailing country
+    const cleaned = parts
+      .slice(-2) // keep region + state
+      .map((p) =>
+        p
+          .replace(/\b\d[\d\s-]*\b/g, "") // strip postal codes
+          .replace(/\s+/g, " ")
+          .trim(),
+      )
+      .filter(Boolean);
+    return cleaned.join(", ") || String(addr || "-");
+  };
+  const isHighPriority = ["high", "critical", "urgent"].includes(
+    (requestData.priority || "").toLowerCase(),
+  );
+  const dataCollectionStages = requestData.pcf_data_collection_stage || [];
+  const primarySupplier =
+    dataCollectionStages[0]?.supplier || bomList[0]?.supplier || null;
+  const primarySupplierSubmitted = !!dataCollectionStages[0]?.is_submitted;
+
   return (
-    <div className="p-6 mx-auto bg-gray-50 min-h-screen">
-      {/* Back Button */}
-      <Button
-        type="text"
-        icon={<ChevronLeft size={16} />}
+    <div className="bg-[#F4F6F9] min-h-screen px-4 sm:px-6 lg:px-9 py-6 pb-14">
+      <div className="max-w-[1240px] mx-auto">
+      {/* Breadcrumb */}
+      <div
         onClick={() => navigate(-1)}
-        className="mb-4 hover:bg-gray-200"
+        className="flex items-center gap-2 text-sm text-gray-500 font-semibold cursor-pointer w-fit mb-4 hover:text-gray-700 transition-colors"
       >
-        Back to List
-      </Button>
+        <ChevronLeft size={18} />
+        Back to Footprint Connect
+      </div>
 
       {/* Rejection Banner */}
       {requestData?.is_rejected && (
@@ -614,289 +624,375 @@ const PCFRequestView: React.FC = () => {
         </div>
       )}
 
-      {/* Header Card */}
-      <Card className="!mb-6 shadow-sm rounded-xl border-gray-200">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-100 rounded-xl">
-              <Box size={32} className="text-green-600" />
+      {/* Header Card — D2 green header band */}
+      <div className="mb-5 bg-white border border-[#E6EAF0] rounded-[18px] shadow-sm overflow-hidden">
+        {/* Gradient hero band */}
+        <div
+          className="relative overflow-hidden px-7 py-6 text-white"
+          style={{
+            background:
+              "linear-gradient(120deg,#15803D 0%,#16A34A 55%,#0E9F6E 100%)",
+          }}
+        >
+          {/* decorative circle */}
+          <div
+            className="absolute -right-[50px] -top-[50px] w-[230px] h-[230px] rounded-full pointer-events-none"
+            style={{ background: "rgba(255,255,255,.07)" }}
+          />
+
+          {/* Title row */}
+          <div className="relative flex items-center gap-4">
+            <div
+              className="w-[46px] h-[46px] rounded-[13px] flex items-center justify-center flex-shrink-0"
+              style={{ background: "rgba(255,255,255,.18)" }}
+            >
+              <Box size={24} className="text-white" />
             </div>
-            <div>
-              <Title level={3} className="m-0 text-gray-800">
+            <div className="flex-1 min-w-0">
+              <div className="text-2xl font-extrabold tracking-tight truncate">
                 {requestData.request_title || "PCF Request"}
-              </Title>
-              <Text type="secondary" className="text-gray-500">
+              </div>
+              <div
+                className="font-mono text-xs mt-1 truncate"
+                style={{ color: "#D1FADF" }}
+              >
                 {requestData.code}
-              </Text>
+                {requestData.product_code ? ` · ${requestData.product_code}` : ""}
+              </div>
             </div>
+            <span
+              className="inline-flex items-center gap-[7px] rounded-full px-[15px] py-[7px] text-[13px] font-bold flex-shrink-0"
+              style={{
+                background: "rgba(255,255,255,.2)",
+                border: "1px solid rgba(255,255,255,.35)",
+              }}
+            >
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ background: isAllComplete ? "#86EFAC" : "#FCD34D" }}
+              />
+              {heroStageLabel}
+            </span>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <div className="bg-white px-2 py-2 rounded-lg flex items-center gap-2 border border-green-100">
-              <span className="bg-green-50 p-2 rounded-md text-green-600 w-10 h-10 flex items-center justify-center">
-                <Clock size={16} className="text-green-600" />
-              </span>
-              <div>
-                <div className="text-xs text-gray-500 font-medium">
-                  Stages Complete
-                </div>
-                <div className="text-sm font-bold text-gray-800">
-                  {getCompletedStepsCount()}/8
-                </div>
-              </div>
-            </div>
-            <div className="bg-white px-2 py-2 rounded-lg flex items-center gap-2 border border-blue-100">
-              <span className="bg-blue-50 p-2 rounded-md text-blue-600 w-10 h-10 flex items-center justify-center">
-                <Calendar size={16} className="text-blue-600" />
-              </span>
-              <div>
-                <div className="text-xs text-gray-500 font-medium">
-                  Due Date
-                </div>
-                <div className="text-sm font-bold text-gray-800">
-                  {new Date(requestData.due_date).toLocaleDateString()}
-                </div>
-              </div>
-            </div>
-            <div className="bg-white px-2 py-2 rounded-lg flex items-center gap-2 border border-orange-100">
-              <span className="bg-orange-50 p-2 rounded-md text-orange-600 w-10 h-10 flex items-center justify-center">
-                <AlertTriangle size={16} className="text-orange-600" />
-              </span>
-              <div>
-                <div className="text-xs text-gray-500 font-medium">
-                  Priority
-                </div>
-                <div className="text-sm font-bold text-gray-800">
-                  {requestData.priority}
-                </div>
-              </div>
-            </div>
-            <div className="bg-white px-2 py-2 rounded-lg flex items-center gap-2 border border-purple-100">
-              <span className="bg-purple-50 p-2 rounded-md text-purple-600 w-10 h-10 flex items-center justify-center">
-                <User size={16} className="text-purple-600" />
-              </span>
-              <div>
-                <div className="text-xs text-gray-500 font-medium">
-                  Submitted By
-                </div>
-                <div className="text-sm font-bold text-gray-800">
-                  {requestData.request_organization || "Unknown"}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <Divider className="my-6" />
-
-        <Row gutter={[24, 24]}>
-          <Col xs={24} md={6}>
-            <Text
-              type="secondary"
-              className="block text-xs uppercase font-bold mb-1"
-            >
-              Reference Number
-            </Text>
-            <Text className="text-gray-800 font-medium">
-              {requestData.code}
-            </Text>
-          </Col>
-          <Col xs={24} md={6}>
-            <Text
-              type="secondary"
-              className="block text-xs uppercase font-bold mb-1"
-            >
-              Submitted On
-            </Text>
-            <Text className="text-gray-800 font-medium">
-              {formatDate(requestData.created_date)}
-            </Text>
-          </Col>
-          <Col xs={24} md={6}>
-            <Text
-              type="secondary"
-              className="block text-xs uppercase font-bold mb-1"
-            >
-              Due Date
-            </Text>
-            <Text className="text-gray-800 font-medium">
-              {formatDate(requestData.due_date)}
-            </Text>
-          </Col>
-          <Col xs={24} md={6}>
-            <Text
-              type="secondary"
-              className="block text-xs uppercase font-bold mb-1"
-            >
-              Current Stage
-            </Text>
-            <Tag color={getCurrentStep() >= steps.length ? "green" : "blue"} className="font-medium">
-              {getCurrentStep() >= steps.length ? "Completed" : steps[getCurrentStep()].title}
-            </Tag>
-          </Col>
-        </Row>
-
-        <Divider className="my-6" />
-
-        <Row gutter={[24, 24]}>
-          <Col xs={24} md={6}>
-            <Text
-              type="secondary"
-              className="block text-xs uppercase font-bold mb-1"
-            >
-              Product Category
-            </Text>
-            <Text className="text-gray-800 font-medium">
-              {requestData.product_category?.name || "N/A"}
-            </Text>
-          </Col>
-          <Col xs={24} md={6}>
-            <Text
-              type="secondary"
-              className="block text-xs uppercase font-bold mb-1"
-            >
-              Component Category
-            </Text>
-            <Text className="text-gray-800 font-medium">
-              {requestData.component_category?.name || "N/A"}
-            </Text>
-          </Col>
-          <Col xs={24} md={6}>
-            <Text
-              type="secondary"
-              className="block text-xs uppercase font-bold mb-1"
-            >
-              Component Type
-            </Text>
-            <Text className="text-gray-800 font-medium">
-              {requestData.component_type?.name || "N/A"}
-            </Text>
-          </Col>
-          <Col xs={24} md={6}>
-            <Text
-              type="secondary"
-              className="block text-xs uppercase font-bold mb-1"
-            >
-              Product Code
-            </Text>
-            <Text className="text-gray-800 font-medium">
-              {requestData.product_code || "N/A"}
-            </Text>
-          </Col>
-        </Row>
-      </Card>
-
-      {/* Stage Stepper */}
-      <Card className="!mb-6 shadow-sm rounded-xl border-gray-200">
-        <Title level={4} className="mb-6">
-          PCF Request Stage
-        </Title>
-        <div className="overflow-x-auto pb-4">
-          <style>{`
-            .pcf-steps-container .ant-steps-item-icon {
-              margin-top: 0 !important;
-              width: 32px !important;
-              height: 32px !important;
-              line-height: 32px !important;
-            }
-            .pcf-steps-container .ant-steps-item-tail {
-              top: 16px !important;
-              height: 2px !important;
-              margin-top: 0 !important;
-              padding: 0 !important;
-              transform: translateY(0) !important;
-            }
-            .pcf-steps-container .ant-steps-item:not(:last-child) .ant-steps-item-tail {
-              right: calc(-50% + 16px) !important;
-            }
-            .pcf-steps-container .ant-steps-item-content {
-              margin-top: 8px !important;
-            }
-            .pcf-steps-container .ant-steps-item-process .ant-steps-item-icon {
-              background: transparent !important;
-            }
-            .pcf-steps-container .ant-steps-item-finish .ant-steps-item-icon {
-              background: transparent !important;
-            }
-            /* Green line for completed steps and line leading to current step */
-            .pcf-steps-container .ant-steps-item-finish .ant-steps-item-tail::after {
-              background-color: #22c55e !important;
-            }
-            /* Gray line for steps after current */
-            .pcf-steps-container .ant-steps-item-wait .ant-steps-item-tail::after {
-              background-color: #d1d5db !important;
-            }
-            /* Green line from last completed to current (in-progress) step */
-            .pcf-steps-container .ant-steps-item-process .ant-steps-item-tail::after {
-              background-color: #d1d5db !important;
-            }
-          `}</style>
-          <div className="pcf-steps-container">
-            <Steps
-              current={getCurrentStep()}
-              labelPlacement="vertical"
-              size="small"
-            >
-              {steps.map((step, index) => {
-                const currentStep = getCurrentStep();
-                const isCompleted = index < currentStep;
-                const isCurrent = index === currentStep;
-                const isPending = index > currentStep;
-
-                return (
-                  <Step
-                    key={index}
-                    title={step.title}
-                    icon={
-                      <div
-                        className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                          isCompleted
-                            ? "border-green-500 bg-green-50 text-green-600"
-                            : isCurrent
-                              ? "border-yellow-500 bg-yellow-50 text-yellow-600"
-                              : "border-gray-300 bg-white text-gray-400"
-                        }`}
-                      >
-                        {isCompleted ? <CheckCircle size={16} /> : step.icon}
-                      </div>
-                    }
-                  />
-                );
-              })}
-            </Steps>
-          </div>
-        </div>
-
-        {/* Current Stage Details */}
-        <div className={`mt-8 rounded-xl p-6 ${getCurrentStep() >= steps.length ? "bg-green-50 border border-green-200" : "bg-yellow-50 border border-yellow-200"}`}>
-          <div className="flex justify-between items-start">
+          {/* Metrics row */}
+          <div className="relative flex items-end gap-[26px] mt-[22px] flex-wrap">
             <div>
-              <h3 className="text-lg font-bold text-gray-800 mb-2">
-                {getCurrentStep() >= steps.length ? "All Stages Completed" : steps[getCurrentStep()].title}
-              </h3>
-              <p className="text-gray-600">
-                {getCurrentStep() >= steps.length
-                  ? "The PCF calculation has been completed and results have been submitted successfully."
-                  : `Stage Description: In this stage, we are processing the ${steps[getCurrentStep()].title.toLowerCase()}.`
-                }
-              </p>
+              <div
+                className="text-[11.5px] font-bold uppercase tracking-wide"
+                style={{ color: "#D1FADF" }}
+              >
+                Total Carbon Footprint
+              </div>
+              <div className="flex items-baseline gap-2 mt-1.5">
+                <span className="text-5xl font-extrabold leading-none tracking-tighter">
+                  {isPcfCalculated ? grandTotalEmission.toFixed(4) : "—"}
+                </span>
+                <span className="text-[15px]" style={{ color: "#D1FADF" }}>
+                  kg CO₂e
+                </span>
+              </div>
             </div>
-            <Tag color={getCurrentStep() >= steps.length ? "success" : "warning"}>
-              {getCurrentStep() >= steps.length ? "Completed" : "In Progress"}
-            </Tag>
+            <div className="flex gap-[11px] ml-auto flex-wrap">
+              {[
+                {
+                  label: "Weight",
+                  value: totalWeightGms
+                    ? `${formatWeight(totalWeightGms)} g`
+                    : "N/A",
+                  highlight: false,
+                },
+                {
+                  label: "Stages",
+                  value: `${completedStagesCount}/${steps.length}`,
+                  highlight: false,
+                },
+                {
+                  label: "Cost",
+                  value: totalCost
+                    ? `₹${totalCost.toLocaleString("en-IN")}`
+                    : "N/A",
+                  highlight: false,
+                },
+                {
+                  label: "Priority",
+                  value: requestData.priority || "N/A",
+                  highlight: isHighPriority,
+                },
+              ].map((chip) => (
+                <div
+                  key={chip.label}
+                  className="rounded-xl px-4 py-[11px]"
+                  style={{ background: "rgba(255,255,255,.14)" }}
+                >
+                  <div
+                    className="text-[10.5px] font-semibold"
+                    style={{ color: "#D1FADF" }}
+                  >
+                    {chip.label}
+                  </div>
+                  <div
+                    className="text-[17px] font-extrabold"
+                    style={chip.highlight ? { color: "#FCD34D" } : undefined}
+                  >
+                    {chip.value}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </Card>
+
+        {/* Detail grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-7 gap-y-[22px] px-[26px] py-[22px]">
+          {[
+            { label: "Reference Number", value: requestData.code, accent: false },
+            {
+              label: "Submitted On",
+              value: formatDate(requestData.created_date),
+              accent: false,
+            },
+            {
+              label: "Due Date",
+              value: formatDate(requestData.due_date),
+              accent: false,
+            },
+            {
+              label: "Current Stage",
+              value: heroStageLabel,
+              accent: isAllComplete,
+            },
+            {
+              label: "Product Category",
+              value: requestData.product_category?.name || "N/A",
+              accent: false,
+            },
+            {
+              label: "Component Category",
+              value: requestData.component_category?.name || "N/A",
+              accent: false,
+            },
+            {
+              label: "Component Type",
+              value: requestData.component_type?.name || "N/A",
+              accent: false,
+            },
+            {
+              label: "Product Code",
+              value: requestData.product_code || "N/A",
+              accent: false,
+            },
+          ].map((cell) => (
+            <div key={cell.label}>
+              <div className="text-[11.5px] uppercase tracking-wide text-gray-400 font-bold">
+                {cell.label}
+              </div>
+              <div
+                className={`text-sm font-bold mt-1.5 ${
+                  cell.accent ? "text-green-700" : "text-gray-800"
+                }`}
+              >
+                {cell.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Stage Stepper — custom horizontal tracker */}
+      <div className="mb-5 bg-white border border-[#E6EAF0] rounded-[18px] shadow-sm p-6">
+        <div className="flex items-center gap-2.5 mb-7 flex-wrap">
+          <h2 className="m-0 text-[17px] font-extrabold text-gray-900">
+            PCF Request Stages
+          </h2>
+          <span className="text-[12.5px] text-gray-400 font-semibold">
+            {isAllComplete
+              ? `All ${steps.length} stages complete`
+              : `${completedStagesCount} of ${steps.length} stages complete`}
+          </span>
+        </div>
+
+        {/* Tracker */}
+        <div className="overflow-x-auto pb-1">
+          <div className="relative flex items-start justify-between gap-1 min-w-[660px]">
+            {/* base line */}
+            <div className="absolute top-[17px] left-[5%] right-[5%] h-[3px] bg-gray-200 rounded" />
+            {/* progress line */}
+            <div
+              className="absolute top-[17px] left-[5%] h-[3px] rounded"
+              style={{
+                width: `${Math.min(
+                  (completedStagesCount / Math.max(steps.length - 1, 1)) * 90,
+                  90,
+                )}%`,
+                background: "linear-gradient(90deg,#16A34A,#22C55E)",
+              }}
+            />
+            {steps.map((step, index) => {
+              const isCompleted = index < heroCurrentStep;
+              const isCurrent = index === heroCurrentStep;
+              return (
+                <div
+                  key={index}
+                  className="relative z-[1] flex-1 flex flex-col items-center gap-2.5"
+                >
+                  <div
+                    className={`w-9 h-9 rounded-full flex items-center justify-center border-4 border-white ${
+                      isCompleted
+                        ? "bg-[#16A34A] text-white"
+                        : isCurrent
+                          ? "bg-amber-400 text-white"
+                          : "bg-gray-200 text-gray-400"
+                    }`}
+                    style={{
+                      boxShadow: isCompleted
+                        ? "0 0 0 1px #BBF7D0"
+                        : isCurrent
+                          ? "0 0 0 1px #FDE68A"
+                          : "0 0 0 1px #E5E7EB",
+                    }}
+                  >
+                    {isCompleted ? (
+                      <Check size={17} strokeWidth={3} />
+                    ) : isCurrent ? (
+                      <Clock size={15} />
+                    ) : (
+                      <span className="text-[11px] font-bold">{index + 1}</span>
+                    )}
+                  </div>
+                  <div className="text-[11.5px] font-bold text-gray-700 text-center leading-tight max-w-[92px]">
+                    {step.title}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Completion banner */}
+        <div
+          className={`mt-6 flex items-center gap-4 rounded-[14px] px-5 py-[18px] ${
+            isAllComplete
+              ? "bg-[#ECFDF3] border border-[#BBF7D0]"
+              : "bg-amber-50 border border-amber-200"
+          }`}
+        >
+          <div
+            className={`w-[42px] h-[42px] rounded-[11px] flex items-center justify-center flex-shrink-0 ${
+              isAllComplete ? "bg-[#16A34A]" : "bg-amber-400"
+            }`}
+          >
+            {isAllComplete ? (
+              <Check size={22} strokeWidth={3} className="text-white" />
+            ) : (
+              <Clock size={20} className="text-white" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div
+              className={`text-[15px] font-extrabold ${
+                isAllComplete ? "text-[#14532D]" : "text-amber-900"
+              }`}
+            >
+              {isAllComplete
+                ? "All stages completed"
+                : steps[heroCurrentStep]?.title || "In Progress"}
+            </div>
+            <div
+              className={`text-[13px] mt-0.5 ${
+                isAllComplete ? "text-[#3F6B4E]" : "text-amber-700"
+              }`}
+            >
+              {isAllComplete
+                ? "The PCF calculation has been completed and results submitted successfully."
+                : `In this stage, we are processing the ${
+                    steps[heroCurrentStep]?.title?.toLowerCase() || "request"
+                  }.`}
+            </div>
+          </div>
+          <span
+            className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold border ${
+              isAllComplete
+                ? "bg-white text-[#15803D] border-[#BBF7D0]"
+                : "bg-white text-amber-700 border-amber-200"
+            }`}
+          >
+            {isAllComplete ? "Completed" : "In Progress"}
+          </span>
+        </div>
+      </div>
+
+      {/* Supplier Information summary card */}
+      {primarySupplier && (
+        <div className="mb-5 bg-white border border-[#E6EAF0] rounded-[18px] shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-11 h-11 rounded-xl bg-[#EFF5FF] flex items-center justify-center flex-shrink-0">
+              <User size={22} className="text-blue-600" />
+            </div>
+            <div className="text-base font-extrabold text-gray-900">
+              Supplier Information
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10">
+            <div className="flex items-center justify-between gap-4 py-2.5 border-b border-[#EEF1F5]">
+              <span className="text-[13.5px] text-gray-400 font-semibold">
+                Supplier Name
+              </span>
+              <span className="text-sm font-bold text-gray-800 text-right">
+                {primarySupplier.supplier_name || "N/A"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-2.5 border-b border-[#EEF1F5]">
+              <span className="text-[13.5px] text-gray-400 font-semibold">
+                Email
+              </span>
+              <span
+                className="text-sm font-bold text-gray-800 text-right truncate"
+                title={primarySupplier.supplier_email || ""}
+              >
+                {primarySupplier.supplier_email || "N/A"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-2.5 border-b border-[#EEF1F5]">
+              <span className="text-[13.5px] text-gray-400 font-semibold">
+                Phone
+              </span>
+              <span className="text-sm font-bold text-gray-800 font-mono text-right">
+                {primarySupplier.supplier_phone_number || "N/A"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-2.5 border-b border-[#EEF1F5]">
+              <span className="text-[13.5px] text-gray-400 font-semibold">
+                Questionnaire
+              </span>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-bold border ${
+                  primarySupplierSubmitted
+                    ? "bg-[#ECFDF3] text-[#15803D] border-[#BBF7D0]"
+                    : "bg-amber-50 text-amber-700 border-amber-200"
+                }`}
+              >
+                {primarySupplierSubmitted ? (
+                  <Check size={12} strokeWidth={3} />
+                ) : (
+                  <Clock size={12} />
+                )}
+                {primarySupplierSubmitted ? "Completed" : "Pending"}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Task Management Section - Show only in Data Collection stage (step 3) */}
       {getCurrentStep() === 3 && (
-        <Card className="!mb-6 shadow-sm rounded-xl border-gray-200">
+        <Card className="!mb-5 !rounded-[18px] !border-[#E6EAF0] shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-green-100 rounded-lg">
               <CheckSquare size={24} className="text-green-600" />
             </div>
             <Title level={4} className="m-0">
-              Task Management
+              Workflow Center
             </Title>
           </div>
 
@@ -1056,327 +1152,329 @@ const PCFRequestView: React.FC = () => {
         </Card>
       )}
 
-      {/* Data Collection Status Section - Show after BOM is verified */}
-      {requestData?.pcf_request_stages?.is_bom_verified && (
-        <Card className="!mb-6 shadow-sm rounded-xl border-gray-200">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Database size={24} className="text-blue-600" />
-              </div>
-              <div>
-                <Title level={4} className="m-0">
-                  Data Collection Status
-                </Title>
-                <Text type="secondary" className="text-sm">
-                  {(() => {
-                    const stages = requestData.pcf_data_collection_stage || [];
-                    const submitted = stages.filter(
-                      (s: any) => s.is_submitted,
-                    ).length;
-                    return `${submitted}/${stages.length} suppliers submitted`;
-                  })()}
-                </Text>
-              </div>
-            </div>
-            {isDataCollectionComplete() ? (
-              <Tag color="success" className="text-sm px-3 py-1">
-                <CheckCircle size={14} className="inline mr-1" />
-                All Completed
-              </Tag>
-            ) : (
-              <Tag color="processing" className="text-sm px-3 py-1">
-                <Clock size={14} className="inline mr-1" />
-                In Progress
-              </Tag>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            {(requestData.pcf_data_collection_stage || []).map(
-              (stage: any, index: number) => (
-                <div
-                  key={stage.id || index}
-                  className={`p-4 rounded-xl border ${
-                    stage.is_submitted
-                      ? "bg-green-50 border-green-200"
-                      : "bg-gray-50 border-gray-200"
+      {/* Status cards: Data Collection + Data Quality Rating (2-col) */}
+      {(requestData?.pcf_request_stages?.is_bom_verified ||
+        getCurrentStep() >= 4) && (
+        <div
+          className={`mb-5 grid gap-5 items-stretch ${
+            requestData?.pcf_request_stages?.is_bom_verified &&
+            getCurrentStep() >= 4
+              ? "lg:grid-cols-2"
+              : "grid-cols-1"
+          }`}
+        >
+          {/* Data Collection */}
+          {requestData?.pcf_request_stages?.is_bom_verified && (
+            <div className="bg-white border border-[#E6EAF0] rounded-[18px] shadow-sm p-6">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-[#EFF5FF] flex items-center justify-center flex-shrink-0">
+                  <Database size={22} className="text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-base font-extrabold text-gray-900">
+                    Data Collection
+                  </div>
+                  <div className="text-[12.5px] text-gray-400 font-semibold mt-0.5">
+                    {(() => {
+                      const stages =
+                        requestData.pcf_data_collection_stage || [];
+                      const submitted = stages.filter(
+                        (s: any) => s.is_submitted,
+                      ).length;
+                      return `${submitted} / ${stages.length} suppliers submitted`;
+                    })()}
+                  </div>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-bold border flex-shrink-0 ${
+                    isDataCollectionComplete()
+                      ? "bg-[#ECFDF3] text-[#15803D] border-[#BBF7D0]"
+                      : "bg-amber-50 text-amber-700 border-amber-200"
                   }`}
                 >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
+                  {isDataCollectionComplete() ? (
+                    <Check size={13} strokeWidth={3} />
+                  ) : (
+                    <Clock size={13} />
+                  )}
+                  {isDataCollectionComplete() ? "All Completed" : "In Progress"}
+                </span>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {(requestData.pcf_data_collection_stage || []).map(
+                  (stage: any, index: number) => (
+                    <div
+                      key={stage.id || index}
+                      className="bg-[#F8FAFB] border border-[#EEF1F5] rounded-[13px] p-4"
+                    >
+                      <div className="flex items-start gap-3">
                         <div
-                          className={`p-2 rounded-full ${
+                          className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
                             stage.is_submitted
-                              ? "bg-green-100 text-green-600"
-                              : "bg-gray-200 text-gray-500"
+                              ? "bg-[#ECFDF3] text-[#16A34A]"
+                              : "bg-gray-200 text-gray-400"
                           }`}
                         >
                           {stage.is_submitted ? (
-                            <CheckCircle size={20} />
+                            <Check size={15} strokeWidth={3} />
                           ) : (
-                            <XCircle size={20} />
+                            <XCircle size={15} />
                           )}
                         </div>
-                        <div>
-                          <Title level={5} className="m-0">
-                            {stage.supplier?.supplier_name ||
-                              "Unknown Supplier"}
-                          </Title>
-                          <Text type="secondary" className="text-xs">
-                            {stage.supplier?.code || "N/A"}
-                          </Text>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm ml-11">
-                        <div className="flex items-center gap-2">
-                          <Mail size={14} className="text-gray-400" />
-                          <Text className="text-gray-600">
-                            {stage.supplier?.supplier_email || "N/A"}
-                          </Text>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Phone size={14} className="text-gray-400" />
-                          <Text className="text-gray-600">
-                            {stage.supplier?.supplier_phone_number || "N/A"}
-                          </Text>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar size={14} className="text-gray-400" />
-                          <Text className="text-gray-600">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div>
+                              <div className="text-[14.5px] font-extrabold text-gray-900">
+                                {stage.supplier?.supplier_name ||
+                                  "Unknown Supplier"}
+                              </div>
+                              <div className="font-mono text-xs text-gray-400">
+                                {stage.supplier?.code || "N/A"}
+                              </div>
+                            </div>
+                            {stage.is_submitted ? (
+                              <Button
+                                type="primary"
+                                size="small"
+                                icon={<Eye size={15} />}
+                                onClick={() =>
+                                  fetchQuestionnaireResponses(
+                                    stage.supplier?.sup_id,
+                                    stage.supplier?.supplier_name || "Supplier",
+                                  )
+                                }
+                                className="!bg-[#16A34A] hover:!bg-[#15803D] !border-[#16A34A] !rounded-[10px] !font-bold"
+                              >
+                                View Responses
+                              </Button>
+                            ) : (
+                              stage.supplier?.sup_id &&
+                              id && (
+                                <Button
+                                  size="small"
+                                  icon={<Send size={14} />}
+                                  loading={
+                                    resendingSupId === stage.supplier.sup_id
+                                  }
+                                  disabled={!stage.supplier?.supplier_email}
+                                  onClick={() =>
+                                    handleResendSupplierEmail(
+                                      stage.supplier.sup_id,
+                                      stage.supplier.supplier_name ||
+                                        "this supplier",
+                                      stage.supplier?.supplier_email || "",
+                                    )
+                                  }
+                                  className="!rounded-[10px] !font-bold"
+                                >
+                                  Resend Email
+                                </Button>
+                              )
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-[12.5px] text-gray-500">
+                            <span className="inline-flex items-center gap-1.5 min-w-0">
+                              <Mail
+                                size={14}
+                                className="text-gray-400 flex-shrink-0"
+                              />
+                              <span className="truncate">
+                                {stage.supplier?.supplier_email || "N/A"}
+                              </span>
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                              <Phone size={14} className="text-gray-400" />
+                              {stage.supplier?.supplier_phone_number || "N/A"}
+                            </span>
+                          </div>
+                          <div
+                            className={`flex items-center gap-1.5 mt-2 text-xs font-semibold ${
+                              stage.completed_date
+                                ? "text-[#15803D]"
+                                : "text-gray-400"
+                            }`}
+                          >
+                            <Clock size={13} />
                             {stage.completed_date
-                              ? `Completed: ${formatDate(stage.completed_date)}`
+                              ? `Completed ${formatDate(stage.completed_date)}`
                               : "Not yet submitted"}
-                          </Text>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 ml-4">
-                      {stage.is_submitted && (
-                        <Button
-                          type="primary"
-                          size="small"
-                          icon={<ClipboardList size={14} />}
-                          onClick={() =>
-                            fetchQuestionnaireResponses(
-                              stage.supplier?.sup_id,
-                              stage.supplier?.supplier_name || "Supplier",
-                            )
-                          }
-                          className="!bg-green-600 hover:!bg-green-700 !border-green-600"
-                        >
-                          View Responses
-                        </Button>
-                      )}
-                      {!stage.is_submitted && stage.supplier?.sup_id && id && (
-                        <Button
-                          size="small"
-                          icon={<Send size={14} />}
-                          loading={resendingSupId === stage.supplier.sup_id}
-                          disabled={!stage.supplier?.supplier_email}
-                          onClick={() =>
-                            handleResendSupplierEmail(
-                              stage.supplier.sup_id,
-                              stage.supplier.supplier_name || "this supplier",
-                              stage.supplier?.supplier_email || ""
-                            )
-                          }
-                        >
-                          Resend Email
-                        </Button>
-                      )}
-                      <Tag color={stage.is_submitted ? "success" : "default"}>
-                        {stage.is_submitted ? "Submitted" : "Pending"}
-                      </Tag>
-                    </div>
-                  </div>
-                </div>
-              ),
-            )}
-
-            {(requestData.pcf_data_collection_stage || []).length === 0 && (
-              <div className="text-center py-8">
-                <Database size={48} className="text-gray-400 mx-auto mb-4" />
-                <Text type="secondary">
-                  No data collection requests have been sent yet.
-                </Text>
-              </div>
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* DQR Status Section - Show when Data Collection is complete (step 4 or beyond) */}
-      {getCurrentStep() >= 4 && (
-        <Card className="!mb-6 shadow-sm rounded-xl border-gray-200">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Star size={24} className="text-purple-600" />
-              </div>
-              <div>
-                <Title level={4} className="m-0">
-                  Data Quality Rating Status
-                </Title>
-                <Text type="secondary" className="text-sm">
-                  {(() => {
-                    const dqrStages =
-                      requestData.pcf_data_dqr_rating_stage || [];
-                    const completed = dqrStages.filter(
-                      (s: any) => s.is_submitted && s.completed_date,
-                    ).length;
-                    return `${completed}/${dqrStages.length} assessments completed`;
-                  })()}
-                </Text>
-              </div>
-            </div>
-            {isDqrComplete() ? (
-              <Tag color="success" className="text-sm px-3 py-1">
-                <CheckCircle size={14} className="inline mr-1" />
-                All Completed
-              </Tag>
-            ) : (
-              <Tag color="warning" className="text-sm px-3 py-1">
-                <Clock size={14} className="inline mr-1" />
-                In Progress
-              </Tag>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            {(requestData.pcf_data_dqr_rating_stage || []).map(
-              (item: any, index: number) => (
-                <div
-                  key={item.id || index}
-                  className={`p-4 rounded-xl border ${
-                    item.is_submitted && item.completed_date
-                      ? "bg-green-50 border-green-200"
-                      : "bg-yellow-50 border-yellow-200"
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div
-                          className={`p-2 rounded-full ${
-                            item.is_submitted && item.completed_date
-                              ? "bg-green-100 text-green-600"
-                              : "bg-yellow-100 text-yellow-600"
-                          }`}
-                        >
-                          {item.is_submitted && item.completed_date ? (
-                            <CheckCircle size={20} />
-                          ) : (
-                            <Star size={20} />
-                          )}
-                        </div>
-                        <div>
-                          <Title level={5} className="m-0">
-                            {item.supplier?.supplier_name || "Unknown Supplier"}
-                          </Title>
-                          <Text type="secondary" className="text-xs">
-                            {item.supplier?.code || "N/A"}
-                          </Text>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm ml-11">
-                        <div className="flex items-center gap-2">
-                          <Mail size={14} className="text-gray-400" />
-                          <Text className="text-gray-600">
-                            {item.supplier?.supplier_email || "N/A"}
-                          </Text>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Phone size={14} className="text-gray-400" />
-                          <Text className="text-gray-600">
-                            {item.supplier?.supplier_phone_number || "N/A"}
-                          </Text>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar size={14} className="text-gray-400" />
-                          <Text className="text-gray-600">
-                            {item.completed_date
-                              ? `Completed: ${formatDate(item.completed_date)}`
-                              : `Created: ${formatDate(item.created_date)}`}
-                          </Text>
-                        </div>
-                      </div>
-
-                      {item.submittedBy && (
-                        <div className="mt-3 ml-11">
-                          <div className="flex items-center gap-2 text-sm">
-                            <User size={14} className="text-gray-400" />
-                            <Text className="text-gray-600">
-                              Submitted by:{" "}
-                              {item.submittedBy.user_name || "Unknown"} (
-                              {item.submittedBy.user_role || "N/A"})
-                            </Text>
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
+                  ),
+                )}
 
-                    <div className="flex items-center gap-2 ml-4">
-                      <Tag
-                        color={
-                          item.is_submitted && item.completed_date
-                            ? "success"
-                            : "warning"
-                        }
-                      >
-                        {item.is_submitted && item.completed_date
-                          ? "Completed"
-                          : "Pending"}
-                      </Tag>
-                      <Button
-                        type="link"
-                        size="small"
-                        icon={<ExternalLink size={14} />}
-                        onClick={() => {
-                          const sgiq_id = getSgiqIdBySupplier(
-                            item.supplier?.sup_id,
-                          );
-                          if (sgiq_id) {
-                            navigate(
-                              `/data-quality-rating/view?sgiq_id=${sgiq_id}&bom_pcf_id=${id}`,
-                            );
-                          } else {
-                            message.warning(
-                              "DQR data not found for this supplier",
-                            );
-                          }
-                        }}
-                        disabled={!getSgiqIdBySupplier(item.supplier?.sup_id)}
-                      >
-                        {item.is_submitted && item.completed_date
-                          ? "View"
-                          : "Assess"}
-                      </Button>
-                    </div>
+                {(requestData.pcf_data_collection_stage || []).length === 0 && (
+                  <div className="text-center py-8">
+                    <Database size={48} className="text-gray-300 mx-auto mb-4" />
+                    <Text type="secondary">
+                      No data collection requests have been sent yet.
+                    </Text>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Data Quality Rating */}
+          {getCurrentStep() >= 4 && (
+            <div className="bg-white border border-[#E6EAF0] rounded-[18px] shadow-sm p-6">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-[#F5F0FF] flex items-center justify-center flex-shrink-0">
+                  <Star size={22} className="text-[#7C3AED]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-base font-extrabold text-gray-900">
+                    Data Quality Rating
+                  </div>
+                  <div className="text-[12.5px] text-gray-400 font-semibold mt-0.5">
+                    {(() => {
+                      const dqrStages =
+                        requestData.pcf_data_dqr_rating_stage || [];
+                      const completed = dqrStages.filter(
+                        (s: any) => s.is_submitted && s.completed_date,
+                      ).length;
+                      return `${completed} / ${dqrStages.length} assessments completed`;
+                    })()}
                   </div>
                 </div>
-              ),
-            )}
-
-            {(requestData.pcf_data_dqr_rating_stage || []).length === 0 && (
-              <div className="text-center py-8">
-                <Star size={48} className="text-gray-400 mx-auto mb-4" />
-                <Text type="secondary">
-                  No DQR assessments available. Complete data collection first.
-                </Text>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-bold border flex-shrink-0 ${
+                    isDqrComplete()
+                      ? "bg-[#ECFDF3] text-[#15803D] border-[#BBF7D0]"
+                      : "bg-amber-50 text-amber-700 border-amber-200"
+                  }`}
+                >
+                  {isDqrComplete() ? (
+                    <Check size={13} strokeWidth={3} />
+                  ) : (
+                    <Clock size={13} />
+                  )}
+                  {isDqrComplete() ? "All Completed" : "In Progress"}
+                </span>
               </div>
-            )}
-          </div>
-        </Card>
+
+              <div className="mt-4 space-y-3">
+                {(requestData.pcf_data_dqr_rating_stage || []).map(
+                  (item: any, index: number) => {
+                    const done = item.is_submitted && item.completed_date;
+                    return (
+                      <div
+                        key={item.id || index}
+                        className="bg-[#F8FAFB] border border-[#EEF1F5] rounded-[13px] p-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                              done
+                                ? "bg-[#ECFDF3] text-[#16A34A]"
+                                : "bg-amber-100 text-amber-600"
+                            }`}
+                          >
+                            {done ? (
+                              <Check size={15} strokeWidth={3} />
+                            ) : (
+                              <Star size={14} />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                              <div>
+                                <div className="text-[14.5px] font-extrabold text-gray-900">
+                                  {item.supplier?.supplier_name ||
+                                    "Unknown Supplier"}
+                                </div>
+                                <div className="font-mono text-xs text-gray-400">
+                                  {item.supplier?.code || "N/A"}
+                                </div>
+                              </div>
+                              <Button
+                                size="small"
+                                icon={<ExternalLink size={14} />}
+                                onClick={() => {
+                                  const sgiq_id = getSgiqIdBySupplier(
+                                    item.supplier?.sup_id,
+                                  );
+                                  if (sgiq_id) {
+                                    navigate(
+                                      `/data-quality-rating/view?sgiq_id=${sgiq_id}&bom_pcf_id=${id}`,
+                                    );
+                                  } else {
+                                    message.warning(
+                                      "DQR data not found for this supplier",
+                                    );
+                                  }
+                                }}
+                                disabled={
+                                  !getSgiqIdBySupplier(item.supplier?.sup_id)
+                                }
+                                className="!rounded-[10px] !font-bold !bg-white !text-[#2563EB] !border-[#BFD3FE] hover:!bg-[#EFF5FF]"
+                              >
+                                {done ? "View" : "Assess"}
+                              </Button>
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-[12.5px] text-gray-500">
+                              <span className="inline-flex items-center gap-1.5 min-w-0">
+                                <Mail
+                                  size={14}
+                                  className="text-gray-400 flex-shrink-0"
+                                />
+                                <span className="truncate">
+                                  {item.supplier?.supplier_email || "N/A"}
+                                </span>
+                              </span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <Phone size={14} className="text-gray-400" />
+                                {item.supplier?.supplier_phone_number || "N/A"}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2 text-xs font-semibold">
+                              <span
+                                className={`inline-flex items-center gap-1.5 ${
+                                  done ? "text-[#15803D]" : "text-amber-600"
+                                }`}
+                              >
+                                <Clock size={13} />
+                                {item.completed_date
+                                  ? `Completed ${formatDate(item.completed_date)}`
+                                  : `Created ${formatDate(item.created_date)}`}
+                              </span>
+                              {item.submittedBy && (
+                                <span className="inline-flex items-center gap-1.5 text-gray-400">
+                                  <User size={13} />
+                                  Submitted by{" "}
+                                  {item.submittedBy.user_name || "Unknown"} (
+                                  {item.submittedBy.user_role || "N/A"})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  },
+                )}
+
+                {(requestData.pcf_data_dqr_rating_stage || []).length === 0 && (
+                  <div className="text-center py-8">
+                    <Star size={48} className="text-gray-300 mx-auto mb-4" />
+                    <Text type="secondary">
+                      No DQR assessments available. Complete data collection
+                      first.
+                    </Text>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* PCF Calculation Section - Show when in PCF Calculation stage (step 5) */}
       {getCurrentStep() === 5 && (
-        <Card className="!mb-6 shadow-sm rounded-xl border-gray-200">
+        <Card className="!mb-5 !rounded-[18px] !border-[#E6EAF0] shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-100 rounded-lg">
@@ -1470,22 +1568,22 @@ const PCFRequestView: React.FC = () => {
 
       {/* Result Validation Section - Show when PCF is calculated (step 6 or beyond) */}
       {requestData?.pcf_request_stages?.is_pcf_calculated && (
-        <Card className="!mb-6 shadow-sm rounded-xl border-gray-200">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <BarChart3 size={24} className="text-green-600" />
+        <Card className="!mb-5 !rounded-[18px] !border-[#E6EAF0] shadow-sm">
+          <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-[13px] bg-[#ECFDF3] flex items-center justify-center flex-shrink-0">
+                <BarChart3 size={24} className="text-[#16A34A]" />
               </div>
               <div>
-                <Title level={4} className="m-0">
-                  PCF Results & Validation
-                </Title>
-                <Text type="secondary" className="text-sm">
+                <h2 className="m-0 text-lg font-extrabold text-gray-900">
+                  PCF Results &amp; Validation
+                </h2>
+                <div className="text-[13px] text-gray-400 mt-0.5">
                   Review calculated carbon footprint data for all components
-                </Text>
+                </div>
               </div>
             </div>
-            {!requestData?.pcf_request_stages?.is_result_submitted && (
+            {!requestData?.pcf_request_stages?.is_result_submitted ? (
               <Button
                 type="primary"
                 size="large"
@@ -1502,12 +1600,11 @@ const PCFRequestView: React.FC = () => {
               >
                 {submittingInternally ? "Submitting..." : "Submit PCF Results"}
               </Button>
-            )}
-            {requestData?.pcf_request_stages?.is_result_submitted && (
-              <Tag color="success" className="text-sm px-3 py-1">
-                <CheckCircle size={14} className="inline mr-1" />
+            ) : (
+              <span className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold bg-[#ECFDF3] text-[#15803D] border border-[#BBF7D0]">
+                <Check size={14} strokeWidth={3} />
                 Results Submitted
-              </Tag>
+              </span>
             )}
           </div>
 
@@ -1522,7 +1619,7 @@ const PCFRequestView: React.FC = () => {
                 label: (
                   <span className="flex items-center gap-2">
                     <Eye size={16} />
-                    Overview
+                    Footprint Overview
                   </span>
                 ),
                 children: (
@@ -1558,6 +1655,7 @@ const PCFRequestView: React.FC = () => {
                       )}
                       readOnly={true}
                       showCalculatedEmissions={true}
+                      variant="detail"
                     />
 
                     {/* Summary Cards */}
@@ -1568,8 +1666,8 @@ const PCFRequestView: React.FC = () => {
                           value: (requestData?.bom_list || []).reduce(
                             (sum: number, item: any) =>
                               sum +
-                              (item.pcf_total_emission_calculation
-                                ?.material_value || 0),
+                              (Number(item.pcf_total_emission_calculation
+                                ?.material_value) || 0),
                             0,
                           ),
                           color: "blue",
@@ -1579,8 +1677,8 @@ const PCFRequestView: React.FC = () => {
                           value: (requestData?.bom_list || []).reduce(
                             (sum: number, item: any) =>
                               sum +
-                              (item.pcf_total_emission_calculation
-                                ?.production_value || 0),
+                              (Number(item.pcf_total_emission_calculation
+                                ?.production_value) || 0),
                             0,
                           ),
                           color: "purple",
@@ -1590,8 +1688,8 @@ const PCFRequestView: React.FC = () => {
                           value: (requestData?.bom_list || []).reduce(
                             (sum: number, item: any) =>
                               sum +
-                              (item.pcf_total_emission_calculation
-                                ?.packaging_value || 0),
+                              (Number(item.pcf_total_emission_calculation
+                                ?.packaging_value) || 0),
                             0,
                           ),
                           color: "orange",
@@ -1601,8 +1699,8 @@ const PCFRequestView: React.FC = () => {
                           value: (requestData?.bom_list || []).reduce(
                             (sum: number, item: any) =>
                               sum +
-                              (item.pcf_total_emission_calculation
-                                ?.waste_value || 0),
+                              (Number(item.pcf_total_emission_calculation
+                                ?.waste_value) || 0),
                             0,
                           ),
                           color: "red",
@@ -1612,8 +1710,8 @@ const PCFRequestView: React.FC = () => {
                           value: (requestData?.bom_list || []).reduce(
                             (sum: number, item: any) =>
                               sum +
-                              (item.pcf_total_emission_calculation
-                                ?.logistic_value || 0),
+                              (Number(item.pcf_total_emission_calculation
+                                ?.logistic_value) || 0),
                             0,
                           ),
                           color: "cyan",
@@ -1623,28 +1721,37 @@ const PCFRequestView: React.FC = () => {
                           value: (requestData?.bom_list || []).reduce(
                             (sum: number, item: any) =>
                               sum +
-                              (item.pcf_total_emission_calculation
-                                ?.total_pcf_value || 0),
+                              (Number(item.pcf_total_emission_calculation
+                                ?.total_pcf_value) || 0),
                             0,
                           ),
                           color: "green",
                         },
-                      ].map((card, idx) => (
-                        <div
-                          key={idx}
-                          className={`p-4 rounded-xl border ${card.color === "green" ? "bg-green-50 border-green-200" : card.color === "blue" ? "bg-blue-50 border-blue-100" : card.color === "purple" ? "bg-purple-50 border-purple-100" : card.color === "orange" ? "bg-orange-50 border-orange-100" : card.color === "red" ? "bg-red-50 border-red-100" : "bg-cyan-50 border-cyan-100"}`}
-                        >
+                      ].map((card, idx) => {
+                        const isGrand = card.color === "green";
+                        return (
                           <div
-                            className={`text-2xl font-bold ${card.color === "green" ? "text-green-700" : card.color === "blue" ? "text-blue-700" : card.color === "purple" ? "text-purple-700" : card.color === "orange" ? "text-orange-700" : card.color === "red" ? "text-red-700" : "text-cyan-700"}`}
+                            key={idx}
+            className={`p-4 rounded-[13px] ${isGrand ? "bg-[linear-gradient(135deg,#15803D,#0E6E33)]" : card.color === "blue" ? "bg-[#EFF5FF]" : card.color === "purple" ? "bg-[#F5F0FF]" : card.color === "orange" ? "bg-[#FFF4EC]" : card.color === "red" ? "bg-[#FEF1F1]" : "bg-[#ECFAFF]"}`}
                           >
-                            {card.value.toFixed(4)}
+                            <div
+                              className={`text-xl font-extrabold tracking-tight ${isGrand ? "text-white" : card.color === "blue" ? "text-[#2563EB]" : card.color === "purple" ? "text-[#7C3AED]" : card.color === "orange" ? "text-[#EA580C]" : card.color === "red" ? "text-[#DC2626]" : "text-[#0891B2]"}`}
+                            >
+                              {card.value.toFixed(4)}
+                            </div>
+                            <div
+                              className={`text-xs mt-1.5 font-bold ${isGrand ? "text-[#D1FADF]" : "text-[#334155]"}`}
+                            >
+                              {card.label}
+                            </div>
+                            <div
+                              className={`text-[10.5px] ${isGrand ? "text-[#A7F3C8]" : "text-gray-400"}`}
+                            >
+                              kg CO₂e
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {card.label}
-                          </div>
-                          <div className="text-xs text-gray-400">kg CO₂e</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ),
@@ -1654,108 +1761,89 @@ const PCFRequestView: React.FC = () => {
                 label: (
                   <span className="flex items-center gap-2">
                     <Leaf size={16} />
-                    Emissions
+                    Emissions Breakdown
                   </span>
                 ),
                 children: (
                   <div className="pt-4">
-                    {/* Emissions Breakdown Table */}
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full">
-                        <thead>
-                          <tr className="bg-gradient-to-r from-green-600 to-emerald-600">
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                              Component Name
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                              Material Number
-                            </th>
-                            <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Material (kg CO₂e)
-                            </th>
-                            <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Production (kg CO₂e)
-                            </th>
-                            <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Packaging (kg CO₂e)
-                            </th>
-                            <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Waste (kg CO₂e)
-                            </th>
-                            <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Logistics (kg CO₂e)
-                            </th>
-                            <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Total PCF (kg CO₂e)
-                            </th>
-                            <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              % of Total
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-100">
-                          {(() => {
-                            const bomList = requestData?.bom_list || [];
-                            const grandTotal = bomList.reduce(
-                              (sum: number, item: any) =>
-                                sum +
-                                (item.pcf_total_emission_calculation
-                                  ?.total_pcf_value || 0),
-                              0,
+                    {/* Emissions Breakdown — per-component / per-stage table (D2 design) */}
+                    <div className="border border-[#EEF1F5] rounded-[14px] overflow-hidden">
+                      <div
+                        className="grid text-white text-[10.5px] font-bold uppercase tracking-wide"
+                        style={{
+                          gridTemplateColumns:
+                            "1.4fr 1fr repeat(6, 0.85fr) 0.7fr",
+                          background: "linear-gradient(90deg,#16A34A,#0E9F6E)",
+                        }}
+                      >
+                        <div className="px-4 py-[13px]">Component</div>
+                        <div className="px-2 py-[13px]">Material No.</div>
+                        <div className="px-2 py-[13px] text-right">Material</div>
+                        <div className="px-2 py-[13px] text-right">Production</div>
+                        <div className="px-2 py-[13px] text-right">Packaging</div>
+                        <div className="px-2 py-[13px] text-right">Waste</div>
+                        <div className="px-2 py-[13px] text-right">Logistics</div>
+                        <div className="px-2 py-[13px] text-right">Total PCF</div>
+                        <div className="px-3.5 py-[13px] text-right">% Total</div>
+                      </div>
+                      <div className="divide-y divide-[#EEF1F5]">
+                        {(() => {
+                          const bomList = requestData?.bom_list || [];
+                          const grandTotal = bomList.reduce(
+                            (sum: number, item: any) =>
+                              sum +
+                              (item.pcf_total_emission_calculation
+                                ?.total_pcf_value || 0),
+                            0,
+                          );
+                          return bomList.map((item: any, index: number) => {
+                            const e =
+                              item.pcf_total_emission_calculation || {};
+                            const pct =
+                              grandTotal > 0
+                                ? ((e.total_pcf_value || 0) / grandTotal) * 100
+                                : 0;
+                            return (
+                              <div
+                                key={item.id || index}
+                                className="grid items-center text-[13px] hover:bg-[#F8FAFB]"
+                                style={{
+                                  gridTemplateColumns:
+                                    "1.4fr 1fr repeat(6, 0.85fr) 0.7fr",
+                                }}
+                              >
+                                <div className="px-4 py-[15px] font-bold text-gray-900">
+                                  {item.component_name || "-"}
+                                </div>
+                                <div className="px-2 py-[15px] font-mono text-[11.5px] text-[#64748B]">
+                                  {item.material_number || "-"}
+                                </div>
+                                <div className="px-2 py-[15px] text-right text-gray-900">
+                                  {(e.material_value || 0).toFixed(4)}
+                                </div>
+                                <div className="px-2 py-[15px] text-right text-gray-900">
+                                  {(e.production_value || 0).toFixed(4)}
+                                </div>
+                                <div className="px-2 py-[15px] text-right text-gray-900">
+                                  {(e.packaging_value || 0).toFixed(4)}
+                                </div>
+                                <div className="px-2 py-[15px] text-right text-gray-900">
+                                  {(e.waste_value || 0).toFixed(4)}
+                                </div>
+                                <div className="px-2 py-[15px] text-right text-gray-900">
+                                  {(e.logistic_value || 0).toFixed(4)}
+                                </div>
+                                <div className="px-2 py-[15px] text-right font-extrabold text-[#15803D]">
+                                  {(e.total_pcf_value || 0).toFixed(4)}
+                                </div>
+                                <div className="px-3.5 py-[15px] text-right font-extrabold text-[#15803D]">
+                                  {pct.toFixed(1)}%
+                                </div>
+                              </div>
                             );
-                            return bomList.map((item: any, index: number) => {
-                              const emissions =
-                                item.pcf_total_emission_calculation || {};
-                              const percentage =
-                                grandTotal > 0
-                                  ? ((emissions.total_pcf_value || 0) /
-                                      grandTotal) *
-                                    100
-                                  : 0;
-                              return (
-                                <tr
-                                  key={item.id || index}
-                                  className="hover:bg-gray-50"
-                                >
-                                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                                    {item.component_name || "-"}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600 font-mono">
-                                    {item.material_number || "-"}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                                    {(emissions.material_value || 0).toFixed(4)}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                                    {(emissions.production_value || 0).toFixed(
-                                      4,
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                                    {(emissions.packaging_value || 0).toFixed(
-                                      4,
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                                    {(emissions.waste_value || 0).toFixed(4)}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                                    {(emissions.logistic_value || 0).toFixed(4)}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm font-semibold text-green-700 text-right">
-                                    {(emissions.total_pcf_value || 0).toFixed(
-                                      4,
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm font-medium text-green-600 text-right">
-                                    {percentage.toFixed(1)}%
-                                  </td>
-                                </tr>
-                              );
-                            });
-                          })()}
-                        </tbody>
-                      </table>
+                          });
+                        })()}
+                      </div>
                     </div>
 
                     {/* Material Breakdown for each component */}
@@ -1769,7 +1857,7 @@ const PCFRequestView: React.FC = () => {
                           (item: any, idx: number) => (
                             <div
                               key={item.id || idx}
-                              className="bg-gray-50 rounded-xl p-4 border border-gray-200"
+                              className="bg-white rounded-[14px] p-5 border border-[#EEF1F5]"
                             >
                               <div className="flex items-center justify-between mb-3">
                                 <div>
@@ -1790,29 +1878,37 @@ const PCFRequestView: React.FC = () => {
                               </div>
                               {item.material_emission &&
                               item.material_emission.length > 0 ? (
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="flex flex-col gap-4">
                                   {item.material_emission.map(
                                     (mat: any, mIdx: number) => (
-                                      <div
-                                        key={mat.id || mIdx}
-                                        className="bg-white rounded-lg p-3 border border-gray-100"
-                                      >
-                                        <div className="text-sm font-medium text-gray-900">
-                                          {mat.material_type}
+                                      <div key={mat.id || mIdx}>
+                                        <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                                          <div className="text-[13.5px] font-bold text-gray-800">
+                                            {mat.material_type}
+                                          </div>
+                                          <div className="flex items-baseline gap-2.5 flex-shrink-0">
+                                            <span className="text-[13px] text-gray-400">
+                                              EF {mat.material_emission_factor}
+                                            </span>
+                                            <span className="text-sm font-extrabold text-[#15803D]">
+                                              {(mat.material_emission || 0).toFixed(4)}
+                                            </span>
+                                          </div>
                                         </div>
-                                        <div className="text-xs text-gray-500 mt-1">
-                                          {mat.material_composition}%
-                                          composition
-                                        </div>
-                                        <div className="text-sm font-semibold text-green-600 mt-1">
-                                          {(mat.material_emission || 0).toFixed(
-                                            4,
-                                          )}{" "}
-                                          kg CO₂e
-                                        </div>
-                                        <div className="text-xs text-gray-400">
-                                          EF: {mat.material_emission_factor} kg
-                                          CO₂e/kg
+                                        <div className="flex items-center gap-2.5">
+                                          <div className="flex-1 h-[9px] bg-[#F1F5F9] rounded-[5px] overflow-hidden">
+                                            <div
+                                              className="h-full rounded-[5px]"
+                                              style={{
+                                                width: `${Math.min(Number(mat.material_composition) || 0, 100)}%`,
+                                                background:
+                                                  "linear-gradient(90deg,#22C55E,#15803D)",
+                                              }}
+                                            />
+                                          </div>
+                                          <span className="text-xs font-bold text-gray-500 w-[46px] text-right">
+                                            {mat.material_composition}%
+                                          </span>
                                         </div>
                                       </div>
                                     ),
@@ -1836,44 +1932,39 @@ const PCFRequestView: React.FC = () => {
                 label: (
                   <span className="flex items-center gap-2">
                     <Truck size={16} />
-                    Transport
+                    Logistics Impact
                   </span>
                 ),
                 children: (
                   <div className="pt-4">
                     {/* Transport Summary Table */}
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto border border-[#EEF1F5] rounded-[14px]">
                       <table className="min-w-full">
                         <thead>
                           <tr className="bg-gradient-to-r from-green-600 to-emerald-600">
                             <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider w-12"></th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                              Component Name
+                              Component
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                              Material Number
+                              Material No.
                             </th>
                             <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider">
                               Segments
                             </th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Total Distance (km)
+                              Distance
                             </th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Emissions (kg CO₂e)
+                              Emissions
                             </th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
                           {(requestData?.bom_list || []).map(
                             (item: any, index: number) => {
-                              const transportDetails = [
-                                ...(item.transportation_details || []),
-                              ].sort((a: any, b: any) =>
-                                String(a.motuft_id || "").localeCompare(
-                                  String(b.motuft_id || ""),
-                                ),
-                              );
+                              const transportDetails =
+                                item.transportation_details || [];
                               // logistic_emission_calculation is now an array of per-leg records
                               const logisticCalcArr = Array.isArray(item.logistic_emission_calculation)
                                 ? item.logistic_emission_calculation
@@ -1926,7 +2017,7 @@ const PCFRequestView: React.FC = () => {
                                       {transportDetails.length}
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                                      {totalDistance.toLocaleString()}
+                                      {totalDistance.toLocaleString()} km
                                     </td>
                                     <td className="px-4 py-3 text-sm font-semibold text-green-700 text-right">
                                       {totalTransportEmission.toFixed(4)}
@@ -1941,13 +2032,13 @@ const PCFRequestView: React.FC = () => {
                                         >
                                           <div className="ml-8">
                                             <h5 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                                              <Route
+                                              <Activity
                                                 size={16}
                                                 className="text-green-600"
                                               />
                                               Transport Journey
                                             </h5>
-                                            <div className="flex items-center gap-2 flex-wrap">
+                                            <div className="flex items-stretch gap-2">
                                               {transportDetails.map(
                                                 (leg: any, legIdx: number) => (
                                                   <React.Fragment
@@ -1955,16 +2046,35 @@ const PCFRequestView: React.FC = () => {
                                                       leg.motuft_id || legIdx
                                                     }
                                                   >
-                                                    <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm min-w-[160px]">
-                                                      <div className="text-xs text-gray-500 mb-1">
-                                                        {leg.source_point} →{" "}
-                                                        {leg.drop_point}
+                                                    <div className="flex-1 min-w-0 bg-white rounded-[13px] p-4 border border-[#E6EAF0] shadow-sm">
+                                                      <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1.5">
+                                                        Leg {legIdx + 1}
                                                       </div>
-                                                      <div className="text-sm font-medium text-gray-700">
-                                                        {leg.distance}
+                                                      <div
+                                                        className="text-[13px] font-bold text-gray-900 leading-snug"
+                                                        title={`${leg.source_point} → ${leg.drop_point}`}
+                                                      >
+                                                        {mainAddress(leg.source_point)}{" "}
+                                                        <span className="text-gray-400">
+                                                          →
+                                                        </span>{" "}
+                                                        {mainAddress(leg.drop_point)}
                                                       </div>
-                                                      <div className="text-xs text-gray-400">
-                                                        {leg.weight_transported}
+                                                      <div className="flex items-baseline gap-2 mt-2">
+                                                        <span className="text-xl font-extrabold text-gray-900">
+                                                          {parseFloat(
+                                                            leg.distance || "0",
+                                                          ).toLocaleString()}
+                                                        </span>
+                                                        <span className="text-xs text-gray-400">
+                                                          km ·{" "}
+                                                          {Number(
+                                                            logisticCalcArr[legIdx]
+                                                              ?.leg_wise_transport_emissions_per_unit_kg_co2e ||
+                                                              0,
+                                                          ).toFixed(5)}{" "}
+                                                          kg CO₂e
+                                                        </span>
                                                       </div>
                                                     </div>
                                                     {legIdx <
@@ -1972,7 +2082,7 @@ const PCFRequestView: React.FC = () => {
                                                         1 && (
                                                       <ArrowRight
                                                         size={20}
-                                                        className="text-gray-400 flex-shrink-0"
+                                                        className="text-gray-400 flex-shrink-0 self-center"
                                                       />
                                                     )}
                                                   </React.Fragment>
@@ -1992,21 +2102,21 @@ const PCFRequestView: React.FC = () => {
                     </div>
 
                     {/* Transport Summary Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                        <div className="text-2xl font-bold text-blue-700">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mt-[18px]">
+                      <div className="bg-[#EFF5FF] rounded-[14px] p-[18px]">
+                        <div className="text-[26px] font-extrabold tracking-tight text-[#2563EB]">
                           {(requestData?.bom_list || []).reduce(
                             (sum: number, item: any) =>
                               sum + (item.transportation_details?.length || 0),
                             0,
                           )}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-[13px] font-bold text-[#334155] mt-1">
                           Total Segments
                         </div>
                       </div>
-                      <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
-                        <div className="text-2xl font-bold text-purple-700">
+                      <div className="bg-[#F5F0FF] rounded-[14px] p-[18px]">
+                        <div className="text-[26px] font-extrabold tracking-tight text-[#7C3AED]">
                           {(requestData?.bom_list || [])
                             .reduce((sum: number, item: any) => {
                               const details = item.transportation_details || [];
@@ -2021,12 +2131,12 @@ const PCFRequestView: React.FC = () => {
                             }, 0)
                             .toLocaleString()}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-[13px] font-bold text-[#334155] mt-1">
                           Total Distance (km)
                         </div>
                       </div>
-                      <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
-                        <div className="text-2xl font-bold text-orange-700">
+                      <div className="bg-[#FFF4EC] rounded-[14px] p-[18px]">
+                        <div className="text-[26px] font-extrabold tracking-tight text-[#EA580C]">
                           {(requestData?.bom_list || [])
                             .reduce(
                               (sum: number, item: any) => {
@@ -2040,12 +2150,12 @@ const PCFRequestView: React.FC = () => {
                             )
                             .toFixed(2)}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-[13px] font-bold text-[#334155] mt-1">
                           Mass Transported (kg)
                         </div>
                       </div>
-                      <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-                        <div className="text-2xl font-bold text-green-700">
+                      <div className="bg-[#ECFDF3] rounded-[14px] p-[18px]">
+                        <div className="text-[26px] font-extrabold tracking-tight text-[#15803D]">
                           {(requestData?.bom_list || [])
                             .reduce(
                               (sum: number, item: any) =>
@@ -2056,10 +2166,10 @@ const PCFRequestView: React.FC = () => {
                             )
                             .toFixed(4)}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Total Logistics Emission
+                        <div className="text-[13px] font-bold text-[#334155] mt-1">
+                          Logistics Emission
                         </div>
-                        <div className="text-xs text-gray-400">kg CO₂e</div>
+                        <div className="text-[11px] text-gray-400">kg CO₂e</div>
                       </div>
                     </div>
                   </div>
@@ -2070,36 +2180,36 @@ const PCFRequestView: React.FC = () => {
                 label: (
                   <span className="flex items-center gap-2">
                     <PieChart size={16} />
-                    Allocation
+                    Allocation Method
                   </span>
                 ),
                 children: (
                   <div className="pt-4">
                     {/* Allocation Methods Table */}
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto border border-[#EEF1F5] rounded-[14px]">
                       <table className="min-w-full">
                         <thead>
                           <tr className="bg-gradient-to-r from-green-600 to-emerald-600">
                             <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                              Component Name
+                              Component
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                              Material Number
+                              Material No.
                             </th>
-                            <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider">
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
                               Allocation Method
                             </th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Economic Ratio (%)
+                              Econ. Ratio
                             </th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              PCF (kg CO₂e)
+                              PCF
                             </th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Weight (g)
+                              Weight
                             </th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                              Price (₹)
+                              Price
                             </th>
                           </tr>
                         </thead>
@@ -2128,7 +2238,7 @@ const PCFRequestView: React.FC = () => {
                                   <td className="px-4 py-3 text-sm text-gray-600 font-mono">
                                     {item.material_number || "-"}
                                   </td>
-                                  <td className="px-4 py-3 text-center">
+                                  <td className="px-4 py-3 text-left">
                                     <Tag
                                       color={
                                         allocationMethod?.includes("Economic")
@@ -2149,10 +2259,17 @@ const PCFRequestView: React.FC = () => {
                                     ).toFixed(4)}
                                   </td>
                                   <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                                    {(item.weight_gms || 0).toFixed(2)}
+                                    {(item.weight_gms || 0).toFixed(2)} g
                                   </td>
                                   <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                                    ₹{(item.price || 0).toFixed(2)}
+                                    ₹
+                                    {Number(item.price || 0).toLocaleString(
+                                      "en-IN",
+                                      {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      },
+                                    )}
                                   </td>
                                 </tr>
                               );
@@ -2163,9 +2280,9 @@ const PCFRequestView: React.FC = () => {
                     </div>
 
                     {/* Allocation Summary Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                      <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
-                        <div className="text-2xl font-bold text-yellow-700">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mt-[18px]">
+                      <div className="bg-[#FFF8E8] rounded-[14px] p-[18px]">
+                        <div className="text-[26px] font-extrabold tracking-tight text-[#B45309]">
                           {(() => {
                             const bomList = requestData?.bom_list || [];
                             const totalER = bomList.reduce(
@@ -2178,12 +2295,12 @@ const PCFRequestView: React.FC = () => {
                               : "0";
                           })()}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-[13px] font-bold text-[#334155] mt-1">
                           Avg Economic Ratio
                         </div>
                       </div>
-                      <div className="bg-green-50 rounded-xl p-4 border border-green-100">
-                        <div className="text-2xl font-bold text-green-700">
+                      <div className="bg-[#ECFDF3] rounded-[14px] p-[18px]">
+                        <div className="text-[26px] font-extrabold tracking-tight text-[#15803D]">
                           {
                             (requestData?.bom_list || []).filter(
                               (item: any) => {
@@ -2197,12 +2314,12 @@ const PCFRequestView: React.FC = () => {
                             ).length
                           }
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-[13px] font-bold text-[#334155] mt-1">
                           Physical Allocation
                         </div>
                       </div>
-                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                        <div className="text-2xl font-bold text-blue-700">
+                      <div className="bg-[#EFF5FF] rounded-[14px] p-[18px]">
+                        <div className="text-[26px] font-extrabold tracking-tight text-[#2563EB]">
                           {
                             (requestData?.bom_list || []).filter(
                               (item: any) => {
@@ -2216,12 +2333,12 @@ const PCFRequestView: React.FC = () => {
                             ).length
                           }
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-[13px] font-bold text-[#334155] mt-1">
                           Economic Allocation
                         </div>
                       </div>
-                      <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
-                        <div className="text-2xl font-bold text-purple-700">
+                      <div className="bg-[#F5F0FF] rounded-[14px] p-[18px]">
+                        <div className="text-[26px] font-extrabold tracking-tight text-[#7C3AED]">
                           {
                             (requestData?.bom_list || []).filter(
                               (item: any) =>
@@ -2229,7 +2346,7 @@ const PCFRequestView: React.FC = () => {
                             ).length
                           }
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-[13px] font-bold text-[#334155] mt-1">
                           Split Allocation
                         </div>
                       </div>
@@ -2252,7 +2369,7 @@ const PCFRequestView: React.FC = () => {
                             return (
                               <div
                                 key={item.id || idx}
-                                className="bg-gray-50 rounded-xl p-4 border border-gray-200"
+                                className="bg-white rounded-[14px] p-5 border border-[#EEF1F5]"
                               >
                                 <div className="flex items-center justify-between mb-3">
                                   <div>
@@ -2273,15 +2390,16 @@ const PCFRequestView: React.FC = () => {
                                     }
                                   >
                                     {production.allocation_methodology ||
-                                      "Physical"}
+                                      "Physical"}{" "}
+                                    Method
                                   </Tag>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                   <div>
                                     <p className="text-xs text-gray-500">
                                       Component Weight
                                     </p>
-                                    <p className="font-medium">
+                                    <p className="text-base font-extrabold text-gray-900 mt-1">
                                       {(
                                         production.component_weight_kg || 0
                                       ).toFixed(4)}{" "}
@@ -2292,7 +2410,7 @@ const PCFRequestView: React.FC = () => {
                                     <p className="text-xs text-gray-500">
                                       Factory Total Weight
                                     </p>
-                                    <p className="font-medium">
+                                    <p className="text-base font-extrabold text-gray-900 mt-1">
                                       {(
                                         production.total_weight_produced_at_factory_level_kg ||
                                         0
@@ -2304,48 +2422,51 @@ const PCFRequestView: React.FC = () => {
                                     <p className="text-xs text-gray-500">
                                       Products Produced
                                     </p>
-                                    <p className="font-medium">
-                                      {production.no_of_products_current_component_produced ||
-                                        0}
+                                    <p className="text-base font-extrabold text-gray-900 mt-1">
+                                      {Number(
+                                        production.no_of_products_current_component_produced ||
+                                          0,
+                                      ).toLocaleString()}
                                     </p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-gray-500">
-                                      Total Energy (kWh)
+                                      Total Energy
                                     </p>
-                                    <p className="font-medium">
+                                    <p className="text-base font-extrabold text-gray-900 mt-1">
                                       {(
                                         production.total_energy_consumed_at_factory_level_kwh ||
                                         0
-                                      ).toLocaleString()}
+                                      ).toLocaleString()}{" "}
+                                      kWh
                                     </p>
                                   </div>
                                 </div>
-                                <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-4 gap-4 text-xs">
+                                <div className="mt-4 pt-4 border-t border-[#EEF1F5] grid grid-cols-4 gap-4">
                                   <div>
-                                    <p className="text-gray-400">
+                                    <p className="text-xs text-gray-400">
                                       Electricity EF
                                     </p>
-                                    <p className="font-medium">
+                                    <p className="text-sm font-bold text-gray-900 mt-1">
                                       {production.emission_factor_of_electricity ||
                                         0}
                                     </p>
                                   </div>
                                   <div>
-                                    <p className="text-gray-400">Heat EF</p>
-                                    <p className="font-medium">
+                                    <p className="text-xs text-gray-400">Heat EF</p>
+                                    <p className="text-sm font-bold text-gray-900 mt-1">
                                       {production.emission_factor_of_heat || 0}
                                     </p>
                                   </div>
                                   <div>
-                                    <p className="text-gray-400">Steam EF</p>
-                                    <p className="font-medium">
+                                    <p className="text-xs text-gray-400">Steam EF</p>
+                                    <p className="text-sm font-bold text-gray-900 mt-1">
                                       {production.emission_factor_of_steam || 0}
                                     </p>
                                   </div>
                                   <div>
-                                    <p className="text-gray-400">Cooling EF</p>
-                                    <p className="font-medium">
+                                    <p className="text-xs text-gray-400">Cooling EF</p>
+                                    <p className="text-sm font-bold text-gray-900 mt-1">
                                       {production.emission_factor_of_cooling ||
                                         0}
                                     </p>
@@ -2366,7 +2487,7 @@ const PCFRequestView: React.FC = () => {
       )}
 
       {/* Completed Stages List */}
-      {/* <Card className="!mb-6 shadow-sm rounded-xl border-gray-200">
+      {/* <Card className="!mb-5 !rounded-[18px] !border-[#E6EAF0] shadow-sm">
         <Title level={4} className="mb-6">
           Completed Stages
         </Title>
@@ -2458,7 +2579,7 @@ const PCFRequestView: React.FC = () => {
         if (shouldShowBOM) {
           if (transformedBomData.length > 0) {
             return (
-              <Card className="!mb-6 shadow-sm rounded-xl border-gray-200">
+              <Card className="!mb-5 !rounded-[18px] !border-[#E6EAF0] shadow-sm">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-green-100 rounded-lg">
                     <Layers size={24} className="text-green-600" />
@@ -2473,7 +2594,7 @@ const PCFRequestView: React.FC = () => {
           } else {
             // Show empty state if no BOM data
             return (
-              <Card className="!mb-6 shadow-sm rounded-xl border-gray-200">
+              <Card className="!mb-5 !rounded-[18px] !border-[#E6EAF0] shadow-sm">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-green-100 rounded-lg">
                     <Layers size={24} className="text-green-600" />
@@ -2546,64 +2667,6 @@ const PCFRequestView: React.FC = () => {
         </div>
       )}
 
-      {/* Comments Section */}
-      <Card className="!mb-6 shadow-sm rounded-xl border-gray-200">
-        <Title level={4} className="mb-6">
-          Comments
-        </Title>
-        <List
-          className="mb-6"
-          itemLayout="horizontal"
-          dataSource={comments}
-          renderItem={(item) => (
-            <List.Item>
-              <List.Item.Meta
-                avatar={
-                  <Avatar
-                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id}`}
-                  />
-                }
-                title={
-                  <div className="flex justify-between">
-                    <span className="font-bold text-gray-800">
-                      {item.user_name || "User"}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {formatDate(item.commented_at)}
-                    </span>
-                  </div>
-                }
-                description={item.comment}
-              />
-            </List.Item>
-          )}
-        />
-        <div className="flex gap-4">
-          <Avatar
-            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${authService.getCurrentUser()?.id}`}
-          />
-          <div className="flex-1">
-            <TextArea
-              rows={3}
-              placeholder="Add a comment..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              className="mb-3 rounded-xl"
-            />
-            <div className="flex justify-end">
-              <Button
-                type="primary"
-                icon={<MessageSquare size={16} />}
-                onClick={handleAddComment}
-                loading={commentLoading}
-                className="bg-blue-600"
-              >
-                Comment
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Card>
 
       {/* Resend Supplier Email Modal */}
       <Modal
@@ -3716,6 +3779,7 @@ const PCFRequestView: React.FC = () => {
           </div>
         )}
       </Modal>
+      </div>
     </div>
   );
 };

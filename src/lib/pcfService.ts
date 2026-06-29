@@ -573,47 +573,6 @@ class PCFService {
   }
 
   /**
-   * Calculate PCF for BOM
-   * POST /api/pcf-bom/calculate-bom
-   */
-  async calculatePCF(
-    bom_pcf_id: string
-  ): Promise<{
-    success: boolean;
-    message: string;
-    data?: any[];
-  }> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/pcf-bom/calculate-bom`, {
-        method: "POST",
-        headers: this.getHeaders(),
-        body: JSON.stringify({ bom_pcf_id }),
-      });
-
-      const result: ApiResponse = await response.json();
-
-      if (result.status || result.success) {
-        return {
-          success: true,
-          message: result.message || "PCF calculation initiated successfully",
-          data: result.data,
-        };
-      } else {
-        return {
-          success: false,
-          message: result.message || "Failed to calculate PCF",
-        };
-      }
-    } catch (error) {
-      console.error("Calculate PCF error:", error);
-      return {
-        success: false,
-        message: "Network error occurred",
-      };
-    }
-  }
-
-  /**
    * Submit PCF request internally (final stage after result validation)
    * POST /api/pcf-bom/submit-pcf-request-internally
    */

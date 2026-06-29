@@ -36,6 +36,9 @@ import {
   saveV3Questionnaire,
   submitV3Questionnaire,
   downloadV3Pdf,
+  loadMineV3,
+  loadV3Questionnaire,
+  mapV3BackendToForm,
 } from "../../lib/questionnaireV3Api";
 import authService from "../../lib/authService";
 import productService from "../../lib/productService";
@@ -187,9 +190,19 @@ const SupplierQuestionnaire: React.FC = () => {
         methodology.ipcc_gwp_version = "AR6";
         changed = true;
       }
+      // Q21b default — sector PCR defaults to the Catena-X Rulebook (editable).
+      if (!methodology.product_sector_pcr) {
+        methodology.product_sector_pcr = "Catena-X PCF Rulebook v4";
+        changed = true;
+      }
       // Q22 default — free attribution defaults to No (editable).
       if (!methodology.free_attribution_used) {
         methodology.free_attribution_used = "No";
+        changed = true;
+      }
+      // Q23b default — waste incineration defaults to polluter-pays (editable).
+      if (!methodology.waste_incineration_method) {
+        methodology.waste_incineration_method = "Polluter pays principle (per §5.2.4)";
         changed = true;
       }
       // Q26 fixed defaults — attestation type + conformant standards (disabled).
@@ -366,8 +379,47 @@ const SupplierQuestionnaire: React.FC = () => {
           setIsLoading(false);
         }
       } else if (isCreateMode) {
+        // Reload an existing draft/submission first: if this supplier already
+        // saved answers for this PCF, hydrate the form from the stored snapshot
+        // so they continue where they left off instead of a blank form.
+        let hydrated = false;
+        if (bom_pcf_id) {
+          setIsLoading(true);
+          try {
+            const mine = await loadMineV3(bom_pcf_id as string, sup_id ?? undefined);
+            const existingId = (mine?.data as any)?.responseId;
+            const snap = (mine?.data as any)?.formSnapshot;
+            if (mine?.status && existingId) {
+              let reformed: Record<string, any> | null = null;
+              if (snap && Object.keys(snap).length > 0) {
+                // Preferred: lossless raw snapshot (saved with the new build).
+                reformed = snap;
+              } else {
+                // Fallback for responses saved before snapshots existed:
+                // rebuild the form from the structured DB data.
+                const full = await loadV3Questionnaire(existingId);
+                if (full?.status && full.data) {
+                  reformed = mapV3BackendToForm(full.data);
+                }
+              }
+              if (reformed) {
+                setV3ResponseId(existingId);
+                setSubmittedSgiqId(existingId);
+                setFormData(reformed);
+                const toSet = reformed;
+                setTimeout(() => form.setFieldsValue(toSet), 200);
+                hydrated = true;
+              }
+            }
+          } catch (e) {
+            console.error("Reload existing questionnaire failed:", e);
+          } finally {
+            setIsLoading(false);
+          }
+        }
+
         // Client mode auto-populate using product get-by-id API
-        if (isClientMode && product_id) {
+        if (!hydrated && isClientMode && product_id) {
           setIsLoading(true);
           try {
             const result = await productService.getProductById(product_id);
@@ -449,8 +501,9 @@ const SupplierQuestionnaire: React.FC = () => {
             setIsLoading(false);
           }
         }
-        // Auto-populate product details if sup_id and bom_pcf_id are provided (supplier mode)
-        else if (sup_id && bom_pcf_id) {
+        // Auto-populate product details if sup_id and bom_pcf_id are provided (supplier mode).
+        // Skipped when we already rehydrated an existing response above.
+        else if (!hydrated && sup_id && bom_pcf_id) {
           setIsLoading(true);
           try {
             // First check if questionnaire is already submitted

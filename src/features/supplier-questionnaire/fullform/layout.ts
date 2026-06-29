@@ -328,6 +328,15 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
       tableName: "energy.electricity",
     },
     {
+      num: "10a",
+      label: "Factory electricity allocation (per-unit production electricity)",
+      help: "Used to allocate factory electricity to one unit of this component, by mass: product weight × factory energy ÷ factory weight. Enter both factory totals in the same period (kWh and kg).",
+      subNames: [
+        "energy.factory_total_energy_kwh",
+        "energy.factory_total_weight_kg",
+      ],
+    },
+    {
       num: "11",
       label: "Which other fuels or energy carriers were used?",
       tableName: "energy.other_fuels",

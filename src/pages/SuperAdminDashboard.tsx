@@ -236,7 +236,7 @@ const SuperAdminDashboard: React.FC = () => {
                   {getGreeting()}, {firstName}!
                 </h1>
                 <p className="text-sm text-green-100 mt-1">
-                  Platform Overview - Enviraan Management Suite
+                  Platform Overview – Product Carbon Intelligence Dashboard
                 </p>
               </div>
             </div>

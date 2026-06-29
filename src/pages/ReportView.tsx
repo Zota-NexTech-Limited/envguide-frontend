@@ -358,7 +358,7 @@ const ReportView: React.FC = () => {
                     className="flex items-center gap-2 text-gray-900 font-bold hover:text-green-600 transition-colors"
                 >
                     <ArrowLeft className="w-5 h-5" />
-                    Reports
+                    Analytics Center
                 </button>
 
                 {/* Report Header Banner */}

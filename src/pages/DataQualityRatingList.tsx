@@ -192,7 +192,7 @@ const DataQualityRatingList: React.FC = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-                Data Quality Ratings
+                Data Trust Scores
               </h1>
               <p className="text-gray-500 text-sm">
                 Review and assess data quality from supplier submissions

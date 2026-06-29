@@ -511,7 +511,7 @@ const PCFRequest: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-                  PCF Request Management
+                  Footprint Connect Management
                 </h1>
                 <p className="text-gray-500 text-sm">
                   Streamlined carbon footprint tracking and approval workflow
@@ -674,7 +674,7 @@ const PCFRequest: React.FC = () => {
           {/* Top row: heading + primary action */}
           <div className="flex justify-between items-center mb-4 gap-4">
             <h2 className="text-lg font-semibold text-gray-900">
-              PCF Requests
+              Footprint Connect
             </h2>
             {canCreate("PCF Request") && (
               <Button

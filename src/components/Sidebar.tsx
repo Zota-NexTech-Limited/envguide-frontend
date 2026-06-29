@@ -335,7 +335,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               />
               <div>
                 <h1 className="text-lg font-bold text-white tracking-tight">Enviraan</h1>
-                <p className="text-slate-400 text-xs">Management Suite</p>
+                <p className="text-slate-400 text-xs">PCF Management Suite</p>
               </div>
             </div>
           )}

@@ -388,7 +388,7 @@ const DocumentMaster: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-                  Document Master
+                  Evidence Vault
                 </h1>
                 <p className="text-gray-500 text-sm">
                   Manage documents attached to PCF requests

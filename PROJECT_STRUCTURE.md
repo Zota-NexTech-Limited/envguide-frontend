@@ -4,6 +4,8 @@
 
 **EnviGuide** is a comprehensive environmental management platform focused on Product Carbon Footprint (PCF) tracking, supplier questionnaires, data quality assessment, and sustainability reporting. The frontend is built as a modern React application using TypeScript, Vite, and Tailwind CSS.
 
+> **Note (UI rebrand):** Several navigation labels and the PCF detail page were rebranded/redesigned. The feature, route, and identifier names in this document are the internal names (unchanged). See [`docs/ui-rebrand.md`](docs/ui-rebrand.md) for the old↔new UI-label mapping.
+
 **Status**: In active development
 
 **Base API URL**: `https://enviguide.nextechltd.in`

@@ -324,7 +324,7 @@ const TaskManagement: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-                  Task Management
+                  Workflow Center
                 </h1>
                 <p className="text-gray-500 text-sm">
                   Organized tracking and execution of all assigned tasks

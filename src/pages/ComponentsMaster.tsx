@@ -547,7 +547,7 @@ const ComponentsMaster: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-                  Components Master
+                  Components Catalog
                 </h1>
                 <p className="text-gray-500 text-sm">
                   Streamlined tracking and administration for all component details

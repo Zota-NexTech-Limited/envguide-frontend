@@ -22,7 +22,7 @@ const ProductPortfolio: React.FC = () => {
           <Briefcase className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Product Portfolio</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Product Hub</h1>
           <p className="text-gray-500">Manage your products and catalog definitions</p>
         </div>
       </div>

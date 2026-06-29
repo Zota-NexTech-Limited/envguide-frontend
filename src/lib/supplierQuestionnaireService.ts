@@ -1967,6 +1967,7 @@ class SupplierQuestionnaireService {
       detail_description?: string | null;
       quantity?: number | string | null;
       price?: number | string | null;
+      weight_kg?: number | string | null;
     }>;
   }> {
     try {
@@ -2000,6 +2001,33 @@ class SupplierQuestionnaireService {
         message: "Network error occurred",
         data: [],
       };
+    }
+  }
+
+  /**
+   * Cascading EF taxonomy for the Q8 dropdowns.
+   * level=category → string[]; sub_category/group → string[] (filtered by parents);
+   * specific_type → [{ specific_type, ef_id, gwp_100, unit, geography }].
+   */
+  async getEfTaxonomy(
+    level: "category" | "sub_category" | "group" | "specific_type",
+    parents: { category?: string; sub_category?: string; group?: string; q?: string } = {}
+  ): Promise<any[]> {
+    try {
+      const qs = new URLSearchParams({ level });
+      if (parents.category) qs.set("category", parents.category);
+      if (parents.sub_category) qs.set("sub_category", parents.sub_category);
+      if (parents.group) qs.set("group", parents.group);
+      if (parents.q) qs.set("q", parents.q);
+      const response = await fetch(
+        `${API_BASE_URL}/api/emission-factors/meta/taxonomy?${qs.toString()}`,
+        { method: "GET", headers: this.getHeaders() }
+      );
+      const result: ApiResponse = await response.json();
+      return Array.isArray(result?.data) ? result.data : [];
+    } catch (error) {
+      console.error("getEfTaxonomy error:", error);
+      return [];
     }
   }
 

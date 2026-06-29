@@ -149,7 +149,7 @@ const Reports: React.FC = () => {
                   <BarChart3 className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-2xl font-bold text-gray-900 leading-tight">Reports</h1>
+                  <h1 className="text-2xl font-bold text-gray-900 leading-tight">Analytics Center</h1>
                   <p className="text-gray-500 text-sm">
                     Standardised reports for emissions and data quality analysis
                   </p>

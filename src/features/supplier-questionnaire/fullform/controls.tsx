@@ -68,6 +68,15 @@ export const buildRules = (field: QuestionnaireField): any[] => {
     ...(field.type === "number" && field.max !== undefined
       ? [{ type: "number" as const, max: field.max, message: `Please enter a value that does not exceed ${field.max}` }]
       : []),
+    ...(field.type === "number" && field.exclusiveMin !== undefined
+      ? [{
+          type: "number" as const,
+          validator: (_: unknown, value: number | undefined | null) =>
+            value === undefined || value === null || value > (field.exclusiveMin as number)
+              ? Promise.resolve()
+              : Promise.reject(new Error(`Please enter a value greater than ${field.exclusiveMin}`)),
+        }]
+      : []),
     ...(field.type === "text" && field.maxLength
       ? [{ max: field.maxLength, message: `Please limit your response to ${field.maxLength} characters or less` }]
       : []),

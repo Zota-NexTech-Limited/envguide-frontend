@@ -282,8 +282,8 @@ const PCFRequestCreate: React.FC = () => {
                 <ClipboardList className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Create PCF Request</h1>
-                <p className="text-gray-500">PCF Request → New Request</p>
+                <h1 className="text-2xl font-bold text-gray-900">Create Footprint Connect</h1>
+                <p className="text-gray-500">Footprint Connect → New Request</p>
               </div>
             </div>
           </div>

@@ -364,7 +364,6 @@ const PCFRequest: React.FC = () => {
       const button = (
         <Button
           type="text"
-          className="!px-0"
           disabled={!isCompleted || isLoading}
           loading={isLoading}
           onClick={() =>
@@ -374,7 +373,7 @@ const PCFRequest: React.FC = () => {
             !isLoading ? (
               <Download
                 size={16}
-                className="flex items-center justify-center"
+                className="flex items-center justify-center mt-[5px]"
               />
             ) : undefined
           }
@@ -444,12 +443,11 @@ const PCFRequest: React.FC = () => {
             {isDraft ? (
               <Button
                 type="text"
-                className="!px-0"
                 onClick={() => navigate(`/pcf-request/${record.id}/edit`)}
                 icon={
                   <Pencil
                     size={16}
-                    className="flex items-center justify-center"
+                    className="flex items-center justify-center mt-[5px]"
                   />
                 }
               >
@@ -458,12 +456,11 @@ const PCFRequest: React.FC = () => {
             ) : (
               <Button
                 type="text"
-                className="!px-0"
                 onClick={() => navigate(`/pcf-request/${record.id}`)}
                 icon={
                   <Eye
                     size={16}
-                    className="flex items-center justify-center"
+                    className="flex items-center justify-center mt-[5px]"
                   />
                 }
               >
@@ -483,7 +480,7 @@ const PCFRequest: React.FC = () => {
                     !isPublishing ? (
                       <Send
                         size={16}
-                        className="flex items-center justify-center"
+                        className="flex items-center justify-center mt-[5px]"
                       />
                     ) : undefined
                   }
@@ -514,7 +511,7 @@ const PCFRequest: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-                  PCF Request Management
+                  Footprint Connect Management
                 </h1>
                 <p className="text-gray-500 text-sm">
                   Streamlined carbon footprint tracking and approval workflow
@@ -677,7 +674,7 @@ const PCFRequest: React.FC = () => {
           {/* Top row: heading + primary action */}
           <div className="flex justify-between items-center mb-4 gap-4">
             <h2 className="text-lg font-semibold text-gray-900">
-              PCF Requests
+              Footprint Connect
             </h2>
             {canCreate("PCF Request") && (
               <Button

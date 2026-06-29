@@ -19,6 +19,90 @@ import { PlusOutlined, DeleteOutlined, ReloadOutlined } from "@ant-design/icons"
 import type { QuestionnaireField } from "../../../config/questionnaireSchema";
 import { C } from "./theme";
 import { MiniYesNo, optionsAreYesNo, optionAsPair, dateValueProps } from "./controls";
+import supplierQuestionnaireService from "../../../lib/supplierQuestionnaireService";
+
+// Which deeper taxonomy columns to clear when a given level changes.
+const TAX_CHILDREN: Record<string, string[]> = {
+  category: ["sub_category", "group", "specific_type"],
+  sub_category: ["group", "specific_type"],
+  group: ["specific_type"],
+  specific_type: [],
+};
+
+// Cascading EF-taxonomy dropdown cell (Category → Sub-category → Group →
+// Specific Type). Each level fetches DB-distinct values filtered by the row's
+// higher-level picks, is searchable (server-side), and disabled until its
+// parents are chosen. Picking a level clears the deeper ones.
+const TaxonomyCell: React.FC<{
+  field: QuestionnaireField;
+  form: FormInstance;
+  fieldPath: string[];
+  rowName: number;
+  // Column NAME of each taxonomy level in THIS table (names differ per table,
+  // e.g. Q8 uses "material" for the category level).
+  taxNames: { category?: string; sub_category?: string; group?: string; specific_type?: string };
+}> = ({ field, form, fieldPath, rowName, taxNames }) => {
+  const level = field.efTaxonomyLevel as "category" | "sub_category" | "group" | "specific_type";
+  const row = (Form.useWatch([...fieldPath, rowName], form) as any) || {};
+  const cat = taxNames.category ? row[taxNames.category] : undefined;
+  const sub = taxNames.sub_category ? row[taxNames.sub_category] : undefined;
+  const grp = taxNames.group ? row[taxNames.group] : undefined;
+  const ready =
+    level === "category" ? true :
+    level === "sub_category" ? !!cat :
+    level === "group" ? !!cat && !!sub :
+    !!cat && !!sub && !!grp;
+
+  const [options, setOptions] = React.useState<Array<{ value: string; label: string }>>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+  const parentKey = `${cat || ""}|${sub || ""}|${grp || ""}`;
+
+  React.useEffect(() => {
+    if (!ready) { setOptions([]); return; }
+    let alive = true;
+    setLoading(true);
+    supplierQuestionnaireService
+      .getEfTaxonomy(level, { category: cat, sub_category: sub, group: grp, q: search })
+      .then((data: any[]) => {
+        if (!alive) return;
+        setOptions(
+          level === "specific_type"
+            ? data.map((d) => ({ value: d.specific_type, label: `${d.specific_type}  ·  ${d.gwp_100} kgCO₂e/${d.unit || "unit"}` }))
+            : data.map((v) => ({ value: String(v), label: String(v) }))
+        );
+      })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [level, parentKey, search, ready]);
+
+  return (
+    <Form.Item name={[rowName, field.name]} className="mb-0" rules={requiredRule(field)} style={{ width: "100%" }}>
+      <Select
+        placeholder={field.placeholder || "Select…"}
+        style={{ width: "100%", fontSize: 13 }}
+        showSearch
+        loading={loading}
+        disabled={!ready}
+        filterOption={false}
+        onSearch={setSearch}
+        onChange={(v) => {
+          const arr = [...((form.getFieldValue(fieldPath) as any[]) || [])];
+          const prev = arr[rowName] || {};
+          const next: any = { ...prev, [field.name]: v };
+          for (const childLevel of TAX_CHILDREN[level]) {
+            const childCol = taxNames[childLevel as keyof typeof taxNames];
+            if (childCol) next[childCol] = undefined;
+          }
+          arr[rowName] = next;
+          form.setFieldValue(fieldPath, arr);
+        }}
+        options={options}
+        notFoundContent={loading ? "Loading…" : !ready ? "Pick the previous level first" : "No matches"}
+      />
+    </Form.Item>
+  );
+};
 
 interface BomComponent {
   bom_id: string;
@@ -91,6 +175,9 @@ const QuestionTable: React.FC<QuestionTableProps> = ({
 }) => {
   const fieldPath = field.name.split(".");
   const columns = Array.isArray(field.columns) ? field.columns : [];
+  // Map each taxonomy level → its column name in THIS table (names vary per table).
+  const taxNames: { category?: string; sub_category?: string; group?: string; specific_type?: string } = {};
+  columns.forEach((c) => { if (c.efTaxonomyLevel) (taxNames as any)[c.efTaxonomyLevel] = c.name; });
   const flexIdx = (() => {
     const i = columns.findIndex((c) => c.type === "text" && !c.readOnly);
     return i >= 0 ? i : columns.length - 1;
@@ -136,6 +223,11 @@ const QuestionTable: React.FC<QuestionTableProps> = ({
           <Input disabled placeholder={col.placeholder} style={{ ...cellInput, background: "#f7fafb" }} />
         </Form.Item>
       );
+    }
+
+    // Cascading EF-taxonomy dropdown (Category → Sub → Group → Specific Type).
+    if (col.efTaxonomyLevel) {
+      return <TaxonomyCell field={col} form={form} fieldPath={fieldPath} rowName={rowName} taxNames={taxNames} />;
     }
 
     // BOM-sourced MPN dropdown — auto-fills sibling cells on change.

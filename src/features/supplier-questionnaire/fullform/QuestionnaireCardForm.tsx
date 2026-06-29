@@ -34,6 +34,7 @@ interface BomComponent {
   detail_description?: string | null;
   quantity?: number | string | null;
   price?: number | string | null;
+  weight_kg?: number | string | null;
 }
 
 interface Props {

@@ -31,6 +31,59 @@ export const DQR_CATEGORIES = {
 
 // Question configuration mapping
 export const DQR_QUESTIONS_CONFIG: Record<string, DQRQuestionConfig> = {
+  // ---- V3 (28-Q questionnaire) emission lines ----
+  // Each key maps to one emission-line table; the backend derives one data
+  // point per row. Prefixed "qv" so they pass the page's key.startsWith('q')
+  // filter without colliding with the legacy q9/q11/... keys.
+  qv8: {
+    key: 'qv8',
+    label: 'Material / Process (BOM)',
+    category: DQR_CATEGORIES.MATERIAL,
+    description: 'Bill of materials line — material and manufacturing process',
+    dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],
+  },
+  qv10: {
+    key: 'qv10',
+    label: 'Electricity',
+    category: DQR_CATEGORIES.SCOPE_2,
+    description: 'Purchased / consumed electricity',
+    dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],
+  },
+  qv12: {
+    key: 'qv12',
+    label: 'Process Gas',
+    category: DQR_CATEGORIES.SCOPE_1,
+    description: 'Direct process gas emissions',
+    dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],
+  },
+  qv14: {
+    key: 'qv14',
+    label: 'Production Waste',
+    category: DQR_CATEGORIES.SCOPE_3,
+    description: 'Production waste treatment',
+    dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],
+  },
+  qv16: {
+    key: 'qv16',
+    label: 'Packaging Material',
+    category: DQR_CATEGORIES.PACKAGING,
+    description: 'Packaging material used',
+    dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],
+  },
+  qv17: {
+    key: 'qv17',
+    label: 'Packaging Waste',
+    category: DQR_CATEGORIES.PACKAGING,
+    description: 'Packaging waste treatment',
+    dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],
+  },
+  qv19: {
+    key: 'qv19',
+    label: 'Transport Leg',
+    category: DQR_CATEGORIES.TRANSPORT,
+    description: 'Inbound / outbound transport leg',
+    dqiRequired: ['TeR', 'TiR', 'GR', 'C', 'PDS'],
+  },
   q9: {
     key: 'q9',
     label: 'Scope 1/2/3 Emissions by Country',

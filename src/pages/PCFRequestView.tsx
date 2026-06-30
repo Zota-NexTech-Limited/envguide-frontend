@@ -415,10 +415,19 @@ const PCFRequestView: React.FC = () => {
   const handleCalculatePCF = async () => {
     if (!id) return;
     setCalculatingPCF(true);
-    message.info(
-      "PCF calculation is being upgraded to the new emission-factor matching engine. This action is temporarily unavailable.",
-    );
-    setCalculatingPCF(false);
+    try {
+      const result = await pcfService.calculatePCF(id);
+      if (result.success) {
+        message.success(result.message || "PCF calculated successfully");
+        fetchData(id); // Refresh to show results + advance the stage tracker
+      } else {
+        message.error(result.message || "Failed to calculate PCF");
+      }
+    } catch (error) {
+      message.error("An error occurred while calculating PCF");
+    } finally {
+      setCalculatingPCF(false);
+    }
   };
 
   const handleSubmitInternally = async () => {

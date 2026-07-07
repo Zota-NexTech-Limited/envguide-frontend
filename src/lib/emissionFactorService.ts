@@ -10,7 +10,6 @@ export interface EmissionFactor {
   sub_category: string | null;
   group_name: string | null;
   specific_type: string | null;
-  dataset_name: string | null;
   geography: string | null;
   unit: string | null;
   gwp_100: number | string | null;

@@ -25,7 +25,11 @@ interface ApiResponse<T = any> {
 }
 
 function headers() {
-    const token = authService.getToken();
+    // A supplier opens the emailed magic link (…?token=…) — that URL token
+    // authenticates them with no account/login. Fall back to the logged-in
+    // user's token (e.g. a super admin filling on the supplier's behalf).
+    const urlToken = new URLSearchParams(window.location.search).get("token");
+    const token = urlToken || authService.getToken();
     return {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `${token}` } : {}),

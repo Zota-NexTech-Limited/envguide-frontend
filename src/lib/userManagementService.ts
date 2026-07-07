@@ -9,7 +9,11 @@ const API_BASE_URL = getApiBaseUrl();
 
 class UserManagementService {
   private getAuthHeaders(): HeadersInit {
-    const token = localStorage.getItem("token");
+    // Honor the supplier magic-link token (…?token=… in the URL) so an
+    // account-less supplier's onboarding-status check authenticates as them.
+    // Other pages have no ?token=, so this falls back to the logged-in token.
+    const urlToken = new URLSearchParams(window.location.search).get("token");
+    const token = urlToken || localStorage.getItem("token");
     return {
       "Content-Type": "application/json",
       ...(token ? { Authorization: token } : {}),

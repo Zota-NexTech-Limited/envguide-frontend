@@ -291,9 +291,9 @@ const EmissionFactorsTable: React.FC = () => {
   });
 
   // Columns mirror the source CSV exactly, in the same order and with the same
-  // headers: Category, Sub-category, Group, Specific Type, Dataset Name,
-  // Geography, Unit, GWP 100 [kg CO₂e]. (ef_id is still the row key, just not
-  // shown as a column.)
+  // headers: Category, Sub-category, Group, Specific Type, Geography, Unit,
+  // GWP 100 [kg CO₂e]. (ef_id is still the row key, just not shown as a column;
+  // the old "Dataset Name" column was removed — the source no longer has it.)
   const columns: ColumnsType<EmissionFactor> = useMemo(
     () => [
       wrapCol("Category", "category", 180),
@@ -308,7 +308,6 @@ const EmissionFactorsTable: React.FC = () => {
           <span className="whitespace-normal break-words leading-snug">{v}</span>
         ),
       },
-      wrapCol("Dataset Name", "dataset_name", 320),
       {
         title: "Geography",
         dataIndex: "geography",
@@ -561,7 +560,7 @@ const EmissionFactorsTable: React.FC = () => {
             {pendingFile ? pendingFile.name : "Click or drag a CSV file here"}
           </p>
           <p className="ant-upload-hint text-xs text-gray-500">
-            Required columns (8): Category, Sub-category, Group, Specific Type, Dataset Name,
+            Required columns (7): Category, Sub-category, Group, Specific Type,
             Geography, Unit, GWP 100. Upload the standard Main DB file (10,305 rows) and the
             domain is filled in automatically by section. Optionally add a <strong>Domain</strong>{" "}
             column (material / manufacturing / packaging / transport / waste) to set it per row.

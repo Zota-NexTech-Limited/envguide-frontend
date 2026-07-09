@@ -11,7 +11,10 @@ import {
   Loader2,
   Check,
   Boxes,
+  Download,
+  UploadCloud,
 } from "lucide-react";
+import { Modal } from "antd";
 import {
   CATENA_X_PCF_MODEL,
   REQUIREMENT_META,
@@ -20,6 +23,8 @@ import {
   type CxSection,
 } from "../../config/catenaXPcfDataModel";
 import pcfService from "../../lib/pcfService";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 /* ------------------------------------------------------------------ */
 /*  Design tokens                                                      */
@@ -140,6 +145,143 @@ interface Entry {
   sublabel?: string;
   isProduct: boolean;
   submodel: unknown;
+  semanticId?: string;
+  specVersion?: string;
+}
+
+/** Turn a label into a safe file-name fragment. */
+function sanitizeFilename(s: string): string {
+  return (
+    s
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase() || "export"
+  );
+}
+
+/** Strip glyphs the default PDF font (WinAnsi) can't render. */
+function pdfSafe(s: string): string {
+  return s
+    .replace(/₂/g, "2") // ₂ subscript
+    .replace(/→/g, "->") // →
+    .replace(/[–—]/g, "-") // en/em dash
+    .replace(/[Ā-￿]/g, ""); // drop remaining non-Latin1 glyphs
+}
+
+type AutoTableDoc = jsPDF & { lastAutoTable: { finalY: number } };
+
+/** Build & download a formatted PDF report for the given entries' data models. */
+function generateCatenaXPdf(entries: Entry[], requestId?: string): void {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const M = 40;
+  const exportedOn = new Date().toISOString().slice(0, 10);
+
+  entries.forEach((entry, idx) => {
+    if (idx > 0) doc.addPage();
+    const st = computeStats(entry.submodel);
+
+    // Header band
+    doc.setFillColor(12, 107, 59);
+    doc.rect(0, 0, pageW, 84, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text("Catena-X Semantic PCF Data Model", M, 33);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("v3.0.0   Enviguide -> Catena-X data exchange", M, 49);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text(pdfSafe(entry.label), M, 70);
+
+    // Meta + coverage
+    doc.setTextColor(90, 100, 110);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    const meta = [
+      requestId ? `Request: ${requestId}` : null,
+      entry.sublabel ? pdfSafe(entry.sublabel) : null,
+      `Exported: ${exportedOn}`,
+    ]
+      .filter(Boolean)
+      .join("      ");
+    doc.text(meta, M, 100);
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(`${st.mapped} of ${st.total} fields mapped  (${st.pct}%)`, M, 118);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(90, 100, 110);
+    doc.setFontSize(8.5);
+    doc.text(
+      `Mandatory ${st.mandatory}     Optional ${st.optional}     Conditional ${st.conditional}     Derived ${st.derived}     Missing mandatory ${st.gaps}`,
+      M,
+      132,
+    );
+
+    let startY = 148;
+    for (const section of CATENA_X_PCF_MODEL) {
+      const gapFlags: boolean[] = [];
+      const body: string[][] = [];
+      for (const group of section.groups) {
+        for (const field of group.fields) {
+          const g = REQUIREMENT_META[field.requirement].group;
+          const v = formatFieldValue(getValueByPath(entry.submodel, field.key));
+          const isEmpty = v === null;
+          const isGap = g === "mandatory" && isEmpty;
+          gapFlags.push(isGap);
+          body.push([
+            pdfSafe(field.label),
+            isEmpty ? (isGap ? "Missing - required" : "-") : pdfSafe(v as string),
+            REQUIREMENT_META[field.requirement].label,
+            isEmpty ? (isGap ? "Missing" : "Empty") : "Mapped",
+          ]);
+        }
+      }
+      autoTable(doc, {
+        startY,
+        head: [[pdfSafe(section.title), "Value", "Requirement", "Status"]],
+        body,
+        margin: { left: M, right: M },
+        styles: { fontSize: 8, cellPadding: 4, overflow: "linebreak", valign: "middle" },
+        headStyles: { fillColor: [16, 163, 74], textColor: 255, fontStyle: "bold", fontSize: 8.5 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 185, fontStyle: "bold" },
+          2: { cellWidth: 80 },
+          3: { cellWidth: 56 },
+        },
+        didParseCell: (data: any) => {
+          if (
+            data.section === "body" &&
+            gapFlags[data.row.index] &&
+            data.column.index >= 1
+          ) {
+            data.cell.styles.textColor = [220, 38, 38];
+            if (data.column.index === 3) data.cell.styles.fontStyle = "bold";
+          }
+        },
+      });
+      startY = (doc as AutoTableDoc).lastAutoTable.finalY + 14;
+    }
+  });
+
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7.5);
+    doc.setTextColor(160, 170, 180);
+    doc.text(`Page ${i} / ${pages}`, pageW - M, pageH - 16, { align: "right" });
+  }
+
+  const filename =
+    entries.length === 1
+      ? `catena-x-pcf_${sanitizeFilename(entries[0].label)}.pdf`
+      : `catena-x-pcf_all-components_${sanitizeFilename(requestId || "request")}.pdf`;
+  doc.save(filename);
 }
 
 function MiniRing({ pct, accent }: { pct: number; accent: string }) {
@@ -193,11 +335,20 @@ export default function CatenaXDataModelSection({
   const [gapsOnly, setGapsOnly] = useState(false);
   const [sovOpen, setSovOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     if (!requestId) return;
     let cancelled = false;
     setStatus("loading");
+    // Reset navigation/filter state so a prior request's drill-down or filters
+    // don't bleed into a newly selected request (this component stays mounted
+    // across /pcf-request/:id navigation).
+    setActiveId(null);
+    setQuery("");
+    setFilters([]);
+    setGapsOnly(false);
+    setExpanded({});
     Promise.all([
       pcfService.getQuintariPcfSubmodel(requestId),
       pcfService.getQuintariPcfSubmodelsPerComponent(requestId),
@@ -212,6 +363,8 @@ export default function CatenaXDataModelSection({
             sublabel: "Aggregate footprint published to Catena-X",
             isProduct: true,
             submodel: agg.data.submodel,
+            semanticId: agg.data.semanticId,
+            specVersion: agg.data.specVersion,
           });
         }
         if (per.success && Array.isArray(per.data?.components)) {
@@ -225,6 +378,8 @@ export default function CatenaXDataModelSection({
                 undefined,
               isProduct: false,
               submodel: c.submodel,
+              semanticId: c.semanticId,
+              specVersion: c.specVersion,
             });
           }
         }
@@ -331,6 +486,55 @@ export default function CatenaXDataModelSection({
     setExpanded({});
   };
 
+  // Download a PDF for whatever is in view: the specific component when drilled
+  // in, otherwise every component + the product aggregate (one page each).
+  const handleDownload = () => {
+    generateCatenaXPdf(activeEntry ? [activeEntry] : entries, requestId);
+  };
+
+  // Publish the product's PCF to Quintari (Catena-X). Product-level: publishing
+  // always targets the request, regardless of which component is being viewed.
+  const doPublish = async () => {
+    if (!requestId) return;
+    setPublishing(true);
+    try {
+      const res = await pcfService.publishToQuintari(requestId);
+      if (res.success) {
+        Modal.success({
+          title: "Published to Quintari",
+          content:
+            res.message ||
+            "The PCF results have been published to the Quintari dataspace.",
+        });
+      } else {
+        Modal.error({
+          title: "Publish failed",
+          content:
+            res.message || "Publishing to Quintari failed. Please try again.",
+        });
+      }
+    } catch {
+      Modal.error({
+        title: "Publish failed",
+        content: "Publishing to Quintari failed. Please try again.",
+      });
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handlePublish = () => {
+    if (!requestId) return;
+    Modal.confirm({
+      title: "Publish to Quintari?",
+      content:
+        "This creates the Catena-X digital twin and PCF submodel for this product in the Quintari (Catena-X) dataspace.",
+      okText: "Publish",
+      cancelText: "Cancel",
+      onOk: doPublish,
+    });
+  };
+
   const dash = `${((RING_C * stats.pct) / 100).toFixed(1)} ${RING_C.toFixed(1)}`;
   const showBackBar = entries.length > 1;
 
@@ -345,22 +549,56 @@ export default function CatenaXDataModelSection({
         }}
       >
         <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/[.06]" />
-        <div className="relative">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-white/[.16]">
-              <Network size={22} />
-            </span>
-            <h2 className="m-0 text-xl font-extrabold tracking-tight">
-              Catena-X Semantic PCF Data Model
-            </h2>
-            <span className="rounded-md bg-white/[.18] px-2 py-1 text-[11px] font-bold tracking-wide">
-              v3.0.0
-            </span>
+        <div className="relative flex items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-white/[.16]">
+                <Network size={22} />
+              </span>
+              <h2 className="m-0 text-xl font-extrabold tracking-tight">
+                Catena-X Semantic PCF Data Model
+              </h2>
+              <span className="rounded-md bg-white/[.18] px-2 py-1 text-[11px] font-bold tracking-wide">
+                v3.0.0
+              </span>
+            </div>
+            <p className="mt-2.5 max-w-xl text-sm font-medium text-white/85">
+              Field mapping for the Enviguide &rarr; Catena-X exchange. Track
+              what is mapped and spot missing mandatory values before you
+              submit.
+            </p>
           </div>
-          <p className="mt-2.5 max-w-xl text-sm font-medium text-white/85">
-            Field mapping for the Enviguide &rarr; Catena-X exchange. Track what
-            is mapped and spot missing mandatory values before you submit.
-          </p>
+          <div className="flex flex-none items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePublish}
+              disabled={publishing}
+              title="Publish this product's PCF to the Quintari (Catena-X) dataspace"
+              className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-[12.5px] font-bold text-[#0c6b3b] shadow-sm transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {publishing ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <UploadCloud size={15} />
+              )}
+              {publishing ? "Publishing…" : "Publish"}
+            </button>
+            {status === "loaded" && (
+              <button
+                type="button"
+                onClick={handleDownload}
+                title={
+                  activeEntry
+                    ? `Download the "${activeEntry.label}" data model as PDF`
+                    : "Download all components' data models as PDF"
+                }
+                className="flex items-center gap-2 rounded-lg bg-white/[.16] px-3 py-2 text-[12.5px] font-bold text-white ring-1 ring-white/25 transition-colors hover:bg-white/25"
+              >
+                <Download size={15} />
+                Download PDF
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

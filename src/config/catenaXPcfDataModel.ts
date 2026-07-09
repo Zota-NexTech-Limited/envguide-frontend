@@ -588,11 +588,6 @@ export const CATENA_X_PCF_MODEL: CxSection[] = [
         title: "Attestation of Conformance",
         fields: [
           {
-            label: "Attestation of conformance",
-            requirement: "O",
-            key: "attestationOfConformance.0.attestationOfConformanceId",
-          },
-          {
             label: "Attestation type",
             requirement: "Mif",
             key: "attestationOfConformance.0.attestationType",

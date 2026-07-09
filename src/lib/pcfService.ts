@@ -844,6 +844,92 @@ class PCFService {
       };
     }
   }
+
+  /**
+   * Read-only preview of the assembled Catena-X PCF submodel for a request.
+   * Returns { semanticId, specVersion, submodel } — the same JSON that would be
+   * published to Quintari. Used to show real values next to each field on the
+   * "Catena-X Semantic PCF Data Model" section. No side effects.
+   * GET /api/quintari/pcf-submodel/:bomPcfRequestId
+   */
+  async getQuintariPcfSubmodel(
+    bomPcfRequestId: string,
+  ): Promise<{ success: boolean; message: string; data?: any }> {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(
+        `${API_BASE_URL}/api/quintari/pcf-submodel/${encodeURIComponent(bomPcfRequestId)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.status === false) {
+        return {
+          success: false,
+          message: body?.message || `Failed to load submodel (status ${response.status})`,
+        };
+      }
+      return {
+        success: true,
+        message: body?.message || "ok",
+        data: body?.data,
+      };
+    } catch (error) {
+      console.error("Error fetching Quintari PCF submodel:", error);
+      return {
+        success: false,
+        message: "Network error while fetching PCF submodel",
+      };
+    }
+  }
+
+  /**
+   * Read-only preview of the Catena-X PCF submodel for EACH calculated BOM
+   * component of a request. Returns { components: [{ bomId, componentName,
+   * materialNumber, componentCategory, supplierName, submodel }] }.
+   * GET /api/quintari/pcf-submodels/:bomPcfRequestId
+   */
+  async getQuintariPcfSubmodelsPerComponent(
+    bomPcfRequestId: string,
+  ): Promise<{ success: boolean; message: string; data?: any }> {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(
+        `${API_BASE_URL}/api/quintari/pcf-submodels/${encodeURIComponent(bomPcfRequestId)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.status === false) {
+        return {
+          success: false,
+          message:
+            body?.message || `Failed to load submodels (status ${response.status})`,
+        };
+      }
+      return {
+        success: true,
+        message: body?.message || "ok",
+        data: body?.data,
+      };
+    } catch (error) {
+      console.error("Error fetching Quintari per-component submodels:", error);
+      return {
+        success: false,
+        message: "Network error while fetching per-component submodels",
+      };
+    }
+  }
 }
 
 export const pcfService = new PCFService();

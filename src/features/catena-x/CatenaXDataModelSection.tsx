@@ -12,9 +12,7 @@ import {
   Check,
   Boxes,
   Download,
-  UploadCloud,
 } from "lucide-react";
-import { Modal } from "antd";
 import {
   CATENA_X_PCF_MODEL,
   REQUIREMENT_META,
@@ -335,7 +333,6 @@ export default function CatenaXDataModelSection({
   const [gapsOnly, setGapsOnly] = useState(false);
   const [sovOpen, setSovOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     if (!requestId) return;
@@ -492,49 +489,6 @@ export default function CatenaXDataModelSection({
     generateCatenaXPdf(activeEntry ? [activeEntry] : entries, requestId);
   };
 
-  // Publish the product's PCF to Quintari (Catena-X). Product-level: publishing
-  // always targets the request, regardless of which component is being viewed.
-  const doPublish = async () => {
-    if (!requestId) return;
-    setPublishing(true);
-    try {
-      const res = await pcfService.publishToQuintari(requestId);
-      if (res.success) {
-        Modal.success({
-          title: "Published to Quintari",
-          content:
-            res.message ||
-            "The PCF results have been published to the Quintari dataspace.",
-        });
-      } else {
-        Modal.error({
-          title: "Publish failed",
-          content:
-            res.message || "Publishing to Quintari failed. Please try again.",
-        });
-      }
-    } catch {
-      Modal.error({
-        title: "Publish failed",
-        content: "Publishing to Quintari failed. Please try again.",
-      });
-    } finally {
-      setPublishing(false);
-    }
-  };
-
-  const handlePublish = () => {
-    if (!requestId) return;
-    Modal.confirm({
-      title: "Publish to Quintari?",
-      content:
-        "This creates the Catena-X digital twin and PCF submodel for this product in the Quintari (Catena-X) dataspace.",
-      okText: "Publish",
-      cancelText: "Cancel",
-      onOk: doPublish,
-    });
-  };
-
   const dash = `${((RING_C * stats.pct) / 100).toFixed(1)} ${RING_C.toFixed(1)}`;
   const showBackBar = entries.length > 1;
 
@@ -569,20 +523,6 @@ export default function CatenaXDataModelSection({
             </p>
           </div>
           <div className="flex flex-none items-center gap-2">
-            <button
-              type="button"
-              onClick={handlePublish}
-              disabled={publishing}
-              title="Publish this product's PCF to the Quintari (Catena-X) dataspace"
-              className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-[12.5px] font-bold text-[#0c6b3b] shadow-sm transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {publishing ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <UploadCloud size={15} />
-              )}
-              {publishing ? "Publishing…" : "Publish"}
-            </button>
             {status === "loaded" && (
               <button
                 type="button"

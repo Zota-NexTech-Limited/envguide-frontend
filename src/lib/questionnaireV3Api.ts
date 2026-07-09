@@ -349,13 +349,16 @@ export function mapV3FormToBackend(
         exemptedEmissionsDescription: str(boundary.excluded_flows),
         exemptedEmissionsPercent: num(boundary.exempted_percent),
 
-        // Q25 DQR
+        // Q25 DQR — key names MUST match the backend QuestionnaireInput
+        // (technologicalDqr/temporalDqr/geographicalDqr/secondaryEfSources/
+        // dataCollectedYear); otherwise the values are dropped and the PCF
+        // submodel falls back to the default DQR of 2.
         primaryDataSharePct: num(dqr.primary_data_share),
-        secondaryEfSource: str(dqr.secondary_ef_source),
-        dataYear: str(dqr.data_year),
-        dqrTechnological: num(dqr.technological),
-        dqrGeographical: num(dqr.geographical),
-        dqrTemporal: num(dqr.temporal),
+        secondaryEfSources: str(dqr.secondary_ef_source),
+        dataCollectedYear: num(dqr.data_year),
+        technologicalDqr: num(dqr.technological),
+        geographicalDqr: num(dqr.geographical),
+        temporalDqr: num(dqr.temporal),
 
         // Q26 verification
         productCertified: yesNoToBool(verification.product_certified),

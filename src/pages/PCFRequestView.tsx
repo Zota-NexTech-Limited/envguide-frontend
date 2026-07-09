@@ -82,6 +82,7 @@ import {
 import { usePermissions } from "../contexts/PermissionContext";
 import { CheckSquare, ArrowRight, ClipboardList } from "lucide-react";
 import BomTable from "../features/pcf-create/BomTable";
+import CatenaXDataModelSection from "../features/catena-x/CatenaXDataModelSection";
 
 const { Step } = Steps;
 const { TextArea } = Input;
@@ -2493,6 +2494,11 @@ const PCFRequestView: React.FC = () => {
             ]}
           />
         </Card>
+      )}
+
+      {/* Catena-X Semantic PCF Data Model — field mapping + data sovereignty */}
+      {requestData?.pcf_request_stages?.is_pcf_calculated && (
+        <CatenaXDataModelSection requestId={id} />
       )}
 
       {/* Completed Stages List */}

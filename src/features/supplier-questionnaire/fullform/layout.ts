@@ -376,7 +376,7 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
   section_e_packaging: [
     {
       num: "15",
-      label: "Should packaging be included within this footprint?",
+      label: "Should packaging be included within this reporting?",
       primaryName: "packaging.include_packaging",
     },
     {
@@ -384,7 +384,7 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
       label: "Which packaging materials are used for the product?",
       tableName: "packaging.materials_used",
       gateHint:
-        'Select "Yes, include packaging" in Q15 to list packaging materials.',
+        'Select "Yes — include packaging" in Q15 to list packaging materials.',
     },
     {
       num: "16a",
@@ -392,14 +392,14 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
       help: "One row per packaging transport leg. Weight, distance in km. Use Air for any air-freighted packaging.",
       tableName: "packaging.transport",
       gateHint:
-        'Select "Yes, include packaging" in Q15 to add packaging transport legs.',
+        'Select "Yes — include packaging" in Q15 to add packaging transport legs.',
     },
     {
       num: "17",
       label: "What packaging waste was generated, and how was it treated?",
       tableName: "packaging.waste",
       gateHint:
-        'Select "Yes, include packaging" in Q15 to record packaging waste.',
+        'Select "Yes — include packaging" in Q15 to record packaging waste.',
     },
   ],
 
@@ -416,7 +416,7 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
       help: "One row per journey, from delivery notes or freight invoices. Weight in tonnes, distance in km.",
       tableName: "transport.legs",
       gateHint:
-        'Select "Yes, distribution is within my boundary" in Q18 to add transport legs.',
+        'Select "Yes — distribution is within my boundary" in Q18 to add transport legs.',
     },
   ],
 

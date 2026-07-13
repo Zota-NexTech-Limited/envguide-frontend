@@ -181,14 +181,17 @@ const SYSTEM_BOUNDARIES = [
   "Cradle-to-Grave",
 ];
 
+// Display labels use an em dash; the stored VALUES are kept unchanged so the
+// existing dependency gates (Q16/Q16.1/Q17 on include_packaging, Q19 on
+// outbound_in_boundary) and the mapper continue to match without edits.
 const PACKAGING_INCLUDE = [
-  "Yes, include packaging",
-  "No, exclude packaging",
+  { label: "Yes — include packaging", value: "Yes, include packaging" },
+  { label: "No — exclude packaging", value: "No, exclude packaging" },
 ];
 
 const OUTBOUND_TRANSPORT = [
-  "Yes, distribution is within my boundary",
-  "No, the customer arranges it",
+  { label: "Yes — distribution is within my boundary", value: "Yes, distribution is within my boundary" },
+  { label: "No — the customer arranges it", value: "No, the customer arranges it" },
 ];
 
 const BIOBASED_PRESENT = [
@@ -773,7 +776,7 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
     fields: [
       {
         name: "packaging.include_packaging",
-        label: "15. Should packaging be included within this footprint?",
+        label: "15. Should packaging be included within this reporting?",
         type: "radio",
         options: PACKAGING_INCLUDE,
         required: true,
@@ -786,13 +789,13 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         required: true,
         dependency: { field: "packaging.include_packaging", value: "Yes, include packaging" },
         columns: [
-          { name: "product_id", label: "Product ID / MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Select MPN" },
-          { name: "category", label: "Category (Packaging)", type: "select", efTaxonomyLevel: "category", placeholder: "Search category…" },
-          { name: "sub_category", label: "Sub category", type: "select", efTaxonomyLevel: "sub_category", placeholder: "Search sub-category…" },
-          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", placeholder: "Search group…" },
-          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", placeholder: "Search specific type…" },
-          { name: "packaging_weight", label: "Packaging weight", type: "number", min: 0, placeholder: "0.00" },
-          { name: "unit", label: "Units", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
+          { name: "product_id", label: "MPN", type: "select", apiDropdown: "bomMaterials", required: true, placeholder: "Select MPN" },
+          { name: "category", label: "Category", type: "select", efTaxonomyLevel: "category", required: true, placeholder: "Search category…" },
+          { name: "sub_category", label: "Subcategory", type: "select", efTaxonomyLevel: "sub_category", required: true, placeholder: "Search sub-category…" },
+          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", required: true, placeholder: "Search group…" },
+          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", required: true, placeholder: "Search specific type…" },
+          { name: "packaging_weight", label: "Weight (Per Component)", type: "number", required: true, min: 0, placeholder: "0.00" },
+          { name: "unit", label: "Units", type: "select", options: MASS_UNITS, required: true, placeholder: "Select unit" },
           { name: "region", label: "Region", type: "select", options: REGIONS, placeholder: "Select region" },
           { name: "country", label: "Country", type: "select", options: COUNTRIES, placeholder: "Select country" },
           { name: "recycled_percent", label: "Recycled (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
@@ -827,13 +830,13 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         required: true,
         dependency: { field: "packaging.include_packaging", value: "Yes, include packaging" },
         columns: [
-          { name: "mpn_code", label: "MPN Code", type: "select", apiDropdown: "bomMaterials", placeholder: "Select MPN" },
-          { name: "category", label: "Category (Pack waste)", type: "select", efTaxonomyLevel: "category", placeholder: "Search category…" },
-          { name: "sub_category", label: "Sub category", type: "select", efTaxonomyLevel: "sub_category", placeholder: "Search sub-category…" },
-          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", placeholder: "Search group…" },
-          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", placeholder: "Search specific type…" },
-          { name: "quantity", label: "Quantity", type: "number", min: 0, placeholder: "0.00" },
-          { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
+          { name: "mpn_code", label: "MPN", type: "select", apiDropdown: "bomMaterials", required: true, placeholder: "Select MPN" },
+          { name: "category", label: "Category", type: "select", efTaxonomyLevel: "category", required: true, placeholder: "Search category…" },
+          { name: "sub_category", label: "Subcategory", type: "select", efTaxonomyLevel: "sub_category", required: true, placeholder: "Search sub-category…" },
+          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", required: true, placeholder: "Search group…" },
+          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", required: true, placeholder: "Search specific type…" },
+          { name: "quantity", label: "Quantity (Per Component)", type: "number", required: true, min: 0, placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, required: true, placeholder: "Select unit" },
           { name: "energy_recovered", label: "Energy recovered? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
         ],
       },
@@ -867,16 +870,16 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         placeholder:
           "One row per journey, from delivery notes or freight invoices. Weight in tonnes, distance in km.",
         columns: [
-          { name: "product_id", label: "Product ID / MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Select MPN" },
-          { name: "category", label: "Category", type: "select", efTaxonomyLevel: "category", placeholder: "Search category…" },
-          { name: "sub_category", label: "Sub category", type: "select", efTaxonomyLevel: "sub_category", placeholder: "Search sub-category…" },
-          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", placeholder: "Search group…" },
-          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", placeholder: "Search specific type…" },
-          { name: "source", label: "Source", type: "text", placeholder: "Origin" },
-          { name: "destination", label: "Destination", type: "text", placeholder: "Destination" },
-          { name: "weight", label: "Weight", type: "number", min: 0, placeholder: "0.00" },
-          { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, placeholder: "Select unit" },
-          { name: "distance_km", label: "Distance (km)", type: "number", min: 0, placeholder: "0" },
+          { name: "product_id", label: "MPN", type: "select", apiDropdown: "bomMaterials", required: true, placeholder: "Select MPN" },
+          { name: "category", label: "Category", type: "select", efTaxonomyLevel: "category", required: true, placeholder: "Search category…" },
+          { name: "sub_category", label: "Subcategory", type: "select", efTaxonomyLevel: "sub_category", required: true, placeholder: "Search sub-category…" },
+          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", required: true, placeholder: "Search group…" },
+          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", required: true, placeholder: "Search specific type…" },
+          { name: "source", label: "Source", type: "text", required: true, placeholder: "Origin" },
+          { name: "destination", label: "Destination", type: "text", required: true, placeholder: "Destination" },
+          { name: "weight", label: "Weight", type: "number", required: true, min: 0, placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, required: true, placeholder: "Select unit" },
+          { name: "distance_km", label: "Distance (km)", type: "number", required: true, min: 0, placeholder: "0" },
           { name: "low_carbon_fuel", label: "Low-Carbon Fuel? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
           { name: "fuel_certificate_ref", label: "Fuel Certificate Ref.", type: "text", placeholder: "Reference" },
         ],

@@ -140,7 +140,6 @@ export function mapV3FormToBackend(
 
     const coProducts = arr(bomBlock.co_products).map((c: any) => ({
         mpn: str(c.mpn),
-        componentName: str(c.component_name),
         coProductName: str(c.co_product_name),
         coProductPrice: num(c.co_product_price),
         isPrimaryProduct: yesNoToBool(c.is_primary),
@@ -152,9 +151,20 @@ export function mapV3FormToBackend(
         supplierEf: str(e.supplier_ef),
     }));
 
+    // Q8b — process consumable materials used in production but not in the BOM.
+    const processConsumables = arr(bomBlock.process_consumables).map((c: any) => ({
+        mpn: str(c.mpn),
+        consumableMaterial: str(c.consumable_material),
+        category: str(c.category),
+        subCategory: str(c.sub_category),
+        materialGroup: str(c.group),
+        specificType: str(c.specific_type),
+        totalQuantity: num(c.total_quantity),
+        unit: str(c.unit),
+    }));
+
     const electricity = arr(energy.electricity).map((e: any) => ({
         electricityType: str(e.electricity_type),
-        generatorType: str(e.generator_type),
         category: str(e.category),
         subCategory: str(e.sub_category),
         materialGroup: str(e.group),
@@ -164,6 +174,16 @@ export function mapV3FormToBackend(
         renewablePct: num(e.renewable_percent),
         renewableSourcing: str(e.renewable_sourcing),
         infrastructureEmissionsIncluded: yesNoToBool(e.infrastructure_included),
+    }));
+
+    // Q10a / Q10b — per-product factory production totals (weight + units).
+    const factoryProductWeights = arr(energy.factory_product_weights).map((r: any) => ({
+        mpn: str(r.mpn),
+        totalWeightKg: num(r.total_weight_kg),
+    }));
+    const factoryProductUnits = arr(energy.factory_product_units).map((r: any) => ({
+        mpn: str(r.mpn),
+        unitsProduced: num(r.units_produced),
     }));
 
     const fuels = arr(energy.other_fuels).map((f: any) => ({
@@ -288,10 +308,9 @@ export function mapV3FormToBackend(
         companyRegistrationId: str(company.company_id),
         companyOtherIdentifier: str(company.other_identifier),
 
-        // Form header — contact + completion metadata
+        // Form header — contact metadata
         contactPerson: str(formData?.contact?.person),
         contactEmail: str(formData?.contact?.email),
-        dateCompleted: str(formData?.contact?.date_completed),
 
         // Q2
         productNameCompany: str(product.name),
@@ -304,6 +323,7 @@ export function mapV3FormToBackend(
         declaredUnitAmount: num(product.declared_unit_quantity),
         productMassPerDeclaredUnit: num(product.declared_mass),
         productPrice: num(product.price),
+        productionPeriod: str(product.production_period),
 
         // Q5
         referencePeriodStart: str(sp.reference_start),
@@ -373,18 +393,15 @@ export function mapV3FormToBackend(
         attestationUrl: str(verification.attestation_url),
         attestationCompletedAt: str(verification.attestation_completed_at),
 
-        // Q10a — factory electricity allocation inputs (response-level).
-        factoryTotalEnergyKwh: num(energy.factory_total_energy_kwh),
-        factoryTotalWeightKg: num(energy.factory_total_weight_kg),
-        componentTotalWeightKg: num(energy.component_total_weight_kg),
-        componentNumProducts: num(energy.component_num_products),
-
         // children
         sites,
         bom,
         coProducts,
         componentEfDetails,
+        processConsumables,
         electricity,
+        factoryProductWeights,
+        factoryProductUnits,
         fuels,
         processGases,
         qcItEnergy,
@@ -425,6 +442,7 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
             declared_unit: d.declaredUnit,
             declared_unit_quantity: d.declaredUnitAmount,
             declared_mass: d.productMassPerDeclaredUnit,
+            production_period: d.productionPeriod,
             manufacturing_sites: (d.sites ?? []).map((s: any) => ({
                 site_name: s.siteName,
                 site_address: s.siteAddress,
@@ -460,18 +478,32 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
             })),
             co_products: (d.coProducts ?? []).map((c: any) => ({
                 mpn: c.mpn,
-                component_name: c.componentName,
                 co_product_name: c.coProductName,
                 co_product_price: c.coProductPrice,
                 is_primary: b2yn(c.isPrimaryProduct),
             })),
+            process_consumables: (d.processConsumables ?? []).map((c: any) => ({
+                mpn: c.mpn,
+                consumable_material: c.consumableMaterial,
+                category: c.category,
+                sub_category: c.subCategory,
+                group: c.materialGroup,
+                specific_type: c.specificType,
+                total_quantity: c.totalQuantity,
+                unit: c.unit,
+            })),
         },
         energy: {
-            factory_total_energy_kwh: d.factoryTotalEnergyKwh,
-            factory_total_weight_kg: d.factoryTotalWeightKg,
+            factory_product_weights: (d.factoryProductWeights ?? []).map((r: any) => ({
+                mpn: r.mpn,
+                total_weight_kg: r.totalWeightKg,
+            })),
+            factory_product_units: (d.factoryProductUnits ?? []).map((r: any) => ({
+                mpn: r.mpn,
+                units_produced: r.unitsProduced,
+            })),
             electricity: (d.electricity ?? []).map((e: any) => ({
                 electricity_type: e.electricityType,
-                generator_type: e.generatorType,
                 category: e.category,
                 sub_category: e.subCategory,
                 group: e.materialGroup,

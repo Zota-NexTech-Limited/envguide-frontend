@@ -122,6 +122,11 @@ export interface QuestionnaireField {
   // types). Seeded once; the supplier only fills the editable columns. Pair
   // with lockAddRemove + readOnly columns for a fixed-row table.
   prefillRows?: Array<Record<string, any>>;
+  // Table-column only: renders a country-dependent subdivision (state /
+  // province) autocomplete. Value is the sibling column name that holds the
+  // country. Suggestions come from countrySubdivisions; free text is always
+  // allowed so any state can be typed manually.
+  subdivisionOf?: string;
 }
 
 export interface QuestionnaireSection {

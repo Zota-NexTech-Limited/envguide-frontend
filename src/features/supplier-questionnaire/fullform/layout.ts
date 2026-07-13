@@ -215,7 +215,7 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
     {
       label: "Submission details",
       subsLabel: "About this submission",
-      subNames: ["contact.person", "contact.email", "contact.date_completed"],
+      subNames: ["contact.person", "contact.email"],
     },
   ],
 
@@ -253,6 +253,7 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
         "product.declared_unit_quantity",
         "product.declared_mass",
         "product.price",
+        "product.production_period",
       ],
     },
     {
@@ -306,12 +307,19 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
         'Select "Yes" above to list each component / material and its emission factor.',
     },
     {
+      num: "8b",
+      label:
+        "Which process consumable materials are used during manufacturing that are not part of the Bill of Materials?",
+      help: "Optional. List consumables used up during production (e.g. lubricants, solvents, welding gas) that are not counted in the BOM.",
+      tableName: "bom.process_consumables",
+    },
+    {
       // Single card: Yes reveals the co-product table; No shows nothing
       // (no gateHint, so the gate renders nothing when "No").
       num: "9",
       label:
-        "Does the same manufacturing process also yield other scaleable co-products?",
-      help: "Only applies where one process produces more than one sellable output, so shared emissions can be allocated fairly. If yes, list each co-product and its unit price below.",
+        "Does the same manufacturing process also yield other saleable co-products? If yes, list each co-product with its price and mark the primary product.",
+      help: "Only applies where one process produces more than one sellable output, so shared emissions can be allocated fairly. Component name is inferred from the MPN, so only the MPN, co-product name, price and primary-product flag are captured.",
       primaryName: "bom.co_products_produced",
       tableName: "bom.co_products",
       gateName: "bom.co_products_produced",
@@ -329,12 +337,15 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
     },
     {
       num: "10a",
-      label: "Factory electricity allocation (per-unit production electricity)",
-      help: "Used to allocate factory electricity to one unit of this component, by mass: product weight × factory energy ÷ factory weight. Enter both factory totals in the same period (kWh and kg).",
-      subNames: [
-        "energy.factory_total_energy_kwh",
-        "energy.factory_total_weight_kg",
-      ],
+      label:
+        "What is the total weight of each product manufactured at the factory level during the reporting period?",
+      tableName: "energy.factory_product_weights",
+    },
+    {
+      num: "10b",
+      label:
+        "How many units of each product were manufactured during the reporting period?",
+      tableName: "energy.factory_product_units",
     },
     {
       num: "11",

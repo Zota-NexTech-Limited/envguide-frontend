@@ -77,6 +77,8 @@ const DECLARED_UNITS = [
   "set",
 ];
 
+const PRODUCTION_PERIODS = ["Monthly", "Annually"];
+
 const MASS_UNITS = ["kg", "g", "tonne", "lb"];
 const QUANTITY_UNITS = ["kg", "g", "tonne", "lb", "litre", "m³", "piece"];
 const ENERGY_UNITS = ["kWh", "MWh", "MJ", "GJ"];
@@ -287,13 +289,6 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         required: true,
         placeholder: "name@example.com",
       },
-      {
-        name: "contact.date_completed",
-        label: "Date completed",
-        type: "date",
-        required: false,
-        placeholder: "Date this form was completed",
-      },
     ],
   },
 
@@ -417,6 +412,15 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         autoPopulateFromBomField: "price",
       },
       {
+        // Q3 (3e) — the production period the declared basis refers to.
+        name: "product.production_period",
+        label: "Production Period",
+        type: "select",
+        options: PRODUCTION_PERIODS,
+        required: true,
+        placeholder: "Select production period",
+      },
+      {
         name: "product.manufacturing_sites",
         label: "4. At which site(s) is the product manufactured?",
         type: "table",
@@ -426,9 +430,11 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         columns: [
           { name: "site_name", label: "Site Name", type: "text", placeholder: "Site name" },
           { name: "site_address", label: "Site Address", type: "text", placeholder: "Address" },
+          // Subdivision suggestions are driven by the selected Country
+          // (subdivisionOf) and always allow a manually typed value.
+          { name: "subdivision", label: "Subdivision", type: "text", required: true, subdivisionOf: "country", placeholder: "Select or type state / province" },
           { name: "region", label: "Region", type: "select", options: REGIONS, required: true, placeholder: "Select region" },
           { name: "country", label: "Country", type: "select", options: COUNTRIES, required: true, placeholder: "Select country" },
-          { name: "subdivision", label: "Subdivision", type: "text", required: true, placeholder: "State / province" },
           { name: "notes", label: "Notes", type: "text", placeholder: "Optional notes" },
         ],
       },
@@ -522,17 +528,20 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           // (getBomComponentsForSupplier) — not free text. Selecting an MPN
           // auto-fills component_name / bom_id for that row.
           { name: "product_id", label: "Product ID / MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Select MPN" },
-          { name: "material", label: "Category (Material)", type: "select", efTaxonomyLevel: "category", placeholder: "Search category…" },
-          { name: "sub_category", label: "Sub category", type: "select", efTaxonomyLevel: "sub_category", placeholder: "Search sub-category…" },
-          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", placeholder: "Search group…" },
-          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", placeholder: "Search specific type…" },
+          // The 4-level EF classification is mandatory (shows a red * per column).
+          { name: "material", label: "Category (Material)", type: "select", efTaxonomyLevel: "category", required: true, placeholder: "Search category…" },
+          { name: "sub_category", label: "Sub category", type: "select", efTaxonomyLevel: "sub_category", required: true, placeholder: "Search sub-category…" },
+          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", required: true, placeholder: "Search group…" },
+          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", required: true, placeholder: "Search specific type…" },
           { name: "mass_percent", label: "Mass of component (%)", type: "number", required: true, min: 0, max: 100, placeholder: "0-100" },
           { name: "carbon_percent", label: "Carbon (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
           { name: "biogenic", label: "Biogenic? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
-          { name: "biogenic_carbon_percent", label: "Biogenic carbon (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
-          { name: "biobased_mass_percent", label: "Bio-based mass (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
+          // Biogenic carbon + bio-based mass only apply when Biogenic = Yes.
+          { name: "biogenic_carbon_percent", label: "Biogenic carbon (%)", type: "number", min: 0, max: 100, placeholder: "0-100", dependency: { field: "biogenic", value: "Yes" } },
+          { name: "biobased_mass_percent", label: "Bio-based mass (%)", type: "number", min: 0, max: 100, placeholder: "0-100", dependency: { field: "biogenic", value: "Yes" } },
           { name: "recycled", label: "Recycled? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
-          { name: "recycled_carbon_percent", label: "Recycled C (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
+          // Recycled carbon only applies when Recycled = Yes.
+          { name: "recycled_carbon_percent", label: "Recycled C (%)", type: "number", min: 0, max: 100, placeholder: "0-100", dependency: { field: "recycled", value: "Yes" } },
         ],
       },
       {
@@ -563,6 +572,30 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         ],
       },
       {
+        // Q8b — process consumable materials used during production but NOT part
+        // of the Bill of Materials. Optional. MPN is free text (these consumables
+        // are not BOM components); classification uses the same 4-level EF
+        // taxonomy cascade as the BOM.
+        name: "bom.process_consumables",
+        label:
+          "8b. Which process consumable materials are used during manufacturing that are not included in the Bill of Materials? (optional)",
+        type: "table",
+        addButtonLabel: "Add Consumable",
+        required: false,
+        placeholder:
+          "One row per process consumable consumed during production but not part of the BOM.",
+        columns: [
+          { name: "mpn", label: "MPN", type: "text", placeholder: "MPN (if any)" },
+          { name: "consumable_material", label: "Process Consumable Materials", type: "text", placeholder: "Consumable name" },
+          { name: "category", label: "Category", type: "select", efTaxonomyLevel: "category", placeholder: "Search category…" },
+          { name: "sub_category", label: "Sub-Category", type: "select", efTaxonomyLevel: "sub_category", placeholder: "Search sub-category…" },
+          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", placeholder: "Search group…" },
+          { name: "specific_type", label: "Specific type", type: "select", efTaxonomyLevel: "specific_type", placeholder: "Search specific type…" },
+          { name: "total_quantity", label: "Total Quantity", type: "number", min: 0, placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: QUANTITY_UNITS, placeholder: "Select unit" },
+        ],
+      },
+      {
         name: "bom.co_products_produced",
         label: "9. Does the same manufacturing process also yield other saleable co-products?",
         type: "radio",
@@ -582,8 +615,9 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           value: "Yes",
         },
         columns: [
+          // Component name is intentionally omitted — it is inferable from the
+          // selected MPN, so only the MPN is captured here.
           { name: "mpn", label: "MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
-          { name: "component_name", label: "Component Name", type: "text", placeholder: "Auto-filled from MPN", readOnly: true },
           { name: "co_product_name", label: "Co-Product Name", type: "text", placeholder: "Co-product name" },
           { name: "co_product_price", label: "Co-Product Price (currency/unit)", type: "number", min: 0, placeholder: "0.00" },
           { name: "is_primary", label: "Is this the primary product? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
@@ -609,35 +643,50 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         placeholder:
           "Use meter readings or electricity invoices for the reporting period. Default unit is kWh.",
         columns: [
-          { name: "electricity_type", label: "Type of Electricity", type: "select", options: ELECTRICITY_TYPES, placeholder: "Select type" },
-          { name: "generator_type", label: "Generator Type", type: "text", placeholder: "If self-generated" },
-          { name: "category", label: "Category (Electricity)", type: "select", efTaxonomyLevel: "category", placeholder: "Search category…" },
-          { name: "sub_category", label: "Sub category", type: "select", efTaxonomyLevel: "sub_category", placeholder: "Search sub-category…" },
-          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", placeholder: "Search group…" },
-          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", placeholder: "Search specific type…" },
-          { name: "quantity", label: "Quantity", type: "number", min: 0, placeholder: "0.00" },
-          { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, placeholder: "Select unit" },
+          { name: "electricity_type", label: "Electricity Type", type: "select", options: ELECTRICITY_TYPES, required: true, placeholder: "Select type" },
+          { name: "category", label: "Category (Electricity)", type: "select", efTaxonomyLevel: "category", required: true, placeholder: "Search category…" },
+          { name: "sub_category", label: "Sub category", type: "select", efTaxonomyLevel: "sub_category", required: true, placeholder: "Search sub-category…" },
+          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", required: true, placeholder: "Search group…" },
+          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", required: true, placeholder: "Search specific type…" },
+          { name: "quantity", label: "Quantity", type: "number", required: true, min: 0, placeholder: "0.00" },
+          { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, required: true, placeholder: "Select unit" },
           { name: "renewable_percent", label: "Renewable (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
           { name: "renewable_sourcing", label: "Renewable (%) Sourcing", type: "select", options: RENEWABLE_SOURCING, placeholder: "Select mechanism" },
           { name: "infrastructure_included", label: "Infrastructure Emissions Included? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
-          { name: "infrastructure_ef", label: "Infrastructure EF (kgCO₂e/kWh)", type: "number", min: 0, placeholder: "0.00" },
+          { name: "infrastructure_ef", label: "Infrastructure Emission Factor (kgCO₂e/kWh)", type: "number", min: 0, placeholder: "0.00" },
         ],
       },
-      // 10a — factory electricity allocation. Per-unit production electricity is
-      // mass-allocated: product_mass × factory_energy / factory_weight.
-      // We only ask the supplier for the two factory totals (both in kg / kWh);
-      // the component's per-unit mass comes from the product mass (Q3c), so the
-      // old "component total weight" and "number of units" fields are not needed
-      // (they cancel out of the formula).
       {
-        name: "energy.factory_total_energy_kwh",
-        label: "Total energy consumed at factory level (kWh)",
-        type: "number", exclusiveMin: 0, required: true, placeholder: "e.g. 40000",
+        // Q10a — total weight of each product manufactured at the factory level
+        // during the reporting period (one row per MPN).
+        name: "energy.factory_product_weights",
+        label:
+          "10a. What is the total weight of each product manufactured at the factory level during the reporting period?",
+        type: "table",
+        addButtonLabel: "Add Product",
+        required: true,
+        placeholder:
+          "One row per product. Total weight (kg) produced at factory level for the reporting period.",
+        columns: [
+          { name: "mpn", label: "MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Select MPN" },
+          { name: "total_weight_kg", label: "Total weight produced at factory level (kg)", type: "number", required: true, min: 0, placeholder: "e.g. 25000" },
+        ],
       },
       {
-        name: "energy.factory_total_weight_kg",
-        label: "Total weight produced at factory level (kg)",
-        type: "number", exclusiveMin: 0, required: true, placeholder: "e.g. 25000",
+        // Q10b — number of units of each product manufactured during the
+        // reporting period (one row per MPN).
+        name: "energy.factory_product_units",
+        label:
+          "10b. How many units of each product were manufactured during the reporting period?",
+        type: "table",
+        addButtonLabel: "Add Product",
+        required: true,
+        placeholder:
+          "One row per product. Number of products / components produced during the reporting period.",
+        columns: [
+          { name: "mpn", label: "MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Select MPN" },
+          { name: "units_produced", label: "No. of products / components produced", type: "number", required: true, min: 0, placeholder: "e.g. 10000" },
+        ],
       },
       {
         name: "energy.other_fuels",

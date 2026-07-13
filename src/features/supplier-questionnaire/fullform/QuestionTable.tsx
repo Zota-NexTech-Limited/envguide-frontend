@@ -13,10 +13,11 @@
  *    cells, keep read-only + link fields) and Add is hidden.
  */
 import React from "react";
-import { Form, Input, InputNumber, Select, DatePicker, Button } from "antd";
+import { AutoComplete, Form, Input, InputNumber, Select, DatePicker, Button } from "antd";
 import type { FormInstance } from "antd";
 import { PlusOutlined, DeleteOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { QuestionnaireField } from "../../../config/questionnaireSchema";
+import { getSubdivisionsForCountry } from "../../../config/countrySubdivisions";
 import { C } from "./theme";
 import { MiniYesNo, optionsAreYesNo, optionAsPair, dateValueProps } from "./controls";
 import supplierQuestionnaireService from "../../../lib/supplierQuestionnaireService";
@@ -102,6 +103,78 @@ const TaxonomyCell: React.FC<{
       />
     </Form.Item>
   );
+};
+
+// Country-dependent subdivision (state / province) autocomplete. Suggests the
+// selected country's states and always allows a manually typed value, so any
+// state can be entered even when the country has no ISO subdivision data.
+const SubdivisionCell: React.FC<{
+  col: QuestionnaireField;
+  form: FormInstance;
+  fieldPath: string[];
+  rowName: number;
+  countryCol: string;
+}> = ({ col, form, fieldPath, rowName, countryCol }) => {
+  const row = (Form.useWatch([...fieldPath, rowName], form) as any) || {};
+  const country = row[countryCol];
+  const states = React.useMemo(() => getSubdivisionsForCountry(country), [country]);
+  const [query, setQuery] = React.useState("");
+  const options = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (q ? states.filter((s) => s.toLowerCase().includes(q)) : states).map((s) => ({ value: s }));
+  }, [states, query]);
+  const placeholder = !country
+    ? "Select a country first"
+    : states.length
+      ? "Select or type state / province"
+      : "Type state / province";
+  return (
+    <Form.Item name={[rowName, col.name]} className="mb-0" rules={requiredRule(col)}>
+      <AutoComplete
+        options={options}
+        onSearch={setQuery}
+        filterOption={false}
+        allowClear
+        placeholder={placeholder}
+        style={{ width: "100%", fontSize: 13 }}
+      />
+    </Form.Item>
+  );
+};
+
+// Wraps a cell whose visibility depends on a sibling column's value in the same
+// row (e.g. Biogenic carbon shows only when Biogenic = Yes). When hidden it
+// renders an em dash and clears any stale value so it isn't submitted.
+const ConditionalCell: React.FC<{
+  col: QuestionnaireField;
+  form: FormInstance;
+  fieldPath: string[];
+  rowName: number;
+  children: React.ReactNode;
+}> = ({ col, form, fieldPath, rowName, children }) => {
+  const row = (Form.useWatch([...fieldPath, rowName], form) as any) || {};
+  const dep = col.dependency!;
+  const depVal = row[dep.field];
+  const met =
+    depVal !== undefined &&
+    depVal !== null &&
+    depVal !== "" &&
+    String(depVal).toLowerCase() === String(dep.value).toLowerCase();
+  React.useEffect(() => {
+    if (met) return;
+    const cur = row[col.name];
+    if (cur === undefined || cur === null || cur === "") return;
+    const arr = [...((form.getFieldValue(fieldPath) as any[]) || [])];
+    if (arr[rowName]) {
+      arr[rowName] = { ...arr[rowName], [col.name]: undefined };
+      form.setFieldValue(fieldPath, arr);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [met]);
+  if (!met) {
+    return <span style={{ color: "#b7c1cb", fontSize: 13, paddingLeft: 4 }}>—</span>;
+  }
+  return <>{children}</>;
 };
 
 interface BomComponent {
@@ -216,12 +289,38 @@ const QuestionTable: React.FC<QuestionTableProps> = ({
   });
 
   const renderCell = (col: QuestionnaireField, rowName: number) => {
+    // Cells gated on a sibling column's value (e.g. Biogenic carbon only when
+    // Biogenic = Yes) render an em dash until the gate is met.
+    if (col.dependency) {
+      return (
+        <ConditionalCell col={col} form={form} fieldPath={fieldPath} rowName={rowName}>
+          {renderCellControl(col, rowName)}
+        </ConditionalCell>
+      );
+    }
+    return renderCellControl(col, rowName);
+  };
+
+  const renderCellControl = (col: QuestionnaireField, rowName: number) => {
     // Read-only mirror cell (Q8 MPN/component, BOM-table component name).
     if (col.readOnly) {
       return (
         <Form.Item name={[rowName, col.name]} className="mb-0" style={{ width: "100%" }}>
           <Input disabled placeholder={col.placeholder} style={{ ...cellInput, background: "#f7fafb" }} />
         </Form.Item>
+      );
+    }
+
+    // Country-dependent subdivision (state / province) autocomplete.
+    if (col.subdivisionOf) {
+      return (
+        <SubdivisionCell
+          col={col}
+          form={form}
+          fieldPath={fieldPath}
+          rowName={rowName}
+          countryCol={col.subdivisionOf}
+        />
       );
     }
 

@@ -349,7 +349,8 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
     },
     {
       num: "11",
-      label: "Which other fuels or energy carriers were used?",
+      label:
+        "Which fuels, energy carriers, or utilities were used On-Site during the manufacturing of the declared product?",
       tableName: "energy.other_fuels",
     },
     {

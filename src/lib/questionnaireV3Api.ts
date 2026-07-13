@@ -187,6 +187,7 @@ export function mapV3FormToBackend(
     }));
 
     const fuels = arr(energy.other_fuels).map((f: any) => ({
+        mpn: str(f.mpn),
         fuelCarrier: str(f.fuel_carrier),
         category: str(f.category),
         subCategory: str(f.sub_category),
@@ -198,6 +199,7 @@ export function mapV3FormToBackend(
     }));
 
     const processGases = arr(energy.direct_process_gases).map((g: any) => ({
+        mpn: str(g.mpn),
         directProcessGas: str(g.gas),
         quantity: num(g.quantity),
         unit: str(g.unit),
@@ -515,6 +517,7 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 infrastructure_included: b2yn(e.infrastructureEmissionsIncluded),
             })),
             other_fuels: (d.fuels ?? []).map((f: any) => ({
+                mpn: f.mpn,
                 fuel_carrier: f.fuelCarrier,
                 category: f.category,
                 sub_category: f.subCategory,
@@ -525,6 +528,7 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 biogenic: b2yn(f.biogenicYN),
             })),
             direct_process_gases: (d.processGases ?? []).map((g: any) => ({
+                mpn: g.mpn,
                 gas: g.directProcessGas,
                 quantity: g.quantity,
                 unit: g.unit,

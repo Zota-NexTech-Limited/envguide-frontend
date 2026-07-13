@@ -207,6 +207,8 @@ export function mapV3FormToBackend(
     }));
 
     const qcItEnergy = arr(energy.qc_it_energy).map((q: any) => ({
+        mpn: str(q.mpn),
+        equipmentType: str(q.equipment_type),
         category: str(q.category),
         subCategory: str(q.sub_category),
         materialGroup: str(q.group),
@@ -535,6 +537,8 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 origin: g.fossilOrBiogenic,
             })),
             qc_it_energy: (d.qcItEnergy ?? []).map((q: any) => ({
+                mpn: q.mpn,
+                equipment_type: q.equipmentType,
                 category: q.category,
                 sub_category: q.subCategory,
                 group: q.materialGroup,

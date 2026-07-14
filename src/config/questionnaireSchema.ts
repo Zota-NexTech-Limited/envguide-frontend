@@ -133,6 +133,11 @@ export interface QuestionnaireField {
   // country. Suggestions come from countrySubdivisions; free text is always
   // allowed so any state can be typed manually.
   subdivisionOf?: string;
+  // Table-column only (select): each option can be chosen in at most one row.
+  // Options already selected in other rows of the same table are disabled, and
+  // the "Add Row" button hides once every option is used. Used by Q27 volume
+  // types.
+  uniqueAcrossRows?: boolean;
 }
 
 export interface QuestionnaireSection {

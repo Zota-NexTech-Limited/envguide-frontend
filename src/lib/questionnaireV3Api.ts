@@ -666,6 +666,9 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
         verification: {
             product_certified: b2yn(d.isProductCertified),
             pcf_verified: b2yn(d.isPcfVerified),
+            // Q27 is now an add-row dropdown table: reload only the volume types
+            // that actually have a stored value, so empty types don't come back
+            // as pre-filled rows.
             volumes: [
                 { volume_type: "Certified volume", volume: d.certifiedVolume },
                 { volume_type: "Total production volume", volume: d.totalProductionVolume },
@@ -673,7 +676,7 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 { volume_type: "2nd-party verified volume", volume: d.verifiedVolume2ndParty },
                 { volume_type: "3rd-party verified volume", volume: d.verifiedVolume3rdParty },
                 { volume_type: "Total product volume", volume: d.totalProductVolume },
-            ],
+            ].filter((r) => r.volume !== undefined && r.volume !== null),
         },
         comments: d.comments,
     };

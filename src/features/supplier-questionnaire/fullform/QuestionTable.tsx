@@ -206,6 +206,50 @@ const SubdivisionCell: React.FC<{
   );
 };
 
+// Select cell whose options are unique across the table's rows: any value
+// already chosen in another row is disabled here, so each option can be picked
+// only once (Q27 volume types). Watches the whole Form.List array so disabling
+// updates the instant another row's value changes.
+const UniqueSelectCell: React.FC<{
+  col: QuestionnaireField;
+  form: FormInstance;
+  fieldPath: string[];
+  rowName: number;
+}> = ({ col, form, fieldPath, rowName }) => {
+  const allRows = Form.useWatch(fieldPath, form) as any[] | undefined;
+  const takenElsewhere = React.useMemo(() => {
+    const s = new Set<string>();
+    (Array.isArray(allRows) ? allRows : []).forEach((r, i) => {
+      if (i === rowName) return;
+      const v = r?.[col.name];
+      if (v !== undefined && v !== null && v !== "") s.add(String(v));
+    });
+    return s;
+  }, [allRows, rowName, col.name]);
+
+  return (
+    <Form.Item name={[rowName, col.name]} className="mb-0" rules={requiredRule(col)}>
+      <Select
+        placeholder={col.placeholder}
+        style={{ width: "100%", fontSize: 13 }}
+        showSearch={Array.isArray(col.options) && col.options.length > 5}
+        filterOption={(input, option) =>
+          String(option?.children ?? "").toLowerCase().includes(input.toLowerCase())
+        }
+      >
+        {(col.options || []).map((opt) => {
+          const { label, value } = optionAsPair(opt);
+          return (
+            <Select.Option key={String(value)} value={value} disabled={takenElsewhere.has(String(value))}>
+              {label}
+            </Select.Option>
+          );
+        })}
+      </Select>
+    </Form.Item>
+  );
+};
+
 // Wraps a cell whose visibility depends on a sibling column's value in the same
 // row (e.g. Biogenic carbon shows only when Biogenic = Yes). When hidden it
 // renders an em dash and clears any stale value so it isn't submitted.
@@ -315,6 +359,10 @@ const QuestionTable: React.FC<QuestionTableProps> = ({
   // Map each taxonomy level → its column name in THIS table (names vary per table).
   const taxNames: { category?: string; sub_category?: string; group?: string; specific_type?: string } = {};
   columns.forEach((c) => { if (c.efTaxonomyLevel) (taxNames as any)[c.efTaxonomyLevel] = c.name; });
+  // A unique-across-rows select column caps the table at one row per option, so
+  // the Add button hides once every option has been used.
+  const uniqueCol = columns.find((c) => c.uniqueAcrossRows && Array.isArray(c.options));
+  const maxRows = uniqueCol?.options ? uniqueCol.options.length : undefined;
   const flexIdx = (() => {
     const i = columns.findIndex((c) => c.type === "text" && !c.readOnly);
     return i >= 0 ? i : columns.length - 1;
@@ -452,6 +500,11 @@ const QuestionTable: React.FC<QuestionTableProps> = ({
           </Form.Item>
         </div>
       );
+    }
+
+    // Select whose options are unique across rows (Q27 volume types).
+    if (col.type === "select" && col.uniqueAcrossRows) {
+      return <UniqueSelectCell col={col} form={form} fieldPath={fieldPath} rowName={rowName} />;
     }
 
     // In-table Yes/No → compact toggle.
@@ -616,7 +669,7 @@ const QuestionTable: React.FC<QuestionTableProps> = ({
               </div>
             </div>
 
-            {!field.lockAddRemove && (
+            {!field.lockAddRemove && (maxRows === undefined || rows.length < maxRows) && (
               <div style={{ padding: "10px 12px", background: C.fieldBg }}>
                 <Button
                   type="text"

@@ -367,7 +367,7 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
       },
       {
         name: "product.classification",
-        label: "Product classification (GTIN / UNSPSC / CAS / HS) (optional)",
+        label: "Product classification (optional)",
         type: "text",
         required: false,
         placeholder: "e.g. GTIN / UNSPSC / CAS / HS code",
@@ -1278,11 +1278,14 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         label: "27. Which production or product volumes are certified or verified? (optional)",
         type: "table",
         required: false,
-        lockAddRemove: true,
-        prefillRows: VOLUME_TYPES.map((t) => ({ volume_type: t })),
-        placeholder: "Volume types are pre-listed; enter the volume and share for each.",
+        addButtonLabel: "Add Volume",
+        placeholder:
+          "Select a volume type, then enter its volume and share. Each type can be selected once.",
         columns: [
-          { name: "volume_type", label: "Volume type", type: "text", readOnly: true },
+          // Volume type is a dropdown of the fixed types; each option can be
+          // picked in only one row (uniqueAcrossRows), and Add hides once all
+          // six are used.
+          { name: "volume_type", label: "Volume type", type: "select", options: VOLUME_TYPES, uniqueAcrossRows: true, placeholder: "Select volume type" },
           { name: "volume", label: "Volume (units / tonnes)", type: "number", min: 0, placeholder: "0.00" },
           { name: "share_percent", label: "Share (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
         ],

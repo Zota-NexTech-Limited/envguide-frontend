@@ -124,9 +124,9 @@ export interface QuestionnaireField {
   lockAddRemove?: boolean;
   multiple?: boolean;
   readOnly?: boolean;
-  // Pre-fill a fixed set of rows when the table is empty (e.g. Q27 volume
-  // types). Seeded once; the supplier only fills the editable columns. Pair
-  // with lockAddRemove + readOnly columns for a fixed-row table.
+  // Pre-fill a fixed set of rows when the table is empty. Seeded once; the
+  // supplier only fills the editable columns. Pair with lockAddRemove + readOnly
+  // columns for a fixed-row table.
   prefillRows?: Array<Record<string, any>>;
   // Table-column only: renders a country-dependent subdivision (state /
   // province) autocomplete. Value is the sibling column name that holds the

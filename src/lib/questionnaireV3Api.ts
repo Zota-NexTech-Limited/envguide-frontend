@@ -299,12 +299,16 @@ export function mapV3FormToBackend(
         biogenicCarbonContentPct: num(d.biogenic_carbon_percent),
     }));
 
-    // Q27 — production / product volumes (fixed volume types).
-    const volumes = arr(verification.volumes).map((v: any) => ({
-        volumeType: str(v.volume_type),
-        volume: num(v.volume),
-        sharePct: num(v.share_percent),
-    }));
+    // Q27 — production / product volumes (fixed volume types). Drop rows with no
+    // volume type selected (possible from a draft save that skips validation) so
+    // an untyped row can't be sent to the backend and silently dropped.
+    const volumes = arr(verification.volumes)
+        .filter((v: any) => str(v.volume_type))
+        .map((v: any) => ({
+            volumeType: str(v.volume_type),
+            volume: num(v.volume),
+            sharePct: num(v.share_percent),
+        }));
 
     return {
         // identifiers

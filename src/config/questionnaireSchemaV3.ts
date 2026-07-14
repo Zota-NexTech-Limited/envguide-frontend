@@ -1272,8 +1272,9 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         dependency: { field: "verification.pcf_verified", value: "Yes" },
       },
       {
-        // Q27 — the six volume types are pre-listed (fixed rows); the supplier
-        // only enters Volume and Share for each. Rows can't be added/removed.
+        // Q27 — the supplier adds a row per volume they want to report and picks
+        // the volume type from a dropdown of the six fixed types. Each type can
+        // be selected once (uniqueAcrossRows); Add hides once all six are used.
         name: "verification.volumes",
         label: "27. Which production or product volumes are certified or verified? (optional)",
         type: "table",
@@ -1285,7 +1286,7 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           // Volume type is a dropdown of the fixed types; each option can be
           // picked in only one row (uniqueAcrossRows), and Add hides once all
           // six are used.
-          { name: "volume_type", label: "Volume type", type: "select", options: VOLUME_TYPES, uniqueAcrossRows: true, placeholder: "Select volume type" },
+          { name: "volume_type", label: "Volume type", type: "select", options: VOLUME_TYPES, uniqueAcrossRows: true, required: true, placeholder: "Select volume type" },
           { name: "volume", label: "Volume (units / tonnes)", type: "number", min: 0, placeholder: "0.00" },
           { name: "share_percent", label: "Share (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
         ],

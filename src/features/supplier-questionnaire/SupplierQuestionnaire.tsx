@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import dayjs from "dayjs";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   Steps,
@@ -63,6 +64,18 @@ import {
 } from "../../lib/questionnaireDropdownService";
 
 const { Step } = Steps;
+
+// Q5 — the reference period end date is auto-derived to complete one financial
+// year from the supplier-provided start date: end = start + 1 year − 1 day.
+// Accepts a dayjs object, ISO string, or timestamp (whatever the date field
+// holds) and returns a dayjs value so both the DatePicker and the mapper's
+// date serializer handle it. Returns undefined for an empty/invalid start.
+const deriveReferenceEnd = (start: any): dayjs.Dayjs | undefined => {
+  if (!start) return undefined;
+  const d = dayjs(start);
+  if (!d.isValid()) return undefined;
+  return d.add(1, "year").subtract(1, "day");
+};
 
 const SupplierQuestionnaire: React.FC = () => {
   const navigate = useNavigate();
@@ -243,6 +256,27 @@ const SupplierQuestionnaire: React.FC = () => {
       return next;
     });
   }, []);
+
+  // Q5 — keep the (read-only) reference end date in sync with the supplier's
+  // start date: end = start + 1 year − 1 day. Runs whenever the start changes
+  // (user picks a date, or a draft is rehydrated), writing the derived end into
+  // both the form store and formData. Guards against churn by only updating when
+  // the derived value actually differs from what's stored.
+  const referenceStart = formData?.scope_period?.reference_start;
+  useEffect(() => {
+    const derived = deriveReferenceEnd(referenceStart);
+    if (!derived) return;
+    const derivedStr = derived.format("YYYY-MM-DD");
+    const current = formData?.scope_period?.reference_end;
+    const currentStr = current ? dayjs(current).format("YYYY-MM-DD") : "";
+    if (currentStr === derivedStr) return;
+    form.setFieldValue(["scope_period", "reference_end"], derived);
+    setFormData((prev) => ({
+      ...prev,
+      scope_period: { ...(prev?.scope_period ?? {}), reference_end: derived },
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [referenceStart]);
 
   // BACKFILL component_name for every Form.List row that has an MPN selected
   // (saved before the bomMaterials onChange started writing component_name).

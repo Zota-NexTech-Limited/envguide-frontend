@@ -329,11 +329,11 @@ export function mapV3FormToBackend(
         productPrice: num(product.price),
         productionPeriod: str(product.production_period),
 
-        // Q5
+        // Q5 — reference end is auto-derived (start + 1 year − 1 day) in the
+        // form. Validity is no longer collected from the supplier; the backend
+        // sets it at PCF report generation (generation date → +1 year).
         referencePeriodStart: str(sp.reference_start),
         referencePeriodEnd: str(sp.reference_end),
-        validityPeriodStart: str(sp.validity_start),
-        validityPeriodEnd: str(sp.validity_end),
 
         // Q6 / Q7
         retroOrProspectivePcfType: str(sp.pcf_type),
@@ -459,8 +459,8 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
         scope_period: {
             reference_start: dstr(d.referencePeriodStart),
             reference_end: dstr(d.referencePeriodEnd),
-            validity_start: dstr(d.validityPeriodStart),
-            validity_end: dstr(d.validityPeriodEnd),
+            // Validity is computed on the backend at report generation and is not
+            // shown/edited in the supplier form, so it is intentionally omitted.
             pcf_type: d.retroOrProspectivePcfType,
             system_boundary: d.systemBoundary,
         },

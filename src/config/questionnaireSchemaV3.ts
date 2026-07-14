@@ -456,28 +456,21 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         label: "5. Reference period start date",
         type: "date",
         required: true,
-        placeholder: "Default: first day of the prior calendar year",
+        placeholder: "Enter the applicable reference period start date",
       },
       {
+        // Auto-derived from the supplier's start date to complete one financial
+        // year (start + 1 year − 1 day). Read-only — computed in
+        // SupplierQuestionnaire's onValuesChange / seeding effect. Validity dates
+        // are no longer collected here; the backend sets them at report
+        // generation (generation date → +1 year).
         name: "scope_period.reference_end",
-        label: "Reference period end date",
+        label:
+          "Reference period end date (auto — completes one year from the start date)",
         type: "date",
         required: true,
-        placeholder: "Default: last day of the prior calendar year",
-      },
-      {
-        name: "scope_period.validity_start",
-        label: "Validity start date (optional)",
-        type: "date",
-        required: false,
-        placeholder: "Default: same as reference end date",
-      },
-      {
-        name: "scope_period.validity_end",
-        label: "Validity end date",
-        type: "date",
-        required: true,
-        placeholder: "Default: reference end date + 2 years",
+        disabled: true,
+        placeholder: "Set automatically once the start date is entered",
       },
       {
         // Per Catena-X policy: every supplier submission must be a Retrospective

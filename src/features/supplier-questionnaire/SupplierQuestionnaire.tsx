@@ -162,6 +162,27 @@ const SupplierQuestionnaire: React.FC = () => {
     };
   }, [sup_id, bom_pcf_id, isClientMode]);
 
+  // DEV-ONLY: opened locally with no supplier link (no sup_id / bom_pcf_id),
+  // there is no assigned BOM to source the MPN dropdowns from, so every MPN
+  // dropdown renders "No data" and the form can't be exercised. Seed a few
+  // sample components so the dropdowns are testable in `npm run dev`. Gated on
+  // import.meta.env.DEV — Vite compiles this to `false` in production builds,
+  // so real suppliers never see these values. Skipped entirely when a real
+  // supplier link is present so it can never override fetched BOM data.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (sup_id || bom_pcf_id || isClientMode) return;
+    setBomComponents((prev) =>
+      prev.length > 0
+        ? prev
+        : [
+            { bom_id: "dev-bom-1", material_number: "MPN-1001", component_name: "Sample Housing" },
+            { bom_id: "dev-bom-2", material_number: "MPN-1002", component_name: "Sample PCB" },
+            { bom_id: "dev-bom-3", material_number: "MPN-1003", component_name: "Sample Cable Assembly" },
+          ]
+    );
+  }, [sup_id, bom_pcf_id, isClientMode]);
+
   // V3 hard-coded defaults: Q6 PCF type and Q7 system boundary are fixed per
   // Catena-X policy and the corresponding fields are disabled in the schema.
   // We seed them into formData once so they are persisted and submitted even

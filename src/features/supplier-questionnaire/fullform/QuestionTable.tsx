@@ -105,6 +105,70 @@ const TaxonomyCell: React.FC<{
   );
 };
 
+// Geography (country) dropdown sourced from the emission-factor DB via
+// supplierQuestionnaireService.getEfGeographies — every geography value the EF
+// data carries is selectable. Searchable (server-side ?q= filter) and debounced.
+// Used by Q10's "Geography (Electricity Sourcing)" column. Options are fetched
+// lazily the first time the dropdown is OPENED (not on mount), so a table with N
+// electricity rows doesn't fire N identical requests up front; the saved value is
+// always kept selectable so a draft shows its value before the list is fetched.
+const GeographyCell: React.FC<{
+  field: QuestionnaireField;
+  form: FormInstance;
+  fieldPath: string[];
+  rowName: number;
+}> = ({ field, form, fieldPath, rowName }) => {
+  const selected = Form.useWatch([...fieldPath, rowName, field.name], form) as string | undefined;
+  const [open, setOpen] = React.useState(false);
+  const [options, setOptions] = React.useState<Array<{ value: string; label: string }>>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+  const [loaded, setLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    // Only fetch once the dropdown is open. Debounce the search so each keystroke
+    // doesn't fire a request.
+    if (!open) return;
+    let alive = true;
+    const t = setTimeout(() => {
+      setLoading(true);
+      supplierQuestionnaireService
+        .getEfGeographies(search || undefined)
+        .then((data) => {
+          if (!alive) return;
+          setOptions(data.map((v) => ({ value: v, label: v })));
+          setLoaded(true);
+        })
+        .finally(() => { if (alive) setLoading(false); });
+    }, search ? 250 : 0);
+    return () => { alive = false; clearTimeout(t); };
+  }, [open, search]);
+
+  // Ensure the saved value is selectable even if it isn't in the fetched page.
+  const merged = React.useMemo(() => {
+    if (selected && !options.some((o) => o.value === selected)) {
+      return [{ value: selected, label: selected }, ...options];
+    }
+    return options;
+  }, [options, selected]);
+
+  return (
+    <Form.Item name={[rowName, field.name]} className="mb-0" rules={requiredRule(field)} style={{ width: "100%" }}>
+      <Select
+        placeholder={field.placeholder || "Select geography"}
+        style={{ width: "100%", fontSize: 13 }}
+        showSearch
+        loading={loading}
+        filterOption={false}
+        onSearch={setSearch}
+        onDropdownVisibleChange={setOpen}
+        options={merged}
+        notFoundContent={loading || !loaded ? "Loading…" : "No matches"}
+      />
+    </Form.Item>
+  );
+};
+
 // Country-dependent subdivision (state / province) autocomplete. Suggests the
 // selected country's states and always allows a manually typed value, so any
 // state can be entered even when the country has no ISO subdivision data.
@@ -327,6 +391,11 @@ const QuestionTable: React.FC<QuestionTableProps> = ({
     // Cascading EF-taxonomy dropdown (Category → Sub → Group → Specific Type).
     if (col.efTaxonomyLevel) {
       return <TaxonomyCell field={col} form={form} fieldPath={fieldPath} rowName={rowName} taxNames={taxNames} />;
+    }
+
+    // Geography (country) dropdown sourced from the EF DB.
+    if (col.efGeography) {
+      return <GeographyCell field={col} form={form} fieldPath={fieldPath} rowName={rowName} />;
     }
 
     // BOM-sourced MPN dropdown — auto-fills sibling cells on change.

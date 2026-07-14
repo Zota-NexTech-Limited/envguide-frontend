@@ -644,6 +644,12 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           { name: "sub_category", label: "Sub category", type: "select", efTaxonomyLevel: "sub_category", required: true, placeholder: "Search sub-category…" },
           { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", required: true, placeholder: "Search group…" },
           { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", required: true, placeholder: "Search specific type…" },
+          // Sourced from the EF DB via /api/emission-factors/meta/geographies.
+          // Kept OPTIONAL until that backend endpoint is live: it has no options
+          // (and no free-text entry) until then, and a required-but-unfillable
+          // cell would block Q10 submission entirely. Flip to `required: true`
+          // (per the mockup's [mandatory]) once the endpoint serves data.
+          { name: "geography", label: "Geography (Electricity Sourcing)", type: "select", efGeography: true, required: false, placeholder: "Select geography" },
           { name: "quantity", label: "Quantity", type: "number", required: true, min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, required: true, placeholder: "Select unit" },
           { name: "renewable_percent", label: "Renewable (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
@@ -906,6 +912,13 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         },
         columns: [
           { name: "feedstock", label: "Type of Biomass Feedstock", type: "select", options: BIOMASS_FEEDSTOCKS, placeholder: "Select feedstock" },
+          // EF taxonomy cascade (Category → Sub-Category → Group → Specific Type),
+          // same DB-driven dropdowns as the other emission tables. Optional here
+          // because Q20 as a whole is optional.
+          { name: "category", label: "Category", type: "select", efTaxonomyLevel: "category", placeholder: "Search category…" },
+          { name: "sub_category", label: "Sub-Category", type: "select", efTaxonomyLevel: "sub_category", placeholder: "Search sub-category…" },
+          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", placeholder: "Search group…" },
+          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", placeholder: "Search specific type…" },
           { name: "stage_used", label: "In which stage is the feedstock used?", type: "text", placeholder: "e.g. raw material, packaging" },
           { name: "quantity", label: "Quantity", type: "number", placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: QUANTITY_UNITS, placeholder: "Select unit" },

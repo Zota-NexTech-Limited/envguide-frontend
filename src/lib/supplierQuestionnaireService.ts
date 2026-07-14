@@ -2032,6 +2032,34 @@ class SupplierQuestionnaireService {
   }
 
   /**
+   * Distinct geographies (countries) from the emission_factors master, for the
+   * Q10 "Geography (Electricity Sourcing)" dropdown. Modelled on getEfTaxonomy.
+   *
+   * Backend contract (to be implemented on the API side):
+   *   GET /api/emission-factors/meta/geographies?q=<optional substring>
+   *   → { success: true, data: string[] }   // distinct geography values
+   *
+   * Returns [] on any error / until the endpoint exists, so the dropdown simply
+   * renders empty rather than throwing.
+   */
+  async getEfGeographies(q?: string): Promise<string[]> {
+    try {
+      const qs = new URLSearchParams();
+      if (q) qs.set("q", q);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      const response = await fetch(
+        `${API_BASE_URL}/api/emission-factors/meta/geographies${suffix}`,
+        { method: "GET", headers: this.getHeaders() }
+      );
+      const result: ApiResponse = await response.json();
+      return Array.isArray(result?.data) ? result.data.map((v: any) => String(v)) : [];
+    } catch (error) {
+      console.error("getEfGeographies error:", error);
+      return [];
+    }
+  }
+
+  /**
    * Get PCF BOM list for auto-population
    */
   async getPCFBOMListToAutoPopulate(

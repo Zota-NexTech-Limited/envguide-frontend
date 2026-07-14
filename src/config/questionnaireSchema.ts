@@ -93,6 +93,12 @@ export interface QuestionnaireField {
   // The 4 levels (category → sub_category → group → specific_type) together pin
   // the exact EF. Each level filters by the row's higher-level selections.
   efTaxonomyLevel?: "category" | "sub_category" | "group" | "specific_type";
+  // Table-column only: renders a searchable dropdown of distinct geographies
+  // (countries) sourced from the emission_factors master via
+  // /api/emission-factors/meta/geographies. Used by Q10 "Geography (Electricity
+  // Sourcing)" so the supplier picks the geography their electricity EF is
+  // matched against — every geography value the EF DB carries is selectable.
+  efGeography?: boolean;
   dependsOnField?: string;
   efSource?: "electricity" | "fuel" | "packaging" | "vehicle" | "waste" | "materials";
   efLayer?: 1 | 2 | 3 | 4;

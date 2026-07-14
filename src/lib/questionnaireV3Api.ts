@@ -169,6 +169,10 @@ export function mapV3FormToBackend(
         subCategory: str(e.sub_category),
         materialGroup: str(e.group),
         specificType: str(e.specific_type),
+        // Q10 Geography (Electricity Sourcing) — the EF-DB geography the row's
+        // electricity EF is matched against. Carried through for the backend
+        // (persistence/EF-matching to be wired on the API side).
+        geography: str(e.geography),
         quantity: num(e.quantity),
         unit: str(e.unit),
         renewablePct: num(e.renewable_percent),
@@ -283,6 +287,12 @@ export function mapV3FormToBackend(
 
     const biomass = arr(biobased.details).map((d: any) => ({
         biomassFeedstockType: str(d.feedstock ?? d.feedstock_type ?? d.type),
+        // Q20 EF taxonomy cascade — carried through for the backend
+        // (persistence to be wired on the API side).
+        category: str(d.category),
+        subCategory: str(d.sub_category),
+        materialGroup: str(d.group),
+        specificType: str(d.specific_type),
         stageUsed: str(d.stage_used),
         quantity: num(d.quantity),
         unit: str(d.unit),
@@ -515,6 +525,7 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 sub_category: e.subCategory,
                 group: e.materialGroup,
                 specific_type: e.specificType,
+                geography: e.geography,
                 quantity: e.quantity,
                 unit: e.unit,
                 renewable_percent: e.renewablePct,
@@ -619,6 +630,10 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
             contains_biobased: b2yn(d.usesAgriculturalForestryLand),
             details: (d.biomass ?? []).map((b: any) => ({
                 feedstock: b.biomassFeedstockType,
+                category: b.category,
+                sub_category: b.subCategory,
+                group: b.materialGroup,
+                specific_type: b.specificType,
                 quantity: b.quantity,
                 unit: b.unit,
                 biogenic_carbon_percent: b.biogenicCarbonContentPct,

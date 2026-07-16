@@ -2010,14 +2010,15 @@ class SupplierQuestionnaireService {
    * specific_type → [{ specific_type, ef_id, gwp_100, unit, geography }].
    */
   async getEfTaxonomy(
-    level: "category" | "sub_category" | "group" | "specific_type",
-    parents: { category?: string; sub_category?: string; group?: string; q?: string } = {}
+    level: "category" | "sub_category" | "group" | "specific_type" | "geography",
+    parents: { category?: string; sub_category?: string; group?: string; specific_type?: string; q?: string } = {}
   ): Promise<any[]> {
     try {
       const qs = new URLSearchParams({ level });
       if (parents.category) qs.set("category", parents.category);
       if (parents.sub_category) qs.set("sub_category", parents.sub_category);
       if (parents.group) qs.set("group", parents.group);
+      if (parents.specific_type) qs.set("specific_type", parents.specific_type);
       if (parents.q) qs.set("q", parents.q);
       const response = await fetch(
         `${API_BASE_URL}/api/emission-factors/meta/taxonomy?${qs.toString()}`,

@@ -42,7 +42,10 @@ const TaxonomyCell: React.FC<{
   // Column NAME of each taxonomy level in THIS table (names differ per table,
   // e.g. Q8 uses "material" for the category level).
   taxNames: { category?: string; sub_category?: string; group?: string; specific_type?: string };
-}> = ({ field, form, fieldPath, rowName, taxNames }) => {
+  // Column NAME of the geography cell (Q10), if any. Cleared on ANY taxonomy
+  // change since geography is the 5th cascade level and depends on all 4 above.
+  geoColName?: string;
+}> = ({ field, form, fieldPath, rowName, taxNames, geoColName }) => {
   const level = field.efTaxonomyLevel as "category" | "sub_category" | "group" | "specific_type";
   const row = (Form.useWatch([...fieldPath, rowName], form) as any) || {};
   const cat = taxNames.category ? row[taxNames.category] : undefined;
@@ -95,6 +98,10 @@ const TaxonomyCell: React.FC<{
             const childCol = taxNames[childLevel as keyof typeof taxNames];
             if (childCol) next[childCol] = undefined;
           }
+          // Geography (5th cascade level) depends on all 4 taxonomy levels, so a
+          // change at ANY level invalidates it — clear so a stale country (e.g. a
+          // grid-mix "DE - Germany" left on a biogas type) can't survive.
+          if (geoColName) next[geoColName] = undefined;
           arr[rowName] = next;
           form.setFieldValue(fieldPath, arr);
         }}
@@ -105,44 +112,56 @@ const TaxonomyCell: React.FC<{
   );
 };
 
-// Geography (country) dropdown sourced from the emission-factor DB via
-// supplierQuestionnaireService.getEfGeographies — every geography value the EF
-// data carries is selectable. Searchable (server-side ?q= filter) and debounced.
-// Used by Q10's "Geography (Electricity Sourcing)" column. Options are fetched
-// lazily the first time the dropdown is OPENED (not on mount), so a table with N
-// electricity rows doesn't fire N identical requests up front; the saved value is
-// always kept selectable so a draft shows its value before the list is fetched.
+// Geography (electricity sourcing) dropdown — the 5th CASCADE level for Q10.
+// Only the geographies that actually have an EF row for the row's chosen
+// Category → Sub-category → Group → Specific Type are shown (via the taxonomy
+// endpoint level=geography), so every pick is guaranteed to resolve to a real EF
+// row (no silent EF=0). Disabled until Specific Type is picked. Options are the
+// exact DB geography strings ("DE - Germany"). Fetched lazily on OPEN, debounced
+// search; the saved value stays selectable so a draft shows its value on load.
 const GeographyCell: React.FC<{
   field: QuestionnaireField;
   form: FormInstance;
   fieldPath: string[];
   rowName: number;
-}> = ({ field, form, fieldPath, rowName }) => {
+  taxNames: { category?: string; sub_category?: string; group?: string; specific_type?: string };
+}> = ({ field, form, fieldPath, rowName, taxNames }) => {
   const selected = Form.useWatch([...fieldPath, rowName, field.name], form) as string | undefined;
+  const row = (Form.useWatch([...fieldPath, rowName], form) as any) || {};
+  const cat = taxNames.category ? row[taxNames.category] : undefined;
+  const sub = taxNames.sub_category ? row[taxNames.sub_category] : undefined;
+  const grp = taxNames.group ? row[taxNames.group] : undefined;
+  const spec = taxNames.specific_type ? row[taxNames.specific_type] : undefined;
+  const ready = !!cat && !!sub && !!grp && !!spec;
+
   const [open, setOpen] = React.useState(false);
   const [options, setOptions] = React.useState<Array<{ value: string; label: string }>>([]);
   const [loading, setLoading] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [loaded, setLoaded] = React.useState(false);
+  const parentKey = `${cat || ""}|${sub || ""}|${grp || ""}|${spec || ""}`;
 
   React.useEffect(() => {
-    // Only fetch once the dropdown is open. Debounce the search so each keystroke
-    // doesn't fire a request.
-    if (!open) return;
+    // Fetch only once the 4 parents are set AND the dropdown is open. Debounce
+    // search so each keystroke doesn't fire a request.
+    if (!ready || !open) { setLoaded(false); return; }
     let alive = true;
     const t = setTimeout(() => {
       setLoading(true);
       supplierQuestionnaireService
-        .getEfGeographies(search || undefined)
-        .then((data) => {
+        .getEfTaxonomy("geography", {
+          category: cat, sub_category: sub, group: grp, specific_type: spec,
+          q: search || undefined,
+        })
+        .then((data: any[]) => {
           if (!alive) return;
-          setOptions(data.map((v) => ({ value: v, label: v })));
+          setOptions(data.map((v) => ({ value: String(v), label: String(v) })));
           setLoaded(true);
         })
         .finally(() => { if (alive) setLoading(false); });
     }, search ? 250 : 0);
     return () => { alive = false; clearTimeout(t); };
-  }, [open, search]);
+  }, [ready, open, parentKey, search]);
 
   // Ensure the saved value is selectable even if it isn't in the fetched page.
   const merged = React.useMemo(() => {
@@ -156,14 +175,21 @@ const GeographyCell: React.FC<{
     <Form.Item name={[rowName, field.name]} className="mb-0" rules={requiredRule(field)} style={{ width: "100%" }}>
       <Select
         placeholder={field.placeholder || "Select geography"}
+        // Cell can be narrow, but let the popup grow so the full "CODE - Country
+        // Name" is always readable, and cap its height so long lists scroll.
         style={{ width: "100%", fontSize: 13 }}
+        popupMatchSelectWidth={false}
+        listHeight={320}
         showSearch
         loading={loading}
+        disabled={!ready}
         filterOption={false}
         onSearch={setSearch}
         onDropdownVisibleChange={setOpen}
         options={merged}
-        notFoundContent={loading || !loaded ? "Loading…" : "No matches"}
+        notFoundContent={
+          !ready ? "Pick Specific Type first" : loading || !loaded ? "Loading…" : "No matches"
+        }
       />
     </Form.Item>
   );
@@ -359,6 +385,8 @@ const QuestionTable: React.FC<QuestionTableProps> = ({
   // Map each taxonomy level → its column name in THIS table (names vary per table).
   const taxNames: { category?: string; sub_category?: string; group?: string; specific_type?: string } = {};
   columns.forEach((c) => { if (c.efTaxonomyLevel) (taxNames as any)[c.efTaxonomyLevel] = c.name; });
+  // Geography column (Q10) — cleared by TaxonomyCell whenever a taxonomy level changes.
+  const geoColName = columns.find((c) => c.efGeography)?.name;
   // A unique-across-rows select column caps the table at one row per option, so
   // the Add button hides once every option has been used.
   const uniqueCol = columns.find((c) => c.uniqueAcrossRows && Array.isArray(c.options));
@@ -438,12 +466,13 @@ const QuestionTable: React.FC<QuestionTableProps> = ({
 
     // Cascading EF-taxonomy dropdown (Category → Sub → Group → Specific Type).
     if (col.efTaxonomyLevel) {
-      return <TaxonomyCell field={col} form={form} fieldPath={fieldPath} rowName={rowName} taxNames={taxNames} />;
+      return <TaxonomyCell field={col} form={form} fieldPath={fieldPath} rowName={rowName} taxNames={taxNames} geoColName={geoColName} />;
     }
 
-    // Geography (country) dropdown sourced from the EF DB.
+    // Geography (electricity sourcing) — 5th cascade level, filtered by the row's
+    // Category → Sub → Group → Specific Type picks.
     if (col.efGeography) {
-      return <GeographyCell field={col} form={form} fieldPath={fieldPath} rowName={rowName} />;
+      return <GeographyCell field={col} form={form} fieldPath={fieldPath} rowName={rowName} taxNames={taxNames} />;
     }
 
     // BOM-sourced MPN dropdown — auto-fills sibling cells on change.

@@ -569,9 +569,9 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
       },
       {
         // Q8b — process consumable materials used during production but NOT part
-        // of the Bill of Materials. Optional. MPN is free text (these consumables
-        // are not BOM components); classification uses the same 4-level EF
-        // taxonomy cascade as the BOM.
+        // of the Bill of Materials. Optional. MPN is a BOM dropdown (tags which
+        // component the consumable relates to); classification uses the same
+        // 4-level EF taxonomy cascade as the BOM.
         name: "bom.process_consumables",
         label:
           "8b. Which process consumable materials are used during manufacturing that are not included in the Bill of Materials? (optional)",
@@ -581,7 +581,7 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         placeholder:
           "One row per process consumable consumed during production but not part of the BOM.",
         columns: [
-          { name: "mpn", label: "MPN", type: "text", placeholder: "MPN (if any)" },
+          { name: "mpn", label: "MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Select MPN" },
           { name: "consumable_material", label: "Process Consumable Materials", type: "text", placeholder: "Consumable name" },
           { name: "category", label: "Category", type: "select", efTaxonomyLevel: "category", placeholder: "Search category…" },
           { name: "sub_category", label: "Sub-Category", type: "select", efTaxonomyLevel: "sub_category", placeholder: "Search sub-category…" },
@@ -663,12 +663,12 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         // during the reporting period (one row per MPN).
         name: "energy.factory_product_weights",
         label:
-          "10a. What is the total weight of each product manufactured at the factory level during the reporting period?",
+          "10a. What is the total weight produced for each product at the factory during the reporting period?",
         type: "table",
         addButtonLabel: "Add Product",
         required: true,
         placeholder:
-          "One row per product. Total weight (kg) produced at factory level for the reporting period.",
+          "List EVERY product manufactured at this factory. These weights are added together to split the factory's electricity fairly across all products.",
         columns: [
           { name: "mpn", label: "MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Select MPN" },
           { name: "total_weight_kg", label: "Total weight produced at factory level (kg)", type: "number", required: true, min: 0, placeholder: "e.g. 25000" },
@@ -679,7 +679,7 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         // reporting period (one row per MPN).
         name: "energy.factory_product_units",
         label:
-          "10b. How many units of each product were manufactured during the reporting period?",
+          "10b. How many units of each product were produced at the factory during the reporting period?",
         type: "table",
         addButtonLabel: "Add Product",
         required: true,

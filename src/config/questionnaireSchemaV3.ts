@@ -616,7 +616,9 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           { name: "mpn", label: "MPN", type: "select", apiDropdown: "bomMaterials", placeholder: "Pick a component" },
           { name: "co_product_name", label: "Co-Product Name", type: "text", placeholder: "Co-product name" },
           { name: "co_product_price", label: "Co-Product Price (currency/unit)", type: "number", min: 0, placeholder: "0.00" },
-          { name: "is_primary", label: "Is this the primary product? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
+          // No primary-product flag: the backend resolves the primary co-product
+          // as the first row (formulaEngine `rows.find(is_primary_product) ?? rows[0]`),
+          // so row order decides. Price share of that row drives economic allocation.
         ],
       },
     ],
@@ -725,13 +727,25 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         ],
       },
       {
+        name: "energy.qc_it_energy_in_q10",
+        label:
+          "13. Is the quality control and production IT energy already included in the Q10 electricity total?",
+        type: "radio",
+        options: YES_NO,
+        required: false,
+      },
+      {
         name: "energy.qc_it_energy",
-        label: "13. How much energy did quality control and production IT consume? (optional)",
+        label: "13.1 How much energy did quality control and production IT consume? (optional)",
         type: "table",
         addButtonLabel: "Add Row",
         required: false,
         placeholder:
-          "If this energy is already included in the Q10 electricity total, select 'Yes' under 'Is it included in Q10?' to avoid double-counting.",
+          "One row per piece of QC / IT equipment whose energy is not already counted in Q10.",
+        // Only collected when the energy is NOT already in Q10 — otherwise it
+        // would double-count. Rows here are always reported to the backend with
+        // alreadyInQ10 = false, which is what makes formulaEngine count them.
+        dependency: { field: "energy.qc_it_energy_in_q10", value: "No" },
         columns: [
           { name: "mpn", label: "MPN Code", type: "select", apiDropdown: "bomMaterials", placeholder: "Select MPN" },
           { name: "equipment_type", label: "Equipment Type", type: "text", placeholder: "e.g. CMM, oven, test rig" },
@@ -741,7 +755,6 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", placeholder: "Search specific type…" },
           { name: "value", label: "Total Quantity", type: "number", min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, placeholder: "Select unit" },
-          { name: "already_in_q10", label: "Is it included in Q10? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
         ],
       },
       {
@@ -798,7 +811,16 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           { name: "region", label: "Region", type: "select", options: REGIONS, placeholder: "Select region" },
           { name: "country", label: "Country", type: "select", options: COUNTRIES, placeholder: "Select country" },
           { name: "recycled_percent", label: "Recycled (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
-          { name: "carbon_biogenic_percent", label: "Carbon / Biogenic (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
+          // Carbon and biogenic are separate answers, so they are captured as
+          // separate inputs (mirrors the Q8 BOM table).
+          //
+          // NOTE: `carbon_percent` is NOT yet persisted. sq_q16_packaging_materials
+          // has a single `carbon_biogenic_pct` column, which formulaEngine reads
+          // purely as the biogenic fraction, so only `biogenic_percent` maps to it.
+          // The mapper deliberately drops carbon_percent until the backend adds a
+          // carbon column — see questionnaireV3Api.ts (Q16 packaging materials).
+          { name: "carbon_percent", label: "Carbon (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
+          { name: "biogenic_percent", label: "Biogenic (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
         ],
       },
       {

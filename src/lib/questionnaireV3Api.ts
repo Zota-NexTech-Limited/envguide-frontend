@@ -138,11 +138,12 @@ export function mapV3FormToBackend(
         recycledCarbonPct: num(b.recycled_carbon_percent),
     }));
 
+    // The primary co-product is no longer asked for: the backend resolves it as
+    // the first row when no row carries the flag, so row order decides.
     const coProducts = arr(bomBlock.co_products).map((c: any) => ({
         mpn: str(c.mpn),
         coProductName: str(c.co_product_name),
         coProductPrice: num(c.co_product_price),
-        isPrimaryProduct: yesNoToBool(c.is_primary),
     }));
 
     // Q8a — supplier-provided component/material-specific emission factors.
@@ -210,7 +211,14 @@ export function mapV3FormToBackend(
         fossilOrBiogenic: str(g.origin),
     }));
 
-    const qcItEnergy = arr(energy.qc_it_energy).map((q: any) => ({
+    // Q13 — only collected when the supplier answered "No" to "already in Q10?",
+    // so every row here is by definition not yet counted in Q10. The backend
+    // skips rows flagged alreadyInQ10, so these must report false to be counted.
+    //
+    // "Yes" sends no rows at all: the energy is already in the Q10 total. Rows
+    // left in form state from a previous "No" would otherwise be submitted as
+    // countable and double-count that energy.
+    const qcItEnergy = str(energy.qc_it_energy_in_q10) === "Yes" ? [] : arr(energy.qc_it_energy).map((q: any) => ({
         mpn: str(q.mpn),
         equipmentType: str(q.equipment_type),
         category: str(q.category),
@@ -219,7 +227,7 @@ export function mapV3FormToBackend(
         specificType: str(q.specific_type),
         value: num(q.value),
         unit: str(q.unit),
-        alreadyInQ10: yesNoToBool(q.already_in_q10),
+        alreadyInQ10: false,
     }));
 
     const productionWaste = arr(energy.production_waste).map((w: any) => ({
@@ -245,7 +253,13 @@ export function mapV3FormToBackend(
         region: str(p.region),
         country: str(p.country),
         recycledPct: num(p.recycled_percent),
-        carbonBiogenicPct: num(p.carbon_biogenic_percent),
+        // `carbon_biogenic_pct` is the biogenic fraction as far as the backend is
+        // concerned (formulaEngine: bioFrac = carbon_biogenic_pct / 100), so the
+        // biogenic input — not the carbon one — is what maps onto it.
+        carbonBiogenicPct: num(p.biogenic_percent),
+        // Q16 `carbon_percent` is intentionally NOT sent: sq_q16_packaging_materials
+        // has no carbon column, so the API would drop it anyway. Add it here once
+        // the backend can store it.
     }));
 
     const packagingTransport = arr(packaging.transport).map((t: any) => ({
@@ -450,6 +464,19 @@ const dstr = (v: any): string | undefined => (v ? String(v).slice(0, 10) : undef
 
 export function mapV3BackendToForm(d: any): Record<string, any> {
     if (!d) return {};
+
+    // Q13 — "already in Q10?" is a UI-only gate with no backend column, so it is
+    // derived from the saved rows. The table now means "QC/IT energy NOT yet
+    // counted in Q10", so rows the backend skips (alreadyInQ10) are dropped
+    // rather than shown: they contribute nothing today, and re-saving them
+    // through the new mapper would count them and double-count the energy.
+    const qcItAllRows = (d.qcItEnergy ?? []) as any[];
+    const qcItRows = qcItAllRows.filter((q) => !q.alreadyInQ10);
+    const qcItInQ10 =
+        qcItRows.length > 0 ? "No"
+        : qcItAllRows.length > 0 ? "Yes"
+        : undefined; // never answered — leave the gate blank
+
     return {
         company: {
             legal_name: d.companyName,
@@ -501,7 +528,6 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 mpn: c.mpn,
                 co_product_name: c.coProductName,
                 co_product_price: c.coProductPrice,
-                is_primary: b2yn(c.isPrimaryProduct),
             })),
             process_consumables: (d.processConsumables ?? []).map((c: any) => ({
                 mpn: c.mpn,
@@ -554,7 +580,8 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 unit: g.unit,
                 origin: g.fossilOrBiogenic,
             })),
-            qc_it_energy: (d.qcItEnergy ?? []).map((q: any) => ({
+            qc_it_energy_in_q10: qcItInQ10,
+            qc_it_energy: qcItRows.map((q: any) => ({
                 mpn: q.mpn,
                 equipment_type: q.equipmentType,
                 category: q.category,
@@ -563,7 +590,6 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 specific_type: q.specificType,
                 value: q.value,
                 unit: q.unit,
-                already_in_q10: b2yn(q.alreadyInQ10),
             })),
             production_waste: (d.productionWaste ?? []).map((w: any) => ({
                 product_id: w.productIdOrMpn,
@@ -590,7 +616,10 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 region: p.region,
                 country: p.country,
                 recycled_percent: p.recycledPct,
-                carbon_biogenic_percent: p.carbonBiogenicPct,
+                // The stored column is the biogenic fraction, so it loads back
+                // into the biogenic input. `carbon_percent` has no stored
+                // counterpart yet and so always loads blank.
+                biogenic_percent: p.carbonBiogenicPct,
             })),
             transport: (d.packagingTransport ?? []).map((t: any) => ({
                 product_id: t.packagingProductIdOrMpn,

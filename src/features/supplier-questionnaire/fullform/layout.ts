@@ -106,8 +106,6 @@ export const LABEL_OVERRIDES: Record<string, string> = {
   "methodology.mass_balancing_used": "Mass balancing used?",
   "scope_period.reference_start": "Reference period: start",
   "scope_period.reference_end": "Reference period: end",
-  "scope_period.validity_start": "Validity: start",
-  "scope_period.validity_end": "Validity: end",
 };
 
 export const GENERAL_LAYOUT: GeneralLayout = {
@@ -215,7 +213,7 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
     {
       label: "Submission details",
       subsLabel: "About this submission",
-      subNames: ["contact.person", "contact.email", "contact.date_completed"],
+      subNames: ["contact.person", "contact.email"],
     },
   ],
 
@@ -253,6 +251,7 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
         "product.declared_unit_quantity",
         "product.declared_mass",
         "product.price",
+        "product.production_period",
       ],
     },
     {
@@ -264,15 +263,15 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
 
   section_b_scope_period: [
     {
+      // Validity dates are not collected here — the backend sets them at report
+      // generation (generation date → +1 year), so this asks only for the
+      // reference period. The end date is auto-derived from the start.
       num: "5",
-      label:
-        "Which time period does the data cover, and how long should the result remain valid?",
-      subsLabel: "Period & validity dates",
+      label: "Which time period does the data cover?",
+      subsLabel: "Reference period",
       subNames: [
         "scope_period.reference_start",
         "scope_period.reference_end",
-        "scope_period.validity_start",
-        "scope_period.validity_end",
       ],
     },
     {
@@ -306,12 +305,19 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
         'Select "Yes" above to list each component / material and its emission factor.',
     },
     {
+      num: "8b",
+      label:
+        "Which process consumable materials are used during manufacturing that are not part of the Bill of Materials?",
+      help: "Optional. List consumables used up during production (e.g. lubricants, solvents, welding gas) that are not counted in the BOM.",
+      tableName: "bom.process_consumables",
+    },
+    {
       // Single card: Yes reveals the co-product table; No shows nothing
       // (no gateHint, so the gate renders nothing when "No").
       num: "9",
       label:
-        "Does the same manufacturing process also yield other scaleable co-products?",
-      help: "Only applies where one process produces more than one sellable output, so shared emissions can be allocated fairly. If yes, list each co-product and its unit price below.",
+        "Does the same manufacturing process also yield other saleable co-products? If yes, list each co-product with its price.",
+      help: "Only applies where one process produces more than one sellable output, so shared emissions can be allocated fairly. Component name is inferred from the MPN, so only the MPN, co-product name and price are captured. List the main product first — the first row is treated as the primary product.",
       primaryName: "bom.co_products_produced",
       tableName: "bom.co_products",
       gateName: "bom.co_products_produced",
@@ -329,16 +335,20 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
     },
     {
       num: "10a",
-      label: "Factory electricity allocation (per-unit production electricity)",
-      help: "Used to allocate factory electricity to one unit of this component, by mass: product weight × factory energy ÷ factory weight. Enter both factory totals in the same period (kWh and kg).",
-      subNames: [
-        "energy.factory_total_energy_kwh",
-        "energy.factory_total_weight_kg",
-      ],
+      label:
+        "What is the total weight of each product manufactured at the factory level during the reporting period?",
+      tableName: "energy.factory_product_weights",
+    },
+    {
+      num: "10b",
+      label:
+        "How many units of each product were manufactured during the reporting period?",
+      tableName: "energy.factory_product_units",
     },
     {
       num: "11",
-      label: "Which other fuels or energy carriers were used?",
+      label:
+        "Which fuels, energy carriers, or utilities were used On-Site during the manufacturing of the declared product?",
       tableName: "energy.other_fuels",
     },
     {
@@ -348,10 +358,15 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
       tableName: "energy.direct_process_gases",
     },
     {
+      // "No" (not yet counted in Q10) reveals the table; "Yes" collects nothing,
+      // since that energy is already in the Q10 total and would double-count.
       num: "13",
       label: "How much energy did quality control and production IT consume?",
-      help: "If this energy is already included in the Q10 electricity total, mark 'Yes' under 'Already in Q10' to avoid double-counting.",
+      help: "If this energy is already included in the Q10 electricity total, answer 'Yes' — there is nothing further to report. Answer 'No' to itemise it below.",
+      primaryName: "energy.qc_it_energy_in_q10",
       tableName: "energy.qc_it_energy",
+      gateName: "energy.qc_it_energy_in_q10",
+      gateValue: "No",
     },
     {
       num: "14",
@@ -364,7 +379,7 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
   section_e_packaging: [
     {
       num: "15",
-      label: "Should packaging be included within this footprint?",
+      label: "Should packaging be included within this reporting?",
       primaryName: "packaging.include_packaging",
     },
     {
@@ -372,7 +387,7 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
       label: "Which packaging materials are used for the product?",
       tableName: "packaging.materials_used",
       gateHint:
-        'Select "Yes, include packaging" in Q15 to list packaging materials.',
+        'Select "Yes — include packaging" in Q15 to list packaging materials.',
     },
     {
       num: "16a",
@@ -380,14 +395,14 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
       help: "One row per packaging transport leg. Weight, distance in km. Use Air for any air-freighted packaging.",
       tableName: "packaging.transport",
       gateHint:
-        'Select "Yes, include packaging" in Q15 to add packaging transport legs.',
+        'Select "Yes — include packaging" in Q15 to add packaging transport legs.',
     },
     {
       num: "17",
       label: "What packaging waste was generated, and how was it treated?",
       tableName: "packaging.waste",
       gateHint:
-        'Select "Yes, include packaging" in Q15 to record packaging waste.',
+        'Select "Yes — include packaging" in Q15 to record packaging waste.',
     },
   ],
 
@@ -404,7 +419,7 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
       help: "One row per journey, from delivery notes or freight invoices. Weight in tonnes, distance in km.",
       tableName: "transport.legs",
       gateHint:
-        'Select "Yes, distribution is within my boundary" in Q18 to add transport legs.',
+        'Select "Yes — distribution is within my boundary" in Q18 to add transport legs.',
     },
   ],
 

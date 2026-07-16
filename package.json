@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate:subdivisions": "node scripts/generate-country-subdivisions.mjs"
   },
   "dependencies": {
     "@ant-design/v5-patch-for-react-19": "^1.0.3",
@@ -33,6 +34,7 @@
     "@types/react": "^19.1.9",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^4.7.0",
+    "country-state-city": "^3.2.1",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import dayjs from "dayjs";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   Steps,
@@ -63,6 +64,18 @@ import {
 } from "../../lib/questionnaireDropdownService";
 
 const { Step } = Steps;
+
+// Q5 — the reference period end date is auto-derived to complete one financial
+// year from the supplier-provided start date: end = start + 1 year − 1 day.
+// Accepts a dayjs object, ISO string, or timestamp (whatever the date field
+// holds) and returns a dayjs value so both the DatePicker and the mapper's
+// date serializer handle it. Returns undefined for an empty/invalid start.
+const deriveReferenceEnd = (start: any): dayjs.Dayjs | undefined => {
+  if (!start) return undefined;
+  const d = dayjs(start);
+  if (!d.isValid()) return undefined;
+  return d.add(1, "year").subtract(1, "day");
+};
 
 const SupplierQuestionnaire: React.FC = () => {
   const navigate = useNavigate();
@@ -162,6 +175,27 @@ const SupplierQuestionnaire: React.FC = () => {
     };
   }, [sup_id, bom_pcf_id, isClientMode]);
 
+  // DEV-ONLY: opened locally with no supplier link (no sup_id / bom_pcf_id),
+  // there is no assigned BOM to source the MPN dropdowns from, so every MPN
+  // dropdown renders "No data" and the form can't be exercised. Seed a few
+  // sample components so the dropdowns are testable in `npm run dev`. Gated on
+  // import.meta.env.DEV — Vite compiles this to `false` in production builds,
+  // so real suppliers never see these values. Skipped entirely when a real
+  // supplier link is present so it can never override fetched BOM data.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (sup_id || bom_pcf_id || isClientMode) return;
+    setBomComponents((prev) =>
+      prev.length > 0
+        ? prev
+        : [
+            { bom_id: "dev-bom-1", material_number: "MPN-1001", component_name: "Sample Housing" },
+            { bom_id: "dev-bom-2", material_number: "MPN-1002", component_name: "Sample PCB" },
+            { bom_id: "dev-bom-3", material_number: "MPN-1003", component_name: "Sample Cable Assembly" },
+          ]
+    );
+  }, [sup_id, bom_pcf_id, isClientMode]);
+
   // V3 hard-coded defaults: Q6 PCF type and Q7 system boundary are fixed per
   // Catena-X policy and the corresponding fields are disabled in the schema.
   // We seed them into formData once so they are persisted and submitted even
@@ -222,6 +256,27 @@ const SupplierQuestionnaire: React.FC = () => {
       return next;
     });
   }, []);
+
+  // Q5 — keep the (read-only) reference end date in sync with the supplier's
+  // start date: end = start + 1 year − 1 day. Runs whenever the start changes
+  // (user picks a date, or a draft is rehydrated), writing the derived end into
+  // both the form store and formData. Guards against churn by only updating when
+  // the derived value actually differs from what's stored.
+  const referenceStart = formData?.scope_period?.reference_start;
+  useEffect(() => {
+    const derived = deriveReferenceEnd(referenceStart);
+    if (!derived) return;
+    const derivedStr = derived.format("YYYY-MM-DD");
+    const current = formData?.scope_period?.reference_end;
+    const currentStr = current ? dayjs(current).format("YYYY-MM-DD") : "";
+    if (currentStr === derivedStr) return;
+    form.setFieldValue(["scope_period", "reference_end"], derived);
+    setFormData((prev) => ({
+      ...prev,
+      scope_period: { ...(prev?.scope_period ?? {}), reference_end: derived },
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [referenceStart]);
 
   // BACKFILL component_name for every Form.List row that has an MPN selected
   // (saved before the bomMaterials onChange started writing component_name).

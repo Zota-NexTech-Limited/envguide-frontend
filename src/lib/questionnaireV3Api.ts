@@ -138,12 +138,12 @@ export function mapV3FormToBackend(
         recycledCarbonPct: num(b.recycled_carbon_percent),
     }));
 
+    // The primary co-product is no longer asked for: the backend resolves it as
+    // the first row when no row carries the flag, so row order decides.
     const coProducts = arr(bomBlock.co_products).map((c: any) => ({
         mpn: str(c.mpn),
-        componentName: str(c.component_name),
         coProductName: str(c.co_product_name),
         coProductPrice: num(c.co_product_price),
-        isPrimaryProduct: yesNoToBool(c.is_primary),
     }));
 
     // Q8a — supplier-provided component/material-specific emission factors.
@@ -152,13 +152,28 @@ export function mapV3FormToBackend(
         supplierEf: str(e.supplier_ef),
     }));
 
+    // Q8b — process consumable materials used in production but not in the BOM.
+    const processConsumables = arr(bomBlock.process_consumables).map((c: any) => ({
+        mpn: str(c.mpn),
+        consumableMaterial: str(c.consumable_material),
+        category: str(c.category),
+        subCategory: str(c.sub_category),
+        materialGroup: str(c.group),
+        specificType: str(c.specific_type),
+        totalQuantity: num(c.total_quantity),
+        unit: str(c.unit),
+    }));
+
     const electricity = arr(energy.electricity).map((e: any) => ({
         electricityType: str(e.electricity_type),
-        generatorType: str(e.generator_type),
         category: str(e.category),
         subCategory: str(e.sub_category),
         materialGroup: str(e.group),
         specificType: str(e.specific_type),
+        // Q10 Geography (Electricity Sourcing) — the EF-DB geography the row's
+        // electricity EF is matched against. Carried through for the backend
+        // (persistence/EF-matching to be wired on the API side).
+        geography: str(e.geography),
         quantity: num(e.quantity),
         unit: str(e.unit),
         renewablePct: num(e.renewable_percent),
@@ -166,7 +181,18 @@ export function mapV3FormToBackend(
         infrastructureEmissionsIncluded: yesNoToBool(e.infrastructure_included),
     }));
 
+    // Q10a / Q10b — per-product factory production totals (weight + units).
+    const factoryProductWeights = arr(energy.factory_product_weights).map((r: any) => ({
+        mpn: str(r.mpn),
+        totalWeightKg: num(r.total_weight_kg),
+    }));
+    const factoryProductUnits = arr(energy.factory_product_units).map((r: any) => ({
+        mpn: str(r.mpn),
+        unitsProduced: num(r.units_produced),
+    }));
+
     const fuels = arr(energy.other_fuels).map((f: any) => ({
+        mpn: str(f.mpn),
         fuelCarrier: str(f.fuel_carrier),
         category: str(f.category),
         subCategory: str(f.sub_category),
@@ -178,20 +204,30 @@ export function mapV3FormToBackend(
     }));
 
     const processGases = arr(energy.direct_process_gases).map((g: any) => ({
+        mpn: str(g.mpn),
         directProcessGas: str(g.gas),
         quantity: num(g.quantity),
         unit: str(g.unit),
         fossilOrBiogenic: str(g.origin),
     }));
 
-    const qcItEnergy = arr(energy.qc_it_energy).map((q: any) => ({
+    // Q13 — only collected when the supplier answered "No" to "already in Q10?",
+    // so every row here is by definition not yet counted in Q10. The backend
+    // skips rows flagged alreadyInQ10, so these must report false to be counted.
+    //
+    // "Yes" sends no rows at all: the energy is already in the Q10 total. Rows
+    // left in form state from a previous "No" would otherwise be submitted as
+    // countable and double-count that energy.
+    const qcItEnergy = str(energy.qc_it_energy_in_q10) === "Yes" ? [] : arr(energy.qc_it_energy).map((q: any) => ({
+        mpn: str(q.mpn),
+        equipmentType: str(q.equipment_type),
         category: str(q.category),
         subCategory: str(q.sub_category),
         materialGroup: str(q.group),
         specificType: str(q.specific_type),
         value: num(q.value),
         unit: str(q.unit),
-        alreadyInQ10: yesNoToBool(q.already_in_q10),
+        alreadyInQ10: false,
     }));
 
     const productionWaste = arr(energy.production_waste).map((w: any) => ({
@@ -217,7 +253,13 @@ export function mapV3FormToBackend(
         region: str(p.region),
         country: str(p.country),
         recycledPct: num(p.recycled_percent),
-        carbonBiogenicPct: num(p.carbon_biogenic_percent),
+        // `carbon_biogenic_pct` is the biogenic fraction as far as the backend is
+        // concerned (formulaEngine: bioFrac = carbon_biogenic_pct / 100), so the
+        // biogenic input — not the carbon one — is what maps onto it.
+        carbonBiogenicPct: num(p.biogenic_percent),
+        // Q16 `carbon_percent` is intentionally NOT sent: sq_q16_packaging_materials
+        // has no carbon column, so the API would drop it anyway. Add it here once
+        // the backend can store it.
     }));
 
     const packagingTransport = arr(packaging.transport).map((t: any) => ({
@@ -259,18 +301,28 @@ export function mapV3FormToBackend(
 
     const biomass = arr(biobased.details).map((d: any) => ({
         biomassFeedstockType: str(d.feedstock ?? d.feedstock_type ?? d.type),
+        // Q20 EF taxonomy cascade — carried through for the backend
+        // (persistence to be wired on the API side).
+        category: str(d.category),
+        subCategory: str(d.sub_category),
+        materialGroup: str(d.group),
+        specificType: str(d.specific_type),
         stageUsed: str(d.stage_used),
         quantity: num(d.quantity),
         unit: str(d.unit),
         biogenicCarbonContentPct: num(d.biogenic_carbon_percent),
     }));
 
-    // Q27 — production / product volumes (fixed volume types).
-    const volumes = arr(verification.volumes).map((v: any) => ({
-        volumeType: str(v.volume_type),
-        volume: num(v.volume),
-        sharePct: num(v.share_percent),
-    }));
+    // Q27 — production / product volumes (fixed volume types). Drop rows with no
+    // volume type selected (possible from a draft save that skips validation) so
+    // an untyped row can't be sent to the backend and silently dropped.
+    const volumes = arr(verification.volumes)
+        .filter((v: any) => str(v.volume_type))
+        .map((v: any) => ({
+            volumeType: str(v.volume_type),
+            volume: num(v.volume),
+            sharePct: num(v.share_percent),
+        }));
 
     return {
         // identifiers
@@ -288,10 +340,9 @@ export function mapV3FormToBackend(
         companyRegistrationId: str(company.company_id),
         companyOtherIdentifier: str(company.other_identifier),
 
-        // Form header — contact + completion metadata
+        // Form header — contact metadata
         contactPerson: str(formData?.contact?.person),
         contactEmail: str(formData?.contact?.email),
-        dateCompleted: str(formData?.contact?.date_completed),
 
         // Q2
         productNameCompany: str(product.name),
@@ -304,12 +355,13 @@ export function mapV3FormToBackend(
         declaredUnitAmount: num(product.declared_unit_quantity),
         productMassPerDeclaredUnit: num(product.declared_mass),
         productPrice: num(product.price),
+        productionPeriod: str(product.production_period),
 
-        // Q5
+        // Q5 — reference end is auto-derived (start + 1 year − 1 day) in the
+        // form. Validity is no longer collected from the supplier; the backend
+        // sets it at PCF report generation (generation date → +1 year).
         referencePeriodStart: str(sp.reference_start),
         referencePeriodEnd: str(sp.reference_end),
-        validityPeriodStart: str(sp.validity_start),
-        validityPeriodEnd: str(sp.validity_end),
 
         // Q6 / Q7
         retroOrProspectivePcfType: str(sp.pcf_type),
@@ -376,18 +428,15 @@ export function mapV3FormToBackend(
         attestationUrl: str(verification.attestation_url),
         attestationCompletedAt: str(verification.attestation_completed_at),
 
-        // Q10a — factory electricity allocation inputs (response-level).
-        factoryTotalEnergyKwh: num(energy.factory_total_energy_kwh),
-        factoryTotalWeightKg: num(energy.factory_total_weight_kg),
-        componentTotalWeightKg: num(energy.component_total_weight_kg),
-        componentNumProducts: num(energy.component_num_products),
-
         // children
         sites,
         bom,
         coProducts,
         componentEfDetails,
+        processConsumables,
         electricity,
+        factoryProductWeights,
+        factoryProductUnits,
         fuels,
         processGases,
         qcItEnergy,
@@ -415,6 +464,19 @@ const dstr = (v: any): string | undefined => (v ? String(v).slice(0, 10) : undef
 
 export function mapV3BackendToForm(d: any): Record<string, any> {
     if (!d) return {};
+
+    // Q13 — "already in Q10?" is a UI-only gate with no backend column, so it is
+    // derived from the saved rows. The table now means "QC/IT energy NOT yet
+    // counted in Q10", so rows the backend skips (alreadyInQ10) are dropped
+    // rather than shown: they contribute nothing today, and re-saving them
+    // through the new mapper would count them and double-count the energy.
+    const qcItAllRows = (d.qcItEnergy ?? []) as any[];
+    const qcItRows = qcItAllRows.filter((q) => !q.alreadyInQ10);
+    const qcItInQ10 =
+        qcItRows.length > 0 ? "No"
+        : qcItAllRows.length > 0 ? "Yes"
+        : undefined; // never answered — leave the gate blank
+
     return {
         company: {
             legal_name: d.companyName,
@@ -428,6 +490,7 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
             declared_unit: d.declaredUnit,
             declared_unit_quantity: d.declaredUnitAmount,
             declared_mass: d.productMassPerDeclaredUnit,
+            production_period: d.productionPeriod,
             manufacturing_sites: (d.sites ?? []).map((s: any) => ({
                 site_name: s.siteName,
                 site_address: s.siteAddress,
@@ -440,8 +503,8 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
         scope_period: {
             reference_start: dstr(d.referencePeriodStart),
             reference_end: dstr(d.referencePeriodEnd),
-            validity_start: dstr(d.validityPeriodStart),
-            validity_end: dstr(d.validityPeriodEnd),
+            // Validity is computed on the backend at report generation and is not
+            // shown/edited in the supplier form, so it is intentionally omitted.
             pcf_type: d.retroOrProspectivePcfType,
             system_boundary: d.systemBoundary,
         },
@@ -463,22 +526,36 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
             })),
             co_products: (d.coProducts ?? []).map((c: any) => ({
                 mpn: c.mpn,
-                component_name: c.componentName,
                 co_product_name: c.coProductName,
                 co_product_price: c.coProductPrice,
-                is_primary: b2yn(c.isPrimaryProduct),
+            })),
+            process_consumables: (d.processConsumables ?? []).map((c: any) => ({
+                mpn: c.mpn,
+                consumable_material: c.consumableMaterial,
+                category: c.category,
+                sub_category: c.subCategory,
+                group: c.materialGroup,
+                specific_type: c.specificType,
+                total_quantity: c.totalQuantity,
+                unit: c.unit,
             })),
         },
         energy: {
-            factory_total_energy_kwh: d.factoryTotalEnergyKwh,
-            factory_total_weight_kg: d.factoryTotalWeightKg,
+            factory_product_weights: (d.factoryProductWeights ?? []).map((r: any) => ({
+                mpn: r.mpn,
+                total_weight_kg: r.totalWeightKg,
+            })),
+            factory_product_units: (d.factoryProductUnits ?? []).map((r: any) => ({
+                mpn: r.mpn,
+                units_produced: r.unitsProduced,
+            })),
             electricity: (d.electricity ?? []).map((e: any) => ({
                 electricity_type: e.electricityType,
-                generator_type: e.generatorType,
                 category: e.category,
                 sub_category: e.subCategory,
                 group: e.materialGroup,
                 specific_type: e.specificType,
+                geography: e.geography,
                 quantity: e.quantity,
                 unit: e.unit,
                 renewable_percent: e.renewablePct,
@@ -486,6 +563,7 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 infrastructure_included: b2yn(e.infrastructureEmissionsIncluded),
             })),
             other_fuels: (d.fuels ?? []).map((f: any) => ({
+                mpn: f.mpn,
                 fuel_carrier: f.fuelCarrier,
                 category: f.category,
                 sub_category: f.subCategory,
@@ -496,19 +574,22 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 biogenic: b2yn(f.biogenicYN),
             })),
             direct_process_gases: (d.processGases ?? []).map((g: any) => ({
+                mpn: g.mpn,
                 gas: g.directProcessGas,
                 quantity: g.quantity,
                 unit: g.unit,
                 origin: g.fossilOrBiogenic,
             })),
-            qc_it_energy: (d.qcItEnergy ?? []).map((q: any) => ({
+            qc_it_energy_in_q10: qcItInQ10,
+            qc_it_energy: qcItRows.map((q: any) => ({
+                mpn: q.mpn,
+                equipment_type: q.equipmentType,
                 category: q.category,
                 sub_category: q.subCategory,
                 group: q.materialGroup,
                 specific_type: q.specificType,
                 value: q.value,
                 unit: q.unit,
-                already_in_q10: b2yn(q.alreadyInQ10),
             })),
             production_waste: (d.productionWaste ?? []).map((w: any) => ({
                 product_id: w.productIdOrMpn,
@@ -535,7 +616,10 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 region: p.region,
                 country: p.country,
                 recycled_percent: p.recycledPct,
-                carbon_biogenic_percent: p.carbonBiogenicPct,
+                // The stored column is the biogenic fraction, so it loads back
+                // into the biogenic input. `carbon_percent` has no stored
+                // counterpart yet and so always loads blank.
+                biogenic_percent: p.carbonBiogenicPct,
             })),
             transport: (d.packagingTransport ?? []).map((t: any) => ({
                 product_id: t.packagingProductIdOrMpn,
@@ -579,6 +663,10 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
             contains_biobased: b2yn(d.usesAgriculturalForestryLand),
             details: (d.biomass ?? []).map((b: any) => ({
                 feedstock: b.biomassFeedstockType,
+                category: b.category,
+                sub_category: b.subCategory,
+                group: b.materialGroup,
+                specific_type: b.specificType,
                 quantity: b.quantity,
                 unit: b.unit,
                 biogenic_carbon_percent: b.biogenicCarbonContentPct,
@@ -611,6 +699,9 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
         verification: {
             product_certified: b2yn(d.isProductCertified),
             pcf_verified: b2yn(d.isPcfVerified),
+            // Q27 is now an add-row dropdown table: reload only the volume types
+            // that actually have a stored value, so empty types don't come back
+            // as pre-filled rows.
             volumes: [
                 { volume_type: "Certified volume", volume: d.certifiedVolume },
                 { volume_type: "Total production volume", volume: d.totalProductionVolume },
@@ -618,7 +709,7 @@ export function mapV3BackendToForm(d: any): Record<string, any> {
                 { volume_type: "2nd-party verified volume", volume: d.verifiedVolume2ndParty },
                 { volume_type: "3rd-party verified volume", volume: d.verifiedVolume3rdParty },
                 { volume_type: "Total product volume", volume: d.totalProductVolume },
-            ],
+            ].filter((r) => r.volume !== undefined && r.volume !== null),
         },
         comments: d.comments,
     };

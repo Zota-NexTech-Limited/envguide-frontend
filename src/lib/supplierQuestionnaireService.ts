@@ -2010,14 +2010,15 @@ class SupplierQuestionnaireService {
    * specific_type → [{ specific_type, ef_id, gwp_100, unit, geography }].
    */
   async getEfTaxonomy(
-    level: "category" | "sub_category" | "group" | "specific_type",
-    parents: { category?: string; sub_category?: string; group?: string; q?: string } = {}
+    level: "category" | "sub_category" | "group" | "specific_type" | "geography",
+    parents: { category?: string; sub_category?: string; group?: string; specific_type?: string; q?: string } = {}
   ): Promise<any[]> {
     try {
       const qs = new URLSearchParams({ level });
       if (parents.category) qs.set("category", parents.category);
       if (parents.sub_category) qs.set("sub_category", parents.sub_category);
       if (parents.group) qs.set("group", parents.group);
+      if (parents.specific_type) qs.set("specific_type", parents.specific_type);
       if (parents.q) qs.set("q", parents.q);
       const response = await fetch(
         `${API_BASE_URL}/api/emission-factors/meta/taxonomy?${qs.toString()}`,
@@ -2027,6 +2028,34 @@ class SupplierQuestionnaireService {
       return Array.isArray(result?.data) ? result.data : [];
     } catch (error) {
       console.error("getEfTaxonomy error:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Distinct geographies (countries) from the emission_factors master, for the
+   * Q10 "Geography (Electricity Sourcing)" dropdown. Modelled on getEfTaxonomy.
+   *
+   * Backend contract (to be implemented on the API side):
+   *   GET /api/emission-factors/meta/geographies?q=<optional substring>
+   *   → { success: true, data: string[] }   // distinct geography values
+   *
+   * Returns [] on any error / until the endpoint exists, so the dropdown simply
+   * renders empty rather than throwing.
+   */
+  async getEfGeographies(q?: string): Promise<string[]> {
+    try {
+      const qs = new URLSearchParams();
+      if (q) qs.set("q", q);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      const response = await fetch(
+        `${API_BASE_URL}/api/emission-factors/meta/geographies${suffix}`,
+        { method: "GET", headers: this.getHeaders() }
+      );
+      const result: ApiResponse = await response.json();
+      return Array.isArray(result?.data) ? result.data.map((v: any) => String(v)) : [];
+    } catch (error) {
+      console.error("getEfGeographies error:", error);
       return [];
     }
   }

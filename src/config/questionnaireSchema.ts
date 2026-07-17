@@ -99,6 +99,18 @@ export interface QuestionnaireField {
   // Sourcing)" so the supplier picks the geography their electricity EF is
   // matched against — every geography value the EF DB carries is selectable.
   efGeography?: boolean;
+  // Table-column only: renders a geocoding location autocomplete (OpenStreetMap /
+  // Nominatim via /api/geocode-search). When BOTH the source and destination cells
+  // of a row have been resolved to coordinates, the distance (haversine × transport
+  // correction factor) is auto-filled into `distanceTarget`. `modeField` names the
+  // column whose value picks the correction factor (road/rail/sea/air). Used by Q19.
+  locationRole?: "source" | "destination";
+  distanceTarget?: string;
+  modeField?: string;
+  // Table-column only: this number cell auto-fills from the row's source +
+  // destination coordinates (stored by the location cells) via haversine ×
+  // correction factor. Still editable for a manual override. Used by Q19.
+  autoDistance?: boolean;
   dependsOnField?: string;
   efSource?: "electricity" | "fuel" | "packaging" | "vehicle" | "waste" | "materials";
   efLayer?: 1 | 2 | 3 | 4;

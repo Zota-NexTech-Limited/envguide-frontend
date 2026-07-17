@@ -362,7 +362,7 @@ export const SECTION_LAYOUT: Record<string, QuestionGroup[]> = {
       // since that energy is already in the Q10 total and would double-count.
       num: "13",
       label: "How much energy did quality control and production IT consume?",
-      help: "If this energy is already included in the Q10 electricity total, answer 'Yes' — there is nothing further to report. Answer 'No' to itemise it below.",
+      help: "If this energy is already included in the Q10 electricity total, answer 'Yes' — there is nothing further to report.",
       primaryName: "energy.qc_it_energy_in_q10",
       tableName: "energy.qc_it_energy",
       gateName: "energy.qc_it_energy_in_q10",

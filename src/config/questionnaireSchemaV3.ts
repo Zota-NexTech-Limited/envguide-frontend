@@ -651,7 +651,7 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           // (and no free-text entry) until then, and a required-but-unfillable
           // cell would block Q10 submission entirely. Flip to `required: true`
           // (per the mockup's [mandatory]) once the endpoint serves data.
-          { name: "geography", label: "Geography (Electricity Sourcing)", type: "select", efGeography: true, required: false, placeholder: "Select geography" },
+          { name: "geography", label: "Geography (Electricity Sourcing)", type: "select", efGeography: true, required: true, placeholder: "Select geography" },
           { name: "quantity", label: "Quantity", type: "number", required: true, min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, required: true, placeholder: "Select unit" },
           { name: "renewable_percent", label: "Renewable (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
@@ -749,10 +749,12 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
         columns: [
           { name: "mpn", label: "MPN Code", type: "select", apiDropdown: "bomMaterials", placeholder: "Select MPN" },
           { name: "equipment_type", label: "Equipment Type", type: "text", placeholder: "e.g. CMM, oven, test rig" },
-          { name: "category", label: "Category (Energy type)", type: "select", efTaxonomyLevel: "category", placeholder: "Search category…" },
-          { name: "sub_category", label: "Subcategory", type: "select", efTaxonomyLevel: "sub_category", placeholder: "Search sub-category…" },
-          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", placeholder: "Search group…" },
-          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", placeholder: "Search specific type…" },
+          { name: "category", label: "Category (Energy type)", type: "select", efTaxonomyLevel: "category", required: true, placeholder: "Search category…" },
+          { name: "sub_category", label: "Subcategory", type: "select", efTaxonomyLevel: "sub_category", required: true, placeholder: "Search sub-category…" },
+          { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", required: true, placeholder: "Search group…" },
+          { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", required: true, placeholder: "Search specific type…" },
+          // Geography (5th cascade level) — narrows the exact EF row, same as Q10.
+          { name: "geography", label: "Geography (Energy Sourcing)", type: "select", efGeography: true, required: true, placeholder: "Select geography" },
           { name: "value", label: "Total Quantity", type: "number", min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: ENERGY_UNITS, placeholder: "Select unit" },
         ],
@@ -896,11 +898,11 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           { name: "sub_category", label: "Subcategory", type: "select", efTaxonomyLevel: "sub_category", required: true, placeholder: "Search sub-category…" },
           { name: "group", label: "Group", type: "select", efTaxonomyLevel: "group", required: true, placeholder: "Search group…" },
           { name: "specific_type", label: "Specific Type", type: "select", efTaxonomyLevel: "specific_type", required: true, placeholder: "Search specific type…" },
-          { name: "source", label: "Source", type: "text", required: true, placeholder: "Origin" },
-          { name: "destination", label: "Destination", type: "text", required: true, placeholder: "Destination" },
+          { name: "source", label: "Source", type: "text", required: true, placeholder: "Search origin…", locationRole: "source", distanceTarget: "distance_km", modeField: "specific_type" },
+          { name: "destination", label: "Destination", type: "text", required: true, placeholder: "Search destination…", locationRole: "destination", distanceTarget: "distance_km", modeField: "specific_type" },
           { name: "weight", label: "Weight", type: "number", required: true, min: 0, placeholder: "0.00" },
           { name: "unit", label: "Unit", type: "select", options: MASS_UNITS, required: true, placeholder: "Select unit" },
-          { name: "distance_km", label: "Distance (km)", type: "number", required: true, min: 0, placeholder: "0" },
+          { name: "distance_km", label: "Distance (km, auto)", type: "number", required: true, min: 0, autoDistance: true, placeholder: "auto from source + destination" },
           { name: "low_carbon_fuel", label: "Low-Carbon Fuel? (Y/N)", type: "select", options: YES_NO, placeholder: "Y/N" },
           { name: "fuel_certificate_ref", label: "Fuel Certificate Ref.", type: "text", placeholder: "Reference" },
         ],
@@ -1308,7 +1310,7 @@ export const QUESTIONNAIRE_SCHEMA_V3: QuestionnaireSection[] = [
           // Volume type is a dropdown of the fixed types; each option can be
           // picked in only one row (uniqueAcrossRows), and Add hides once all
           // six are used.
-          { name: "volume_type", label: "Volume type", type: "select", options: VOLUME_TYPES, uniqueAcrossRows: true, required: true, placeholder: "Select volume type" },
+          { name: "volume_type", label: "Volume type", type: "select", options: VOLUME_TYPES, uniqueAcrossRows: true, placeholder: "Select volume type" },
           { name: "volume", label: "Volume (units / tonnes)", type: "number", min: 0, placeholder: "0.00" },
           { name: "share_percent", label: "Share (%)", type: "number", min: 0, max: 100, placeholder: "0-100" },
         ],

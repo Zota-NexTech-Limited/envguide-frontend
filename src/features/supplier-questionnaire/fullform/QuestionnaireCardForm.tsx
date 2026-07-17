@@ -416,6 +416,7 @@ const QuestionnaireCardForm: React.FC<Props> = ({
                   form={form}
                   bomComponents={bomComponents}
                   isClientMode={isClientMode}
+                  onValuesChange={onValuesChange}
                 />
               </div>
             )}

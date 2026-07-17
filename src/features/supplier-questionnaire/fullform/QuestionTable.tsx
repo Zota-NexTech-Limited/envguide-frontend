@@ -21,6 +21,45 @@ import { getSubdivisionsForCountry } from "../../../config/countrySubdivisions";
 import { C } from "./theme";
 import { MiniYesNo, optionsAreYesNo, optionAsPair, dateValueProps } from "./controls";
 import supplierQuestionnaireService from "../../../lib/supplierQuestionnaireService";
+import LocationAutocomplete from "../../../components/LocationAutocomplete";
+import type { LocationValue } from "../../../components/LocationAutocomplete";
+
+// ── Transport distance helpers (Q19) — geocode source/destination → coords, then
+//    distance = great-circle (haversine) × a transport-mode correction factor.
+//    Mirrors the legacy DynamicQuestionnaireForm implementation. Free/open-source:
+//    coords come from OpenStreetMap/Nominatim (via /api/geocode-search), the
+//    distance itself is pure math (no paid API). Coords are kept in a MODULE store
+//    (NOT the form) because the auto-save round-trip strips any field the mapper
+//    doesn't know about; only the computed distance goes into the form field.
+const _transportCoords: Record<string, { s?: { lat: number; lng: number }; d?: { lat: number; lng: number } }> = {};
+
+// Tiny pub-sub so the distance cell re-renders when a row's coords change (the
+// coords live outside the form, so React can't see them without this signal).
+const _coordSubs = new Set<() => void>();
+function notifyCoordsChanged() { _coordSubs.forEach((fn) => fn()); }
+function useCoordSignal() {
+  const [, force] = React.useReducer((x: number) => x + 1, 0);
+  React.useEffect(() => { _coordSubs.add(force); return () => { _coordSubs.delete(force); }; }, []);
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const R = 6371; // Earth radius in km
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// GLEC / GHG Protocol correction: roads curve (~+20%), rail (~+15%), sea/air ≈ great circle.
+function transportCorrectionFactor(mode: string | undefined): number {
+  if (!mode) return 1.2;
+  const m = mode.toLowerCase();
+  if (m.includes("ship") || m.includes("sea") || m.includes("vessel") || m.includes("barge") || m.includes("ferry") || m.includes("ocean")) return 1.0;
+  if (m.includes("air") || m.includes("flight") || m.includes("aircraft") || m.includes("plane")) return 1.0;
+  if (m.includes("rail") || m.includes("train") || m.includes("intermodal")) return 1.15;
+  return 1.2; // road: truck, lorry, van, etc.
+}
 
 // Which deeper taxonomy columns to clear when a given level changes.
 const TAX_CHILDREN: Record<string, string[]> = {
@@ -322,6 +361,9 @@ interface QuestionTableProps {
   form: FormInstance;
   bomComponents?: BomComponent[];
   isClientMode?: boolean;
+  // Parent auto-save hook — re-fired after a programmatic set (e.g. Q19 distance)
+  // so the parent's formData picks it up (setFieldValue alone doesn't fire it).
+  onValuesChange?: (changed: any, all: any) => void;
 }
 
 const cellInput: React.CSSProperties = {
@@ -374,11 +416,92 @@ const requiredRule = (col: QuestionnaireField) =>
       : []),
   ].filter(Boolean);
 
+// Q19 source/destination — geocoding autocomplete (OpenStreetMap/Nominatim).
+// Form.Item binds the typed/selected text (display_name) for validation + save.
+// onLocationSelect just records the picked coords in the MODULE store and signals
+// the distance cell to recompute. It does NOT touch the form (the auto-save wipes
+// anything it writes) — the distance cell owns the form value.
+const LocationCell: React.FC<{
+  col: QuestionnaireField;
+  form: FormInstance;
+  fieldPath: string[];
+  rowName: number;
+}> = ({ col, form, fieldPath, rowName }) => {
+  const rowKey = `${fieldPath.join(".")}:${rowName}`;
+  const onLocationSelect = (loc: LocationValue) => {
+    const store = _transportCoords[rowKey] || (_transportCoords[rowKey] = {});
+    if (col.locationRole === "source") store.s = { lat: loc.lat, lng: loc.lng };
+    else store.d = { lat: loc.lat, lng: loc.lng };
+    notifyCoordsChanged();
+  };
+  return (
+    <Form.Item name={[rowName, col.name]} className="mb-0" rules={requiredRule(col)} style={{ width: "100%" }}>
+      <LocationAutocomplete onLocationSelect={onLocationSelect} placeholder={col.placeholder || "Search location…"} />
+    </Form.Item>
+  );
+};
+
+// Q19 distance — auto-computed from the row's source + destination coords (module
+// store). The DISPLAY reads from the coords (clobber-proof — the auto-save wipes
+// the form value), while the value is mirrored into the form field for saving +
+// required-validation. Editable: a manual entry overrides until coords change.
+const DistanceCell: React.FC<{
+  col: QuestionnaireField;
+  form: FormInstance;
+  fieldPath: string[];
+  rowName: number;
+}> = ({ col, form, fieldPath, rowName }) => {
+  useCoordSignal();
+  const rowKey = `${fieldPath.join(".")}:${rowName}`;
+  const store = _transportCoords[rowKey];
+  const [manual, setManual] = React.useState<number | null>(null);
+
+  let auto: number | null = null;
+  if (store?.s && store?.d) {
+    const km = haversineKm(store.s.lat, store.s.lng, store.d.lat, store.d.lng);
+    const mode = col.modeField ? String(form.getFieldValue([...fieldPath, rowName, col.modeField]) ?? "") : "";
+    auto = Math.round(km * transportCorrectionFactor(mode));
+  }
+  // A fresh geocode (auto changes) clears any manual override so the new distance wins.
+  React.useEffect(() => { setManual(null); }, [auto]);
+
+  const formVal = form.getFieldValue([...fieldPath, rowName, col.name]) as number | undefined;
+  const shown = manual != null ? manual : auto != null ? auto : formVal ?? undefined;
+
+  // Mirror the shown value into the form for saving/validation, and re-assert it
+  // if the auto-save clobbers the field (the displayed value stays put regardless).
+  React.useEffect(() => {
+    if (shown != null && form.getFieldValue([...fieldPath, rowName, col.name]) !== shown) {
+      const arr = [...((form.getFieldValue(fieldPath) as any[]) || [])];
+      arr[rowName] = { ...(arr[rowName] || {}), [col.name]: shown };
+      form.setFieldValue(fieldPath, arr);
+    }
+  });
+
+  return (
+    <div style={{ width: "100%" }}>
+      {/* hidden field carries the value for required-validation + save */}
+      <Form.Item name={[rowName, col.name]} rules={requiredRule(col)} hidden>
+        <InputNumber />
+      </Form.Item>
+      <InputNumber
+        value={shown}
+        onChange={(v) => setManual(typeof v === "number" ? v : null)}
+        placeholder={col.placeholder}
+        min={col.min}
+        max={col.max}
+        style={{ width: "100%", fontSize: 13 }}
+      />
+    </div>
+  );
+};
+
 const QuestionTable: React.FC<QuestionTableProps> = ({
   field,
   form,
   bomComponents = [],
   isClientMode,
+  onValuesChange,
 }) => {
   const fieldPath = field.name.split(".");
   const columns = Array.isArray(field.columns) ? field.columns : [];
@@ -462,6 +585,11 @@ const QuestionTable: React.FC<QuestionTableProps> = ({
           countryCol={col.subdivisionOf}
         />
       );
+    }
+
+    // Q19 geocoding location (source / destination) → auto-fills distance.
+    if (col.locationRole) {
+      return <LocationCell col={col} form={form} fieldPath={fieldPath} rowName={rowName} />;
     }
 
     // Cascading EF-taxonomy dropdown (Category → Sub → Group → Specific Type).
@@ -568,6 +696,11 @@ const QuestionTable: React.FC<QuestionTableProps> = ({
           </Select>
         </Form.Item>
       );
+    }
+
+    // Q19 auto-distance cell — re-renders reliably when the location cells fill it.
+    if (col.type === "number" && col.autoDistance) {
+      return <DistanceCell col={col} form={form} fieldPath={fieldPath} rowName={rowName} />;
     }
 
     if (col.type === "number") {
